@@ -21,7 +21,3 @@ This repository serves as the central knowledge base for IPTF, documenting patte
 - 📧 [iptf@ethereum.org](mailto:iptf@ethereum.org)
 - <a href="https://forms.gle/6Za8suF5QHyRamcW7" target="_blank">Institutions contact form</a>
 - <a href="https://forms.gle/SJwY5RHdgvVAW9pH9" target="_blank">Vendors contact form</a>
-
----
-
-2025 Institutional Privacy Task Force
