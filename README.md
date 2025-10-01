@@ -1,5 +1,3 @@
-## Institutional Privacy Taskforce (IPTF)
-
 > Advancing privacy standards for enterprise-grade Ethereum applications
 
 ### About
