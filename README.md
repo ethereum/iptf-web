@@ -11,8 +11,9 @@ The IPTF helps onboard institutions and enterprises onto Ethereum, focusing on p
 This is a Jekyll-based GitHub Pages site:
 
 - **Jekyll** with **Minima theme** processes Markdown to HTML
-- **GitHub Pages** auto-deploys on push to `main`
+- **GitHub Pages** auto-deploys on push to `main` branch (we use `main` only, no `gh_pages` branch)
 - **Custom domain** via CNAME file
+- Changes to `main` go live automatically in 1-3 minutes
 
 ### Structure
 
@@ -107,8 +108,11 @@ Drafts won't appear on live site but can be previewed locally with `--drafts` fl
 ## Contributing
 
 1. Create branch from `main`
-2. Make changes and test locally
-3. Create pull request
+2. Make changes and test locally with `./serve.sh`
+3. Create pull request to merge into `main`
+4. Once merged, changes deploy automatically to https://iptf.ethereum.org/
+
+**Note**: We deploy from `main` branch only. The legacy `gh_pages` branch has been removed.
 
 ## Contact
 

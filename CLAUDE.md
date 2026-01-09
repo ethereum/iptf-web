@@ -63,9 +63,11 @@ Examples:
 
 ### Deployment
 
-- Auto-deploys on push to `main` branch via GitHub Pages
-- No manual deployment steps needed
-- Changes go live within 1-2 minutes
+- **Branch**: We deploy from `main` branch only (legacy `gh_pages` branch removed)
+- **Auto-deploy**: GitHub Pages automatically deploys on push to `main`
+- **Timeline**: Changes go live within 1-3 minutes
+- **No manual steps**: Simply push to `main` or merge PR
+- **Live site**: https://iptf.ethereum.org/
 
 ## Typical Tasks
 
