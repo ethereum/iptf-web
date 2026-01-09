@@ -13,8 +13,14 @@ This is the IPTF (Institutional Privacy Task Force) website repository. It's a s
 
 ## Key Files
 
-- `_config.yml`: Site configuration (title, description, theme)
-- `index.md`: Main page content
+- `_config.yml`: Site configuration (title, description, theme, blog settings)
+- `index.md`: Homepage content
+- `blog.html`: Blog index page
+- `_posts/`: Published blog posts (filename: `YYYY-MM-DD-title.md`)
+- `_drafts/`: Draft posts not published to live site
+- `_layouts/`: Custom page layouts (post.html, default.html)
+- `_includes/`: Reusable components (head.html with Twitter cards)
+- `assets/images/`: Hero images and media
 - `CNAME`: Custom domain configuration (iptf.ethereum.org)
 
 ## Development Guidelines
@@ -63,9 +69,40 @@ Examples:
 
 ## Typical Tasks
 
-- **Update content**: Edit `index.md`
-- **Change site title/description**: Edit `_config.yml`
-- **Add pages**: Create new `.md` files (reference Jekyll docs)
+- **Update homepage**: Edit `index.md`
+- **Create blog post**: Add `YYYY-MM-DD-title.md` to `_posts/`
+- **Create draft**: Add to `_drafts/` or use `published: false` frontmatter
+- **Add hero image**: Place in `assets/images/`, reference in post frontmatter
+- **Change site settings**: Edit `_config.yml`
+
+## Blog Post Guidelines
+
+### Frontmatter Template
+
+```yaml
+---
+layout: post
+title: "Post Title"
+date: YYYY-MM-DD
+author: "Author Name"
+hero_image: /assets/images/hero-name.jpg
+description: "Brief description for SEO and social cards"
+---
+```
+
+### Hero Images
+
+- **Size**: 1200x600px (2:1 ratio) for optimal Twitter/X card display
+- **Location**: `assets/images/`
+- **Format**: JPG, PNG, or SVG
+- Always include alt text consideration in design
+
+### Draft Workflow
+
+1. Create draft in `_drafts/` folder (no date in filename)
+2. Preview locally: `bundle exec jekyll serve --drafts`
+3. When ready to publish: Move to `_posts/` with date prefix
+4. Alternatively: Use `published: false` in frontmatter
 
 ## Important Notes
 

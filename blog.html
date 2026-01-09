@@ -1,0 +1,44 @@
+---
+layout: default
+title: Blog
+permalink: /blog/
+---
+
+<div class="home">
+  <h1 class="page-heading">Blog</h1>
+
+  {%- if site.posts.size > 0 -%}
+    <ul class="post-list">
+      {%- for post in site.posts -%}
+      {%- unless post.published == false -%}
+      <li>
+        <article class="post-preview">
+          <h2>
+            <a class="post-link" href="{{ post.url | relative_url }}">
+              {{ post.title | escape }}
+            </a>
+          </h2>
+
+          <p class="post-meta">
+            {%- assign date_format = site.minima.date_format | default: "%b %-d, %Y" -%}
+            {{ post.date | date: date_format }}
+            {%- if post.author -%}
+              • {{ post.author }}
+            {%- endif -%}
+          </p>
+
+          {%- if post.description -%}
+            <p>{{ post.description }}</p>
+          {%- elsif post.excerpt -%}
+            {{ post.excerpt }}
+          {%- endif -%}
+        </article>
+      </li>
+      {%- endunless -%}
+      {%- endfor -%}
+    </ul>
+  {%- else -%}
+    <p>No posts yet.</p>
+  {%- endif -%}
+
+</div>
