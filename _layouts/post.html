@@ -23,9 +23,20 @@ layout: default
     </p>
   </header>
 
-  <div class="post-content e-content" itemprop="articleBody">
-    {{ content }}
+  <div class="post-container">
+    <aside class="post-toc">
+      <nav>
+        <h3>Contents</h3>
+        <ul id="toc-list"></ul>
+      </nav>
+    </aside>
+
+    <div class="post-content e-content" itemprop="articleBody">
+      {{ content }}
+    </div>
   </div>
 
   <a class="u-url" href="{{ page.url | relative_url }}" hidden></a>
 </article>
+
+<script src="{{ "/assets/js/toc.js" | relative_url }}"></script>
