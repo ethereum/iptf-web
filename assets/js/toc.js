@@ -12,16 +12,16 @@
   function generateToC() {
     const content = document.querySelector('.post-content');
     const tocList = document.getElementById('toc-list');
+    const tocContainer = document.querySelector('.post-toc');
 
-    if (!content || !tocList) return;
+    if (!content || !tocList || !tocContainer) return;
 
     // Get all h2 and h3 headings
     const headings = content.querySelectorAll('h2, h3');
 
     if (headings.length === 0) {
       // Hide ToC if no headings
-      const tocContainer = document.querySelector('.post-toc');
-      if (tocContainer) tocContainer.style.display = 'none';
+      tocContainer.style.display = 'none';
       return;
     }
 
@@ -101,5 +101,26 @@
 
       headings.forEach(heading => observer.observe(heading));
     }
+
+    // Show ToC after scrolling down
+    let scrollTimeout;
+    const showToC = () => {
+      const scrollY = window.scrollY || window.pageYOffset;
+      // Show ToC after scrolling 300px down
+      if (scrollY > 300) {
+        tocContainer.classList.add('visible');
+      } else {
+        tocContainer.classList.remove('visible');
+      }
+    };
+
+    // Check on scroll with debounce
+    window.addEventListener('scroll', () => {
+      clearTimeout(scrollTimeout);
+      scrollTimeout = setTimeout(showToC, 50);
+    });
+
+    // Initial check
+    showToC();
   }
 })();

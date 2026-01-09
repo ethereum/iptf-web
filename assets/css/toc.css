@@ -8,6 +8,12 @@
 /* ToC sidebar - positioned absolutely to not affect content width */
 .post-toc {
   display: none; /* Hidden by default on mobile and smaller screens */
+  opacity: 0;
+  transition: opacity 0.3s ease-in-out;
+}
+
+.post-toc.visible {
+  opacity: 1;
 }
 
 .post-toc nav {
