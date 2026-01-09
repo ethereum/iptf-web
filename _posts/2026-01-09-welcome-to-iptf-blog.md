@@ -3,7 +3,7 @@ layout: post
 title: "Welcome to the IPTF Blog"
 date: 2026-01-09
 author: "IPTF Team"
-hero_image: /assets/images/demo-hero.svg
+hero_image: /assets/images/cypherpunk_institutional_privacy.webp
 description: "Introducing the Institutional Privacy Task Force blog - sharing insights, updates, and best practices for privacy-preserving enterprise applications on Ethereum."
 ---
 
