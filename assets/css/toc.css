@@ -23,6 +23,13 @@
   width: 220px;
   max-height: calc(100vh - 140px);
   overflow-y: auto;
+  /* Hide scrollbar */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.post-toc nav::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Opera */
 }
 
 .post-toc h3 {
