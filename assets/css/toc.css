@@ -2,21 +2,20 @@
 
 /* Container for post content and ToC */
 .post-container {
-  display: flex;
-  gap: 2rem;
   position: relative;
 }
 
-/* ToC sidebar */
+/* ToC sidebar - positioned absolutely to not affect content width */
 .post-toc {
-  display: none; /* Hidden by default on mobile */
+  display: none; /* Hidden by default on mobile and smaller screens */
 }
 
 .post-toc nav {
-  position: sticky;
-  top: 2rem;
+  position: fixed;
+  top: 120px;
+  right: max(2rem, calc((100vw - 800px) / 2 - 280px));
   width: 220px;
-  max-height: calc(100vh - 4rem);
+  max-height: calc(100vh - 140px);
   overflow-y: auto;
 }
 
@@ -63,50 +62,22 @@
   font-size: 0.8125rem;
 }
 
-/* Main content */
+/* Main content - keeps full width */
 .post-content {
-  flex: 1;
-  min-width: 0; /* Allows flex item to shrink */
+  max-width: 100%;
 }
 
-/* Desktop: show ToC on the right */
-@media (min-width: 1024px) {
+/* Only show ToC on large screens with enough space */
+@media (min-width: 1300px) {
   .post-toc {
     display: block;
-    order: 2; /* ToC on the right */
-  }
-
-  .post-content {
-    order: 1; /* Content on the left */
-    max-width: 720px;
   }
 }
 
-/* Tablet: keep ToC hidden or show at top */
-@media (min-width: 768px) and (max-width: 1023px) {
-  .post-container {
-    flex-direction: column;
-  }
-
+/* Mobile: ToC always hidden */
+@media (max-width: 1299px) {
   .post-toc {
-    display: block;
-    margin-bottom: 2rem;
-  }
-
-  .post-toc nav {
-    position: static;
-    width: 100%;
-    max-height: none;
-    padding: 1rem;
-    background: #f8f8f8;
-    border-radius: 4px;
-  }
-}
-
-/* Mobile: ToC hidden by default */
-@media (max-width: 767px) {
-  .post-container {
-    flex-direction: column;
+    display: none;
   }
 
   .post-content {
