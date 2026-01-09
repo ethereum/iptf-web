@@ -11,7 +11,7 @@ hero_image: /assets/images/cypherpunk_institutional_privacy.webp
 
 Today I'm going to talk about cypherpunks and institutional privacy. These are two words you usually don't see in the same sentence, and I thought it'd be interesting to explore both the overlap and tension between them - cypherpunks and institutions are very different groups of people. What is the intersection, if any, between them when it comes to privacy? How should we think about this?
 
-As a brief prelude: when we talk about privacy we mean selective disclosure - having control over who learns what information, when, and under what conditions (e.g., proving you passed a policy check without revealing the underlying data). By "cypherpunks" we refer to the tradition of using strong cryptography and privacy-preserving technology as tools for social change, emphasizing individual sovereignty in cyberspace.
+As a brief prelude: when we talk about privacy we mean selective disclosure - having control over who learns what information, when, and under what conditions. By "cypherpunks" we refer to the tradition of using strong cryptography and privacy-preserving technology as tools for social change, emphasizing individual sovereignty in cyberspace.
 
 We divide this write-up into three parts. First, we look at the tension and overlap between these two different animals. Then we'll look at what institutions care about when they talk about privacy. This leads into the work we are doing creating an *Institutional Privacy Map*, exposing what institutions actually need when they talk about privacy - and what solutions are available in the Ethereum ecosystem.
 
