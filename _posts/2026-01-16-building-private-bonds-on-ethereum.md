@@ -7,19 +7,21 @@ author: "Yanis"
 hero_image: /assets/images/2026-01-16-building-private-bonds-on-ethereum/building_private_bonds_on_ethereum.png
 ---
 
-Tokenization of financial assets is on the horizon, but the straightforward ERC-20 approach exposes too much: who holds what, every transfer, every counterparty relationship. For institutions, that's a dealbreaker.
+2025 has been a turning point and an unprecedented wave of tokenization is on the horizon. For those new to the topic, tokenization means representing traditional financial assets (like bonds, stocks, or real estate) as digital tokens on a blockchain. The main standard for tokens on Ethereum is [ERC-20](https://eips.ethereum.org/EIPS/eip-20), a representation of fungible tokens that is very versatile and can represent any form of asset. This article explores solutions for the problem encountered when using the straight ERC-20 standard. Ethereum being a fully transparent ledger, using ERC-20 exposes too much: who holds what, every transfer, every counterparty relationship. For institutions, that's a dealbreaker.
 
-This post walks through a proof-of-concept that reconciles tokenization with privacy. We built private zero-coupon bonds using zero-knowledge proofs, achieving confidential balances and transfers while preserving a full audit trail for regulators. We'll cover why we chose this approach, how the protocol works, and where it falls short.
+This post walks through a proof-of-concept that reconciles tokenization with privacy. We built private [zero-coupon bonds](https://en.wikipedia.org/wiki/Zero-coupon_bond) using zero-knowledge proofs, achieving confidential balances and transfers while preserving a full audit trail for regulators. We'll cover why we chose this approach, how the protocol works, and where it falls short.
 
-The full implementation is [open source](https://github.com/Meyanis95/private-tokenised-bonds).
+The full implementation is [open source](https://github.com/Meyanis95/private-tokenised-bonds), with a detailed [specification](https://github.com/Meyanis95/private-tokenised-bonds/blob/main/SPEC.md) of the protocol.
 
 ## Why Zero-Coupon Bonds?
 
-Private bonds are one of the use cases documented in the [IPTF Map](https://github.com/ethereum/iptf-map), the knowledge base we're building to help institutions navigate privacy on Ethereum. This particular use case emerged from discussions with a major European bank, who laid out their requirements in detail.
+Zero-coupon bonds are bonds sold at a discount that pay their full face value at maturity, with no periodic interest payments.
 
-When you're trying to bring privacy to financial products on-chain, you want to start with the simplest possible instrument. Zero-coupon bonds are about as simple as it gets.
+A simple example is: Alice buys a bond from Bob for $950 today that will be worth $1,000 in one year. Alice holds the bond until maturity, then redeems it for the full $1,000. The $50 difference is her return, no interest payments needed in between.
 
-Think about what they don't need: no periodic coupon payments, no price feeds from oracles, no daily rebalancing. Just one lifecycle: issue, hold, redeem at maturity. A single timestamp check is enough to enforce the entire contract.
+Private bonds are one of the use cases documented in the [IPTF Map](https://github.com/ethereum/iptf-map), specifically in the [private bonds approach](https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-bonds.md) where we're drawing the foundation of the explored PoC. The Map is the knowledge base we're building to help institutions navigate privacy on Ethereum. This particular use case emerged from discussions with a major European bank, who laid out their requirements in detail.
+
+When you're trying to bring privacy to financial products on-chain, you want to start with the simplest possible instrument. Zero-coupon bonds are ideal: no periodic coupon payments, no price feeds from oracles, no daily rebalancing. A single timestamp check is enough to enforce the entire contract.
 
 If we can get this right, the path to more complex instruments becomes clearer. The same primitives that make a zero-coupon bond private can eventually support streaming payments, structured products, and derivatives.
 
@@ -49,7 +51,7 @@ This approach has been battle-tested on EVM. [Railgun](https://railgun.org/) has
 
 Why not use alternatives?
 
-[Fully homomorphic encryption](https://en.wikipedia.org/wiki/Homomorphic_encryption) would let you compute on encrypted data directly, but it's still too slow for production. [Trusted execution environments](https://en.wikipedia.org/wiki/Trusted_execution_environment) like Intel SGX require hardware trust assumptions, that we wanted to avoid for now. A purpose-built L2 like [Aztec](https://aztec.network/) is promising, but we wanted to stay on mainnet EVM for composability and familiarity:exploring L2 deployment is the natural next step.
+[Fully homomorphic encryption](https://en.wikipedia.org/wiki/Homomorphic_encryption) would let you compute on encrypted data directly, but it's still too slow for production. [Trusted execution environments](https://en.wikipedia.org/wiki/Trusted_execution_environment) like Intel SGX require hardware trust assumptions, that we wanted to avoid for now. A purpose-built L2 like [Aztec](https://aztec.network/) is promising, but we wanted to stay on mainnet EVM for composability and familiarity: exploring L2 deployment is the natural next step.
 
 The UTXO approach gives us minimal on-chain footprint. The contract stores only commitments (hashes of notes) and nullifiers (spent-note identifiers). No amounts, no addresses, no linkable metadata. And because we're running a model where the issuer is a centralized relayer, throughput is limited only by the underlying network's TPS, not by coordination overhead between decentralized parties.
 
@@ -78,7 +80,7 @@ The protocol has four operations.
 
 ![Bond lifecycle](/assets/images/2026-01-16-building-private-bonds-on-ethereum/img-2-bond-lifecycle.png)
 
-When an issuer creates a bond tranche, they generate a note for the full amount and mint its commitment on-chain. No proof is needed here because the issuer is trusted. The Merkle tree grows by one leaf.
+When an issuer creates a bond tranche--a specific issuance or series of bonds with identical characteristics like maturity date and terms--they generate a note for the full amount and mint its commitment on-chain. No proof is needed here because the issuer is trusted. The Merkle tree grows by one leaf.
 
 When an investor buys bonds, the issuer splits their note. Say they have 1000 and the buyer wants 300. The issuer creates a proof that destroys the 1000-note and creates two new notes: 300 for the buyer, 700 as change. The proof demonstrates that 1000 = 300 + 700 without revealing any of those numbers. This is the classic [JoinSplit](https://zcash.github.io/orchard/design/actions.html) pattern from Zcash.
 
@@ -102,7 +104,7 @@ We solve this with encrypted memos and a two-key model borrowed from Zcash. Each
 
 When bonds mature, the holder redeems them. The proof looks like a normal spend, but the output notes have value zero. The contract checks that the current timestamp exceeds the maturity date. Once verified, the nullifier is recorded to prevent double-redemption.
 
-The cash settlement happens off-chain through traditional banking channels. This is the classic Delivery versus Payment (DvP) challenge: the bond settles instantly on-chain, but the cash leg may take T+2 via SWIFT. True atomic settlement would require either a tokenized cash leg (stablecoin or CBDC) or a legal framework ensuring the off-chain payment is binding. For this PoC, we assume the issuer is trusted to honor redemptions, which is standard in institutional bond markets.
+The cash settlement happens off-chain through traditional banking channels. This is the classic [Delivery versus Payment (DvP)](https://en.wikipedia.org/wiki/Delivery_versus_payment) challenge: the bond settles instantly on-chain, but the cash leg may take T+2 via SWIFT. True atomic settlement would require either a tokenized cash leg (stablecoin or CBDC) or a legal framework ensuring the off-chain payment is binding. For this PoC, we assume the issuer is trusted to honor redemptions, which is standard in institutional bond markets.
 
 ## The Relayer Model
 
@@ -129,7 +131,7 @@ The implementation has three components.
 
 The [circuit](https://github.com/Meyanis95/private-tokenised-bonds/tree/main/circuits) is written in [Noir](https://noir-lang.org/), Aztec's domain-specific language for ZK proofs. It compiles to a HONK proof that can be verified on-chain. The JoinSplit logic handles both transfers and redemptions with the same constraint set.
 
-The [smart contract](https://github.com/Meyanis95/private-tokenised-bonds/tree/main/contracts) is minimal Solidity. It stores commitments in an array, tracks nullifiers in a mapping, and verifies proofs through a generated verifier contract. The Merkle root is recomputed on each update:we chose this approach for code clarity and auditability in a PoC, though production systems would use incremental Merkle trees (as implemented in libraries like [Semaphore](https://semaphore.pse.dev/) or [zk-kit](https://github.com/privacy-scaling-explorations/zk-kit)) to maintain constant-time updates.
+The [smart contract](https://github.com/Meyanis95/private-tokenised-bonds/tree/main/contracts) is minimal Solidity. It stores commitments in an array, tracks nullifiers in a mapping, and verifies proofs through a generated verifier contract. The Merkle root is recomputed on each update: we chose this approach for code clarity and auditability in a PoC, though production systems would use incremental Merkle trees (as implemented in libraries like [Semaphore](https://semaphore.pse.dev/) or [zk-kit](https://github.com/privacy-scaling-explorations/zk-kit)) to maintain constant-time updates.
 
 The [wallet](https://github.com/Meyanis95/private-tokenised-bonds/tree/main/wallet) is a Rust CLI that ties everything together. It generates keys, manages notes, constructs proofs, and interacts with the contract. In production, this would be a proper application with key management, but for a PoC, a command-line tool is enough.
 
