@@ -4,6 +4,7 @@ title: "Building Private Bonds on Ethereum"
 description: "A walkthrough of a proof-of-concept for private zero-coupon bonds using zero-knowledge proofs on Ethereum - covering the UTXO model, JoinSplit circuits, atomic swaps, and the relayer architecture."
 date: 2026-01-16
 author: "Yanis"
+hero_image: /assets/images/2026-01-16-building-private-bonds-on-ethereum/building_private_bonds_on_ethereum.png
 ---
 
 Tokenization of financial assets is on the horizon, but the straightforward ERC-20 approach exposes too much: who holds what, every transfer, every counterparty relationship. For institutions, that's a dealbreaker.
