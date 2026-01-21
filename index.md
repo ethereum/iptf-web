@@ -16,9 +16,11 @@ This repository serves as the central knowledge base for IPTF, documenting patte
 - **Ethereum Privacy Map** - Mapping institutional use cases and privacy requirements
 - **Multi-stakeholder Coordination** - Bridging vendors/protocols, institutions, and regulators
 
-## Resources
+## Latest writeups
 
-- [Blog](/blog/) - Latest updates and insights
+{% for post in site.posts limit:3 %}{% unless post.published == false %}- [{{ post.title | escape }}]({{ post.url | relative_url }}) {{ post.date | date: "%b, %Y" }}
+{% endunless %}{% endfor %}
+[See all →](/blog/)
 
 ## Get in touch
 

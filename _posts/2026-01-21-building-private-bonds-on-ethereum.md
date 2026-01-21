@@ -2,7 +2,7 @@
 layout: post
 title: "Building Private Bonds on Ethereum"
 description: "A walkthrough of a proof-of-concept for private zero-coupon bonds using zero-knowledge proofs on Ethereum - covering the UTXO model, JoinSplit circuits, atomic swaps, and the relayer architecture."
-date: 2026-01-16
+date: 2026-01-21
 author: "Yanis"
 hero_image: /assets/images/2026-01-16-building-private-bonds-on-ethereum/building_private_bonds_on_ethereum.png
 ---
