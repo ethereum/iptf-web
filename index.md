@@ -13,8 +13,9 @@ This repository serves as the central knowledge base for IPTF, documenting patte
 
 ## Current initiatives
 
-- **Ethereum Privacy Map** - Mapping institutional use cases and privacy requirements
+- **[Ethereum Privacy Map](https://github.com/ethereum/iptf-map)** - Mapping institutional use cases and privacy requirements
 - **Multi-stakeholder Coordination** - Bridging vendors/protocols, institutions, and regulators
+- **[Proof of Concepts](https://github.com/ethereum/iptf-pocs)** - Hands-on implementations and educational resources
 
 ## Latest writeups
 
