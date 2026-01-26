@@ -1,13 +1,13 @@
 ---
 layout: post
-title: "Private Bonds on Aztec L2"
+title: "Building Private Bonds on Ethereum - Part 2"
 description: "Part 2 of our private bonds series: we rebuild the same protocol on Aztec, where notes, nullifiers, and ZK proofs are handled by the network itself. 200 lines of Noir replace three separate components."
 date: 2026-01-29
 author: "Yanis"
 hero_image: /assets/images/2026-01-29-private-bonds-on-aztec/hero.png
 ---
 
-In [Part 1]({% post_url 2026-01-16-building-private-bonds-on-ethereum %}), we built private zero-coupon bonds from scratch on Ethereum. The result worked, but required three distinct components: a Noir circuit for ZK proofs, a Solidity contract for on-chain state, and a Rust wallet for key management and proof generation. We also needed a trusted relayer (the issuer) to coordinate transactions and prevent frontrunning.
+In [Part 1](./2026-01-16-building-private-bonds-on-ethereum.md), we built private zero-coupon bonds from scratch on Ethereum. The result worked, but required three distinct components: a Noir circuit for ZK proofs, a Solidity contract for on-chain state, and a Rust wallet for key management and proof generation. We also needed a trusted relayer (the issuer) to coordinate transactions and prevent frontrunning.
 
 That architecture raised an obvious question: what if the network itself handled all this complexity?
 
@@ -115,47 +115,13 @@ Authwit solves this differently:
 
 For atomic DvP (delivery versus payment), the flow becomes:
 
-1. Seller creates authwit: "DvP contract can transfer 1000 bonds to Buyer"
-2. Buyer creates authwit: "DvP contract can transfer 50,000 USDC to Seller"
-3. Either party calls `execute()` on the DvP contract
+1. Buyer creates authwit: "Swap contract can transfer my stablecoins"
+2. Seller creates authwit: "Swap contract can transfer my bonds"
+3. Seller calls `execute()` on the Swap contract
 4. Contract verifies both authwits, atomically swaps assets
 5. Both authwits are nullified (cannot be replayed)
 
-[Excalidraw: Recreate this ASCII sequence diagram with proper styling:
-
-```
-┌─────────────┐                              ┌─────────────┐
-│   Party A   │                              │   Party B   │
-│   (has X)   │                              │   (has Y)   │
-└──────┬──────┘                              └──────┬──────┘
-       │                                            │
-       │  1. Create authwit:                        │
-       │     "Swap can transfer my X to B"          │
-       │───────────────────┐                        │
-       │                   ▼                        │
-       │          ┌────────────────┐                │
-       │          │  Swap Contract │                │
-       │          │                │<───────────────│
-       │          │                │  2. Create authwit:
-       │          └───────┬────────┘     "Swap can transfer my Y to A"
-       │                  │                         │
-       │                  │  3. Either party        │
-       │                  │     calls execute()     │
-       │                  ▼                         │
-       │          ┌────────────────┐                │
-       │          │  Atomically:   │                │
-       │          │  - Verify A's authwit           │
-       │          │  - Verify B's authwit           │
-       │          │  - X: A → B (or burn)           │
-       │          │  - Y: B → A                     │
-       │          │  - Emit nullifiers              │
-       │          └────────────────┘                │
-       │                                            │
-       ▼                                            ▼
-   receives Y                                  receives X
-```
-
-]
+![Authwit DvP flow](/assets/images/2026-01-16-building-private-bonds-on-ethereum/img-1-authwit-dvp.png)
 
 The key property: both parties commit to exact terms before execution. The seller cannot receive less than expected. The buyer cannot pay more. If either authwit is missing or mismatched, the transaction fails atomically.
 
@@ -238,6 +204,6 @@ The tradeoffs are different, not uniformly better. Aztec requires users (or thei
 
 For institutions already comfortable with L2 deployments, Aztec offers a faster path to production. The primitives we needed (private transfers, atomic swaps, viewing keys) exist natively. The contract focuses on business logic rather than cryptographic plumbing.
 
-The full implementation is [open source](https://github.com/Meyanis95/private-tokenised-bonds/tree/main/private-l2), with a detailed [specification](https://github.com/Meyanis95/private-tokenised-bonds/blob/main/private-l2/SPEC.md) covering the protocol design.
+The full implementation is [open source](https://github.com/ethereum/iptf-pocs/tree/main/pocs/private-bond/privacy-l2), with a detailed [specification](https://github.com/ethereum/iptf-pocs/blob/main/pocs/private-bond/privacy-l2/SPEC.md) covering the protocol design.
 
 In Part 3, we will explore a third approach: fully homomorphic encryption (FHE). Where UTXO models hide data by never putting it on-chain, FHE allows computation on encrypted data directly. Different cryptography, different tradeoffs, same institutional requirements. The comparison should clarify when each approach makes sense.
