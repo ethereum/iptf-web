@@ -100,11 +100,20 @@ a:hover {
   font-weight: 700;
   color: var(--color-primary);
   letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
 }
 
 .site-title:hover {
   color: var(--color-primary);
   text-decoration: none;
+}
+
+.site-logo {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
 }
 
 .site-nav a {
@@ -166,6 +175,16 @@ a:hover {
 
 .post-list > li {
   margin: 0;
+}
+
+.post-card-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.post-card-link:hover {
+  text-decoration: none;
 }
 
 .post-card {

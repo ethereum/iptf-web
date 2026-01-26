@@ -24,13 +24,6 @@ title: "Institutional Privacy Task Force (IPTF)"
       <h3>Ethereum Privacy Map</h3>
       <p>Mapping institutional use cases and privacy requirements</p>
     </a>
-    <div class="initiative-card">
-      <span class="initiative-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      </span>
-      <h3>Multi-stakeholder Coordination</h3>
-      <p>Bridging vendors/protocols, institutions, and regulators</p>
-    </div>
     <a href="https://github.com/ethereum/iptf-pocs" class="initiative-card" target="_blank">
       <span class="initiative-icon">
         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
@@ -38,6 +31,13 @@ title: "Institutional Privacy Task Force (IPTF)"
       <h3>Proof of Concepts</h3>
       <p>Hands-on implementations and educational resources</p>
     </a>
+    <div class="initiative-card">
+      <span class="initiative-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </span>
+      <h3>Multi-stakeholder Coordination</h3>
+      <p>Bridging vendors/protocols, institutions, and regulators</p>
+    </div>
   </div>
 </section>
 
