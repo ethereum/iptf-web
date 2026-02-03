@@ -190,21 +190,22 @@ This adds some centralization (the issuer controls the off-chain list), but that
 
 ## Conclusion
 
-We rebuilt the same private bond protocol on Aztec and ended up with significantly less code. The complexity did not disappear; it moved into the protocol layer where it benefits from shared infrastructure, audited implementations, and ongoing maintenance by the network developers.
+We rebuilt the same private bond protocol on a privacy L2 and ended up with significantly less code. The complexity did not disappear; it moved into protocol infrastructure where it benefits from shared primitives, audited implementations, and ongoing maintenance by the network developers.
 
-The key improvements over our custom UTXO approach:
+The key improvements over our custom UTXO approach apply to any network that enshrines privacy at the protocol level:
 
-- **No single point of failure.** The Authwit pattern enables atomic DvP without a trusted relayer. Either party can execute the swap once both have signed.
-- **Larger anonymity set.** All Aztec applications share the same global note tree. Your bond transactions hide among all network activity, not just other bond users.
+- **No custom cryptographic plumbing.** Note management, nullifier tracking, and proof generation are handled by the network. Your contract focuses on business logic.
+- **Atomic operations without a trusted relayer.** Patterns like authwits (or equivalent primitives on other networks) enable DvP where either party can trigger execution once both have committed.
+- **Larger anonymity set.** All applications on the network share the same note tree. Your bond transactions hide among all network activity, while whitelisting ensures you still control who trades your assets.
 
-The tradeoffs:
+The tradeoffs are also structural to this approach:
 
-- **Viewing keys are account-wide.** Sharing them with regulators exposes all your Aztec activity, not just bonds.
-- **Lower throughput.** Decentralized sequencing cannot match an optimized centralized relayer batching proofs.
-- **Costs unknown.** The network does have a mainnet consensus, but doesn't have the execution layer running yet; production gas costs and proving costs remain to be seen.
+- **You inherit the network's constraints.** Key architecture, throughput limits, and fee models are set by the protocol, not your team.
+- **Maturity varies.** Aztec's execution layer isn't live yet; Miden is earlier in development;
+- **Vendor coupling.** Building on a specific L2 means adopting its programming model, tooling, and roadmap.
 
-For institutions already comfortable with L2 deployments, Aztec offers a faster path to production. The primitives we needed (private transfers, atomic swaps, selective disclosure) exist natively. The contract focuses on business logic rather than cryptographic plumbing.
+For teams that want to ship a prototype without building cryptographic infrastructure from scratch, privacy L2s offer a faster starting point. For teams that need precise control over every layer, the custom UTXO approach from Part 1 remains viable.
 
-The full implementation is [open source](https://github.com/ethereum/iptf-pocs/tree/main/pocs/private-bond/privacy-l2), with a detailed [specification](https://github.com/ethereum/iptf-pocs/blob/main/pocs/private-bond/privacy-l2/SPEC.md) covering the protocol design.
+The full implementation (on Aztec) is [open source](https://github.com/ethereum/iptf-pocs/tree/main/pocs/private-bond/privacy-l2), with a detailed [specification](https://github.com/ethereum/iptf-pocs/blob/main/pocs/private-bond/privacy-l2/SPEC.md) covering the protocol design.
 
-In Part 3, we will explore a third approach: fully homomorphic encryption (FHE). Where UTXO models hide data by never putting it on-chain, FHE allows computation on encrypted data directly. Different cryptography, different tradeoffs, same institutional requirements. The comparison should clarify when each approach makes sense.
+In Part 3, we will explore a third approach: fully homomorphic encryption (FHE). Where UTXO models hide data by never putting it on-chain, FHE allows computation on encrypted data directly. Different cryptography, different tradeoffs, same institutional requirements.
