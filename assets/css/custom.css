@@ -434,6 +434,8 @@ a:hover {
 /* Code blocks - block level */
 .post-content pre,
 .highlighter-rouge .highlight,
+.highlighter-rouge pre,
+.highlighter-rouge pre.highlight,
 div.highlight,
 figure.highlight {
   background: #0d1117 !important;
@@ -445,6 +447,13 @@ figure.highlight {
   font-size: 0.875rem;
   line-height: 1.6;
   border: 1px solid #30363d;
+}
+
+/* Reset nested pre padding to avoid double padding */
+.highlighter-rouge .highlight pre {
+  padding: 0;
+  margin: 0;
+  border: none;
 }
 
 .post-content pre code,

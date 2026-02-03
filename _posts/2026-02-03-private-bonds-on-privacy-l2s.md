@@ -2,12 +2,12 @@
 layout: post
 title: "Building Private Bonds on Ethereum - Part 2"
 description: "Part 2 of our private bonds series: we rebuild the same protocol on Aztec, where notes, nullifiers, and ZK proofs are handled by the network itself. 200 lines of Noir replace three separate components."
-date: 2026-02-05
+date: 2026-02-03
 author: "Yanis"
 hero_image: /assets/images/2026-01-16-building-private-bonds-on-ethereum/building_private_bonds_on_ethereum.png
 ---
 
-In [Part 1](./2026-01-16-building-private-bonds-on-ethereum.md), we built private zero-coupon bonds from scratch on Ethereum. The result worked, but required three distinct components: a Noir circuit for ZK proofs, a Solidity contract for on-chain state, and a Rust wallet for key management and proof generation. We also needed a trusted relayer (the issuer) to coordinate transactions and prevent frontrunning.
+In [Part 1](/building-private-bonds-on-ethereum/), we built private zero-coupon bonds from scratch on Ethereum. The result worked, but required three distinct components: a Noir circuit for ZK proofs, a Solidity contract for on-chain state, and a Rust wallet for key management and proof generation. We also needed a trusted relayer (the issuer) to coordinate transactions and prevent frontrunning.
 
 _That architecture raised an obvious question: what if the network itself handled all this complexity?_
 
@@ -25,11 +25,11 @@ When we built the custom UTXO system, we had to implement every privacy primitiv
 
 **Encrypted mempool** solves frontrunning without a trusted relayer. In our custom implementation, the issuer had to batch transactions to prevent competitors from seeing pending trades. On Aztec, transactions are encrypted before entering the mempool. Sequencers process them without knowing the contents until execution.
 
-![PXE architecture and encrypted transaction flow](/assets/images/2026-01-16-building-private-bonds-on-ethereum/img-2-public-private-aztec.png)
+![PXE architecture and encrypted transaction flow](/assets/images/2026-02-03-private-bonds-on-privacy-l2s/img-2-public-private-aztec.png)
 
 **Decentralized sequencing** removes the single point of trust. Our custom system required the issuer to relay all transactions. On Aztec, a decentralized sequencer network orders and executes transactions. The issuer remains important for business logic (whitelist management, distribution), but loses their privileged position in transaction ordering.
 
-The practical impact: we went from coordinating three codebases to writing one contract.
+_The practical impact: we went from coordinating three codebases to writing one contract._
 
 ## The Contract: 200 Lines of Noir
 
@@ -92,11 +92,13 @@ fn transfer_private(to: AztecAddress, amount: u64) {
 
 Notice the `enqueue_self` pattern. Private functions cannot directly read public state (that would leak information about which public data the private transaction accessed). Instead, they enqueue public function calls that execute after the private portion completes. The whitelist check happens publicly, but by then the private transfer details are already committed.
 
+> **A note on address visibility:** The enqueued whitelist checks reveal the sender and recipient addresses publicly, even though the transfer amount remains private. This was a deliberate design choice: our requirements stated that participant identities can be visible (institutions typically need to know their counterparties for compliance). For use cases requiring participant anonymity, a Merkle-ized whitelist would allow users to prove membership without revealing their specific address. We discuss this approach in the "Privacy Model Differences" section below.
+
 This public/private dance is the core programming model difference from Solidity. You think in two phases: what happens privately (with user secrets), then what happens publicly (visible state updates).
 
 ## Authwit: The Missing Primitive
 
-In Part 1, atomic swaps required careful coordination. Both parties had to submit proofs to the relayer, who batched them into a single transaction. If either proof was missing or invalid, the whole swap failed.
+In Part 1, atomic swaps required careful coordination. Both parties had to submit proofs to the relayer, who batched them into a single transaction. If either proof was missing or invalid, the whole swap failed. More fundamentally, the issuer-as-relayer was a single point of failure: if the relayer went offline, no trades could settle.
 
 Aztec introduces a cleaner pattern called [Authentication Witness (authwit)](https://docs.aztec.network/developers/docs/foundational-topics/advanced/authwit). Think of it as a cryptographic IOU: "I authorize contract X to do action Y with my assets, under conditions Z."
 
@@ -113,7 +115,7 @@ Authwit solves this differently:
 | Reuse      | Persists until revoked        | Single-use (nullified after)       |
 | Revocation | Requires on-chain transaction | Emit nullifier directly            |
 
-For atomic DvP (delivery versus payment), the flow becomes:
+For atomic DvP (Delivery-vs-Payment), the flow becomes:
 
 1. Buyer creates authwit: "Swap contract can transfer my stablecoins"
 2. Seller creates authwit: "Swap contract can transfer my bonds"
@@ -121,11 +123,11 @@ For atomic DvP (delivery versus payment), the flow becomes:
 4. Contract verifies both authwits, atomically swaps assets
 5. Both authwits are nullified (cannot be replayed)
 
-![Authwit DvP flow](/assets/images/2026-01-16-building-private-bonds-on-ethereum/img-1-authwit-dvp.png)
+![Authwit DvP flow](/assets/images/2026-02-03-private-bonds-on-privacy-l2s/img-1-authwit-dvp.png)
 
 The key property: both parties commit to exact terms before execution. The seller cannot receive less than expected. The buyer cannot pay more. If either authwit is missing or mismatched, the transaction fails atomically.
 
-**Why this is secure:** Authwits grant permission to the _contract_, not to the counterparty. The Buyer cannot directly use the Seller's authwit. Only the DvP contract can act on it, and the contract is programmed to execute both transfers atomically or neither.
+> **Why this is secure:** Authwits grant permission to the _contract_, not to the counterparty. The Buyer cannot directly use the Seller's authwit. Only the DvP contract can act on it, and the contract is programmed to execute both transfers atomically or neither.
 
 Our bond contract includes a `transfer_from` function that leverages this pattern:
 
@@ -150,23 +152,17 @@ The custom UTXO system and Aztec solve the same problem with different trust ass
 
 **Custom UTXO on EVM:**
 
-The issuer holds all viewing keys. They can decrypt every transaction, reconstruct the complete transaction graph, and provide this data to regulators on demand. Participants trust the issuer not to abuse this access (which is acceptable when the issuer is a regulated bank).
+The issuer sees all transaction details in plaintext and can provide this data to regulators on demand. Participants trust the issuer not to abuse this access (acceptable when the issuer is a regulated institution).
 
 This model matches how institutional bond markets already work. The issuer is the central party. They know all participants, manage the whitelist, and coordinate settlement. The privacy is asymmetric: hidden from competitors and the public, fully visible to the issuer and regulators.
 
 **Aztec L2:**
 
-Users control their own keys. Aztec accounts have separate key pairs for spending (authorizing transactions) and viewing (decrypting notes). The viewing key can be shared selectively.
+Users control their own keys. Aztec accounts have separate key pairs for nullifiers (spending), viewing (decrypting notes), and signing (transaction authorization). The [key architecture](https://docs.aztec.network/developers/docs/foundational-topics/accounts/keys) is designed for selective disclosure: viewing keys can be shared without compromising spending ability.
 
-Importantly, viewing keys are app-siloed. A user can share their viewing key for the bond contract without exposing their activity in other Aztec applications. A regulator auditing bond positions does not automatically see DEX trades or other financial activity.
+Notably, nullifier keys are app-siloed (preventing cross-application spending correlation), but viewing keys are account-wide. For per-contract disclosure, applications would need to implement custom encryption at the note level.
 
-| Disclosure Scope | What Is Revealed                       |
-| ---------------- | -------------------------------------- |
-| Per-contract     | All user's bond notes (not other apps) |
-| Per-user (full)  | All notes across all contracts         |
-| Tagging key only | Note existence, not contents           |
-
-This shifts control toward users but complicates compliance workflows. Instead of the issuer having automatic visibility, they must collect viewing keys during onboarding or request them when needed.
+This model enables an auditing trail: the issuer shares their own viewing key with regulators to prove all issuances and distributions, while each regulated investor independently shares their viewing key to demonstrate their holdings. No centralized key collection required. The tradeoff is that viewing keys expose all activity across all Aztec applications, not just the bond contract.
 
 **Composability:**
 
@@ -174,13 +170,15 @@ The Aztec model enables something the custom approach cannot: direct interoperab
 
 In the custom UTXO approach, each private system is an island. Atomic swaps between different private assets would require a shared relayer or cross-system coordination protocol. On Aztec, it is just two contract calls in the same transaction.
 
+This shared infrastructure also means a larger anonymity set. On Aztec, all private applications contribute to the same global note tree and nullifier set. Your bond transaction hides among all network activity. With a custom UTXO contract on EVM, your anonymity set is limited to other users of that specific contract.
+
 **Throughput considerations:**
 
 The custom UTXO model allowed the issuer to batch transactions aggressively. As the sole relayer, they could accumulate proofs and submit them in optimized batches, achieving high throughput limited only by Ethereum's block space and the relayer's infrastructure.
 
 On Aztec, throughput is bound by the sequencer network and the L1 commitment cadence. Each transaction requires sequencer ordering, execution, and eventual settlement to Ethereum for hard finality. The decentralization that removes the trusted relayer also distributes (and potentially limits) throughput.
 
-For high-frequency trading desks processing thousands of transactions per second, this matters. For typical institutional bond markets (where trades happen over minutes or hours, not milliseconds), the difference is negligible.
+For high-frequency trading desks processing thousands of transactions per second, this matters. For typical institutional bond markets (where trades happen over minutes or hours, not milliseconds), current throughput could fit requirements.
 
 **A quick win: private whitelists.**
 
@@ -190,19 +188,22 @@ A private whitelist would store only a Merkle root on-chain. The issuer maintain
 
 This adds some centralization (the issuer controls the off-chain list), but that is already the case for KYC compliance. The cryptographic overhead is minimal in Noir. For institutions that want participant privacy beyond what was originally required, it is a few lines of code away.
 
-**What we could not build on testnet:**
-
-True atomic DvP requires a stablecoin contract on the same network. Aztec's testnet does not yet have production stablecoins, so our redemption flow burns bonds and settles cash off-chain via traditional rails. The authwit pattern is implemented and ready; we just need the other leg of the swap. Once private stablecoins exist on Aztec, the bond contract can call them directly for atomic settlement.
-
-Per-note viewing keys also require custom work. Aztec's native granularity is per-contract: share your bond contract viewing key, and the recipient sees all your bond notes. To share a single transaction without revealing others, you would need to implement ECDH encryption at the application level, similar to the memo encryption in Part 1. The protocol provides the cryptographic primitives, but not the specific pattern out of the box.
-
 ## Conclusion
 
 We rebuilt the same private bond protocol on Aztec and ended up with significantly less code. The complexity did not disappear; it moved into the protocol layer where it benefits from shared infrastructure, audited implementations, and ongoing maintenance by the network developers.
 
-The tradeoffs are different, not uniformly better. Aztec requires users (or their infrastructure) to run heavier clients. It shifts key management toward users, which may complicate compliance. And it is an L2, which means bridging assets and accepting a different security model than mainnet Ethereum.
+The key improvements over our custom UTXO approach:
 
-For institutions already comfortable with L2 deployments, Aztec offers a faster path to production. The primitives we needed (private transfers, atomic swaps, viewing keys) exist natively. The contract focuses on business logic rather than cryptographic plumbing.
+- **No single point of failure.** The Authwit pattern enables atomic DvP without a trusted relayer. Either party can execute the swap once both have signed.
+- **Larger anonymity set.** All Aztec applications share the same global note tree. Your bond transactions hide among all network activity, not just other bond users.
+
+The tradeoffs:
+
+- **Viewing keys are account-wide.** Sharing them with regulators exposes all your Aztec activity, not just bonds.
+- **Lower throughput.** Decentralized sequencing cannot match an optimized centralized relayer batching proofs.
+- **Costs unknown.** The network does have a mainnet consensus, but doesn't have the execution layer running yet; production gas costs and proving costs remain to be seen.
+
+For institutions already comfortable with L2 deployments, Aztec offers a faster path to production. The primitives we needed (private transfers, atomic swaps, selective disclosure) exist natively. The contract focuses on business logic rather than cryptographic plumbing.
 
 The full implementation is [open source](https://github.com/ethereum/iptf-pocs/tree/main/pocs/private-bond/privacy-l2), with a detailed [specification](https://github.com/ethereum/iptf-pocs/blob/main/pocs/private-bond/privacy-l2/SPEC.md) covering the protocol design.
 
