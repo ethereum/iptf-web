@@ -12,27 +12,43 @@ permalink: /blog/
       {%- for post in site.posts -%}
       {%- unless post.published == false -%}
       <li>
-        <article class="post-preview">
-          <h2>
-            <a class="post-link" href="{{ post.url | relative_url }}">
-              {{ post.title | escape }}
-            </a>
-          </h2>
-
-          <p class="post-meta">
-            {%- assign date_format = site.minima.date_format | default: "%b %-d, %Y" -%}
-            {{ post.date | date: date_format }}
-            {%- if post.author -%}
-              • {{ post.author }}
+        <a href="{{ post.url | relative_url }}" class="post-card-link">
+          <article class="post-card">
+            {%- if post.hero_image -%}
+            <div class="post-card-thumbnail">
+              <img src="{{ post.hero_image | relative_url }}" alt="" loading="lazy">
+            </div>
             {%- endif -%}
-          </p>
 
-          {%- if post.description -%}
-            <p>{{ post.description }}</p>
-          {%- elsif post.excerpt -%}
-            {{ post.excerpt }}
-          {%- endif -%}
-        </article>
+            <div class="post-card-content">
+              <h2 class="post-card-title">{{ post.title | escape }}</h2>
+
+              <p class="post-card-meta">
+                {%- assign date_format = site.minima.date_format | default: "%b %-d, %Y" -%}
+                <time datetime="{{ post.date | date_to_xmlschema }}">{{ post.date | date: date_format }}</time>
+                {%- if post.author -%}
+                  <span class="separator">·</span>
+                  <span class="author">{{ post.author }}</span>
+                {%- endif -%}
+                {%- assign words = post.content | number_of_words -%}
+                {%- assign mins = words | divided_by: 200 -%}
+                {%- if mins < 1 %}{% assign mins = 1 %}{% endif -%}
+                <span class="separator">·</span>
+                <span class="reading-time">{{ mins }} min read</span>
+              </p>
+
+              {%- if post.description -%}
+                <p class="post-card-description">{{ post.description }}</p>
+              {%- elsif post.excerpt -%}
+                <p class="post-card-description">{{ post.excerpt | strip_html | truncatewords: 30 }}</p>
+              {%- endif -%}
+
+              <div class="post-card-footer">
+                <span class="read-more">Read article</span>
+              </div>
+            </div>
+          </article>
+        </a>
       </li>
       {%- endunless -%}
       {%- endfor -%}

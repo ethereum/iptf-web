@@ -1,8 +1,12 @@
 <header class="site-header" role="banner">
   <div class="wrapper">
-    <a class="site-title" rel="author" href="{{ "/" | relative_url }}">{{ site.title | escape }}</a>
+    <a class="site-title" rel="author" href="{{ "/" | relative_url }}">
+      <img src="{{ "/assets/images/diamant-eth.png" | relative_url }}" alt="" class="site-logo">
+      <span class="site-title-text">{{ site.title | escape }}</span>
+    </a>
     <nav class="site-nav">
-      <a href="{{ "/blog/" | relative_url }}">Blog</a>
+      <a href="{{ "/" | relative_url }}" {% if page.url == "/" %}class="active"{% endif %}>About</a>
+      <a href="{{ "/blog/" | relative_url }}" {% if page.url contains "/blog" or page.layout == "post" %}class="active"{% endif %}>Blog</a>
     </nav>
   </div>
 </header>
