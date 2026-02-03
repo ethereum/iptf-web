@@ -2,14 +2,14 @@
 layout: post
 title: "Building Private Bonds on Ethereum - Part 2"
 description: "Part 2 of our private bonds series: we rebuild the same protocol on Aztec, where notes, nullifiers, and ZK proofs are handled by the network itself. 200 lines of Noir replace three separate components."
-date: 2026-01-29
+date: 2026-02-05
 author: "Yanis"
 hero_image: /assets/images/2026-01-16-building-private-bonds-on-ethereum/building_private_bonds_on_ethereum.png
 ---
 
 In [Part 1](./2026-01-16-building-private-bonds-on-ethereum.md), we built private zero-coupon bonds from scratch on Ethereum. The result worked, but required three distinct components: a Noir circuit for ZK proofs, a Solidity contract for on-chain state, and a Rust wallet for key management and proof generation. We also needed a trusted relayer (the issuer) to coordinate transactions and prevent frontrunning.
 
-That architecture raised an obvious question: what if the network itself handled all this complexity?
+_That architecture raised an obvious question: what if the network itself handled all this complexity?_
 
 This is precisely what privacy-focused L2s offer. Instead of bolting privacy onto a transparent ledger, you start with a network where notes, nullifiers, and encrypted execution are first-class primitives. The same protocol we built manually becomes a straightforward smart contract.
 
@@ -21,11 +21,11 @@ When we built the custom UTXO system, we had to implement every privacy primitiv
 
 **Notes and nullifiers** are native to the execution model. When you transfer private tokens, the network handles note creation, commitment insertion into the Merkle tree, and nullifier tracking. No custom circuit logic required.
 
-**ZK proof generation** happens in the Private Execution Environment (PXE), a client-side component that runs on the user's machine. The user's secrets never leave their device. The PXE generates proofs locally, then submits them to the network for verification.
+**ZK proof generation** happens in the [Private Execution Environment (PXE)](https://docs.aztec.network/developers/docs/foundational-topics/pxe), a client-side component that runs on the user's machine. The user's secrets never leave their device. The PXE generates proofs locally, then submits them to the network for verification.
 
 **Encrypted mempool** solves frontrunning without a trusted relayer. In our custom implementation, the issuer had to batch transactions to prevent competitors from seeing pending trades. On Aztec, transactions are encrypted before entering the mempool. Sequencers process them without knowing the contents until execution.
 
-[Image: Existing diagram from Aztec docs showing the PXE architecture and encrypted transaction flow]
+![PXE architecture and encrypted transaction flow](/assets/images/2026-01-16-building-private-bonds-on-ethereum/img-2-public-private-aztec.png)
 
 **Decentralized sequencing** removes the single point of trust. Our custom system required the issuer to relay all transactions. On Aztec, a decentralized sequencer network orders and executes transactions. The issuer remains important for business logic (whitelist management, distribution), but loses their privileged position in transaction ordering.
 
@@ -98,7 +98,7 @@ This public/private dance is the core programming model difference from Solidity
 
 In Part 1, atomic swaps required careful coordination. Both parties had to submit proofs to the relayer, who batched them into a single transaction. If either proof was missing or invalid, the whole swap failed.
 
-Aztec introduces a cleaner pattern called Authentication Witness (authwit). Think of it as a cryptographic IOU: "I authorize contract X to do action Y with my assets, under conditions Z."
+Aztec introduces a cleaner pattern called [Authentication Witness (authwit)](https://docs.aztec.network/developers/docs/foundational-topics/advanced/authwit). Think of it as a cryptographic IOU: "I authorize contract X to do action Y with my assets, under conditions Z."
 
 Why not just use ERC-20's `approve` pattern? It does not work with private state. When Alice approves Bob to spend her tokens on Ethereum, that approval is public and persistent. Anyone can see it, and Bob can use it repeatedly until Alice revokes it.
 
