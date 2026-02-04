@@ -104,7 +104,7 @@ Aztec introduces a cleaner pattern called [Authentication Witness (authwit)](htt
 
 Why not just use ERC-20's `approve` pattern? It does not work with private state. When Alice approves Bob to spend her tokens on Ethereum, that approval is public and persistent. Anyone can see it, and Bob can use it repeatedly until Alice revokes it.
 
-With private notes, there is no public balance to approve against. Alice's notes are encrypted. Only she knows their contents. Even if she wanted to grant blanket approval, the spender would need her secrets to construct a valid proof.
+With private notes, there is no public balance to approve against. Alice's notes are encrypted. Only she knows their contents. Even if she wanted to grant a blanket approval, the spender would need her secrets to construct a valid proof.
 
 Authwit solves this differently:
 
