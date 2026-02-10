@@ -115,7 +115,6 @@ This is a proof-of-concept. Several shortcuts were taken that would need to be a
 
 - **Smaller anonymity set.** KYC gating restricts pool participants to attested parties, which shrinks the anonymity set compared to permissionless protocols. [Railgun](https://railgun.org/) takes the opposite approach with [Private Proofs of Innocence](https://docs.railgun.org/wiki/learn/privacy-system/private-proofs-of-innocence): anyone can enter the pool, but users can prove their funds are not linked to known malicious sources. The gated approach trades a larger anonymity set for compliance certainty at the protocol layer.
 - **Fixed 2-in-2-out transfers.** Every transfer consumes exactly two inputs and produces two outputs. Batching multiple payments into a single transaction would require variable input/output circuits.
-- **Single compliance authority.** One entity controls attestation issuance and revocation. Production systems should use multi-sig or DAO governance to distribute this trust.
 - **No viewing key revocation.** A compromised viewing key permanently leaks transaction history. Key rotation with historical cutoffs would be needed.
 - **No gas paymaster.** The relayer architecture is specified but not implemented. Users currently submit transactions from their own addresses, which leaks identities.
 - **In-memory Merkle trees.** The client rebuilds state from on-chain events on each startup. Persistent local storage with incremental sync would be required for usability at scale.
