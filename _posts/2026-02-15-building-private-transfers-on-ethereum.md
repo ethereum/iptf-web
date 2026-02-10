@@ -109,11 +109,22 @@ Consumer privacy protocols like [Tornado Cash](https://en.wikipedia.org/wiki/Tor
 
 **Threat model.** The security properties depend on who the adversary is. A public observer sees commitments and nullifiers but cannot link them or extract note contents without a spending or viewing key. A malicious relayer can delay or refuse to submit transactions, but cannot steal funds or link transactions. The user can always bypass the relayer and submit directly. A compromised viewing key leaks read access to one participant's history, but cannot be used to spend funds or decrypt other participants' notes. A malicious compliance authority could issue attestations to unauthorized parties, which is why production deployments should require multi-sig or DAO governance for attester authorization.
 
+## The Anonymity Set Tradeoff
+
+Privacy in a shielded pool is only as strong as the number of indistinguishable participants. The more users holding notes in the pool, the harder it is for an observer to link a nullifier to a specific commitment. This creates a fundamental tension in the gated design.
+
+Permissionless protocols like [Railgun](https://railgun.org/) take one side of this tradeoff: allow anyone to deposit, maximizing the anonymity set, and use [Private Proofs of Innocence](https://docs.railgun.org/wiki/learn/privacy-system/private-proofs-of-innocence) to let users prove their funds are not linked to known malicious sources. The pool is large, but it contains unknown participants. A gated pool like this PoC takes the other side: restrict entry to KYC-verified parties, giving compliance certainty at the cost of a smaller anonymity set.
+
+In the early stages of deployment, this tradeoff is real. A pool with ten participants offers weak unlinkability regardless of the cryptography. However, the anonymity set is not permanently small, it scales with adoption.
+
+Consider a bank issuing a stablecoin or tokenized deposit and running a shielded pool for its customers. Every customer who deposits into the pool becomes part of the anonymity set. The bank's own treasury operations, including payroll, vendor payments and interbank settlements add further cover traffic. As the customer base grows, so does privacy. Both the bank and its customers accumulate anonymity through normal usage, not through any special action.
+
+Institutions prefer verifiable cleanliness over unknown provenance.
+
 ## Limitations
 
 This is a proof-of-concept. Several shortcuts were taken that would need to be addressed for production:
 
-- **Smaller anonymity set.** KYC gating restricts pool participants to attested parties, which shrinks the anonymity set compared to permissionless protocols. [Railgun](https://railgun.org/) takes the opposite approach with [Private Proofs of Innocence](https://docs.railgun.org/wiki/learn/privacy-system/private-proofs-of-innocence): anyone can enter the pool, but users can prove their funds are not linked to known malicious sources. The gated approach trades a larger anonymity set for compliance certainty at the protocol layer.
 - **Fixed 2-in-2-out transfers.** Every transfer consumes exactly two inputs and produces two outputs. Batching multiple payments into a single transaction would require variable input/output circuits.
 - **No viewing key revocation.** A compromised viewing key permanently leaks transaction history. Key rotation with historical cutoffs would be needed.
 - **No gas paymaster.** The relayer architecture is specified but not implemented. Users currently submit transactions from their own addresses, which leaks identities.
