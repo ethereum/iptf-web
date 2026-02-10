@@ -85,7 +85,7 @@ Zama's architecture separates concerns:
 This means:
 
 - On-chain gas is manageable (~330K for a transfer vs. ~1M for ZK verification)
-- Latency depends on coprocessor speed (~40-80ms per operation with current CPUs)
+- Latency involves FHE computation (~40-80ms per operation), transfer of large ciphertexts (tens of KB each), and for decryption, threshold network coordination. End-to-end latency will be significantly higher than raw computation time
 - Throughput is shared: the entire network reportedly handles 500-1000 TPS across all apps
 
 ## The Smart Contract
@@ -151,7 +151,7 @@ We've now built the same bond (whitelisted participants, private amounts, regula
 | Metric          | Custom UTXO                           | Privacy L2 | FHE                 |
 | --------------- | ------------------------------------- | ---------- | ------------------- |
 | Transfer Gas    | ~1.07M (Railgun ref)                  | Unknown    | ~330K               |
-| Proving Latency | 2-30s                                 | ~10s       | 40-80ms             |
+| Proving Latency | 2-30s                                 | ~10s       | 40-80ms (computation only, excludes ciphertext transfer) |
 | Throughput      | Network-bound (~15 TPS L1, ~1000+ L2) | Unknown    | 500-1000 TPS shared |
 
 ### What's Hidden vs. Public
