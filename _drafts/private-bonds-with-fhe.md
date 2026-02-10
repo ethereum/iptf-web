@@ -45,7 +45,7 @@ The solution: **threshold decryption**. The private key is split across multiple
 
 This introduces new trust assumptions:
 
-- You trust that fewer than 1/3 of operators are malicious
+- You trust that fewer than 1/3 of operators are malicious (if a threshold collude, they can reconstruct the key)
 - You trust the key generation ceremony was honest
 - You trust the network will remain available when you need to access your funds
 
@@ -120,7 +120,7 @@ ebool hasEnough = FHE.le(amount, _balances[from]);
 euint64 transferAmount = FHE.select(hasEnough, amount, FHE.asEuint64(0));
 ```
 
-Users must query their balance after the transaction to confirm whether it succeeded.
+Users must query their balance after the transaction to confirm whether it succeeded. This uses the "User Decryption" path: the KMS nodes re-encrypt the value under the user's public key via threshold MPC, so no individual operator sees the plaintext. However, unlike ZK approaches where balance checks are fully local, this still depends on the threshold network's availability and honesty.
 
 **Redemption**: After maturity, bondholders burn their holdings. Settlement occurs off-chain.
 
@@ -148,11 +148,11 @@ We've now built the same bond (whitelisted participants, private amounts, regula
 
 ### Gas & Latency
 
-| Metric          | Custom UTXO                           | Privacy L2 | FHE                 |
-| --------------- | ------------------------------------- | ---------- | ------------------- |
-| Transfer Gas    | ~1.07M (Railgun ref)                  | Unknown    | ~330K               |
+| Metric          | Custom UTXO                           | Privacy L2 | FHE                                                      |
+| --------------- | ------------------------------------- | ---------- | -------------------------------------------------------- |
+| Transfer Gas    | ~1.07M (Railgun ref)                  | Unknown    | ~330K                                                    |
 | Proving Latency | 2-30s                                 | ~10s       | 40-80ms (computation only, excludes ciphertext transfer) |
-| Throughput      | Network-bound (~15 TPS L1, ~1000+ L2) | Unknown    | 500-1000 TPS shared |
+| Throughput      | Network-bound (~15 TPS L1, ~1000+ L2) | Unknown    | 500-1000 TPS shared                                      |
 
 ### What's Hidden vs. Public
 
@@ -168,7 +168,7 @@ We've now built the same bond (whitelisted participants, private amounts, regula
 
 [Privacy L2s](https://github.com/ethereum/iptf-map/blob/master/patterns/pattern-privacy-l2s.md) like Aztec handle the hard parts for you: notes, proofs, encryption. Our contract was just 200 lines. Private composability is native, meaning your bonds could interact with private lending or swaps on the same L2. The catch: neither Aztec nor Miden are live yet (both scheduled for later 2026), so we can't measure real costs. And the learning curve exists: Noir is not Solidity.
 
-FHE is the gentlest onramp. If you know Solidity, you can write confidential contracts quickly. Standard wallets work. But you trade self-custody for threshold trust: your funds depend on the network's availability and honesty. For institutions already comfortable with custodial relationships, this may be acceptable. For those seeking self-sovereign privacy, it's a meaningful concession.
+FHE is the gentlest onramp. If you know Solidity, you can write confidential contracts quickly. Standard wallets work. But you trade self-custody for threshold trust: your funds depend on the network's availability, and if a quorum of KMS operators collude, they could reconstruct the decryption key. In normal operation, no individual operator sees plaintext (user decryptions are re-encrypted under the user's key via MPC). For institutions already comfortable with custodial relationships, this may be acceptable. For those seeking self-sovereign privacy, it's a meaningful concession.
 
 It's worth noting that the coprocessor model isn't exclusive to FHE. [TACEO's private_deposit](https://github.com/TaceoLabs/private_deposit/tree/main) demonstrates a similar architecture using MPC instead: a three-party network maintains secret-shared balances and generates collaborative SNARKs (Groth16 proofs) to verify state transitions on-chain. The trust assumption is the same — you rely on an honest majority of operators rather than holding your own keys — but the MPC path avoids FHE's computational overhead and adds native verifiability through CoSNARKs. We could have built our bond PoC on this stack as well; the coprocessor pattern generalizes beyond any single cryptographic primitive.
 
