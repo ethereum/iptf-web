@@ -25,7 +25,7 @@ Compared to ZK-based approaches, FHE offers a different paradigm with distinct t
 
 **Direct EVM Integration.** Unlike custom UTXO (which requires building notes, nullifiers, and Merkle trees from scratch) or Privacy L2s (which need their own execution environment), FHE can operate on standard Ethereum, or chains compatible with its cryptographic requirements. Identities remain standard ECDSA EOAs. You can wrap existing ERC20s directly rather than rebuilding token logic from scratch.
 
-**Familiar Programming Model.** No new data structures to learn. Balances remain as mappings. Transfers look like ERC20. The main difference? Your `uint64` becomes an `euint64`. For developers already comfortable with Solidity, the learning curve is gentler than writing ZK circuits in Noir or Circom.
+**Familiar Programming Model.** Balances remain as Solidity mappings and identities stay as standard addresses, no notes, nullifiers, or Merkle trees to manage. Your `uint64` becomes an `euint64`, and much of the contract logic reads like a standard ERC20. But the encrypted types come with constraints: you can't branch on encrypted values, transfers can't revert on failure (that would leak information), and decryption requires coordinating with a threshold network. Still, for developers already comfortable with Solidity, this is a gentler starting point than writing ZK circuits in Noir or Circom.
 
 ## The Encryption Model
 
