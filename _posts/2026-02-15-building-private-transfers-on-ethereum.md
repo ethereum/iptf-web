@@ -21,7 +21,7 @@ The protocol implements four mechanisms working together.
 
 **Attestation-gated entry.** Before a participant can deposit tokens, a compliance authority must issue a KYC attestation. This attestation is stored as a leaf in an on-chain Merkle tree (the attestation tree). When depositing, the user proves with a zero knowledge proof, that their public key appears in the attestation tree. No identity information is revealed on-chain; the proof confirms only that "this depositor has been verified."
 
-**UTXO model.** Funds inside the pool exist as encrypted notes. Each note contains a token address, an amount, the owner's public key, and a random salt:
+**UTXO model.** *The commitment/nullifier model below builds on the [previous post](/building-private-bonds-on-ethereum/), skip to [Three Operations](#three-operations) if you're already familiar.* Funds inside the pool exist as encrypted notes. Each note contains a token address, an amount, the owner's public key, and a random salt:
 
 ```
 Note {
@@ -49,6 +49,8 @@ The shielded pool supports three operations: deposit (shielding), transfer, and 
 A user converts public [ERC-20](https://eips.ethereum.org/EIPS/eip-20) tokens into a private note. The deposit circuit enforces two facts: that the note commitment is correctly formed, and that the depositor has a valid KYC attestation (Merkle inclusion proof against the attestation tree root). The contract verifies the ZK proof, pulls tokens from the user via `transferFrom`, and appends the new commitment to the commitment Merkle tree.
 
 The deposit proof's public inputs are the commitment, token address, amount, and the current attestation tree root. Everything else stays private: the depositor's public key, the salt, the attester's identity, and the attestation details (when it was issued, when it expires). An observer sees that *someone* deposited a known amount of a known token, but cannot determine *who* deposited it or which compliance authority verified them.
+
+One caveat: deposit and withdrawal amounts are public, so matching amounts can reveal a link, especially in small pools. Transfers hide amounts, but shielding and unshielding do not. Split notes via transfers before withdrawing to reduce correlation.
 
 ![Deposit Flow](/assets/images/2026-02-15-building-private-transfers-on-ethereum/deposit.png)
 
@@ -107,7 +109,7 @@ Consumer privacy protocols like [Tornado Cash](https://en.wikipedia.org/wiki/Tor
 
 **No issuer modifications.** The protocol works with existing ERC-20 stablecoins (USDC, EURC) without changes to token contracts, special hooks, or issuer cooperation. Tokens are locked in the shielded pool contract on deposit and released on withdrawal.
 
-**Threat model.** The security properties depend on who the adversary is. A public observer sees commitments and nullifiers but cannot link them or extract note contents without a spending or viewing key. A malicious relayer can delay or refuse to submit transactions, but cannot steal funds or link transactions. The user can always bypass the relayer and submit directly. A compromised viewing key leaks read access to one participant's history, but cannot be used to spend funds or decrypt other participants' notes. A malicious compliance authority could issue attestations to unauthorized parties, which is why production deployments should require multi-sig or DAO governance for attester authorization.
+**Threat model.** The security properties depend on who the adversary is. A public observer sees commitments and nullifiers but cannot link them or extract note contents without a spending or viewing key. In the target architecture, a malicious relayer can delay or refuse to submit transactions, but cannot steal funds or link transactions. The user can always bypass the relayer and submit directly (see [Limitations](#limitations) for the current PoC state). A compromised viewing key leaks read access to one participant's history, but cannot be used to spend funds or decrypt other participants' notes. A malicious compliance authority could issue attestations to unauthorized parties, which is why production deployments should require multi-sig or DAO governance for attester authorization.
 
 ## The Anonymity Set Tradeoff
 
