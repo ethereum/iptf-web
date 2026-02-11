@@ -45,7 +45,7 @@ The solution: **threshold decryption**. The private key is split across multiple
 
 This introduces new trust assumptions:
 
-- You trust that fewer than 1/3 of operators are malicious (if a threshold collude, they can reconstruct the key)
+- You trust that fewer than 1/3 of operators are malicious (colluding beyond this threshold allows key reconstruction)
 - You trust the key generation ceremony was honest
 - You trust the network will remain available when you need to access your funds
 
