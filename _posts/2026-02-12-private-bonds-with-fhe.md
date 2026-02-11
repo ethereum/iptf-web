@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Building Private Bonds on Ethereum - Part 3"
-date: 2026-02-09
+date: 2026-02-12 09:00:00 +0100
 author: "Yanis"
 hero_image: /assets/images/2026-01-16-building-private-bonds-on-ethereum/building_private_bonds_on_ethereum.png
 description: "Exploring Fully Homomorphic Encryption as a path to confidential institutional bonds on Ethereum, the third approach in our Private Bond PoC series."
@@ -66,7 +66,7 @@ For most institutions, this operational burden exceeds the benefit. This brings 
 
 ## The Zama Approach
 
-We used [Zama's fhEVM](https://www.zama.ai/fhevm) for this proof of concept. A few notes on context:
+We used [Zama's fhEVM](https://github.com/zama-ai/fhevm/blob/main/fhevm-whitepaper.pdf) for this proof of concept. A few notes on context:
 
 The [Confidential Token Standard](https://www.confidentialtoken.org/) represents broader industry work on encrypted ERC20s. Multiple teams are exploring how FHE can enable private token standards. Zama's fhEVM is one implementation. We chose it for practical reasons: mature tooling, existing coprocessor infrastructure, and the ability to execute a PoC quickly without standing up our own threshold network.
 
