@@ -46,7 +46,10 @@ The shielded pool supports three operations: deposit (shielding), transfer, and 
 
 ### Deposit
 
-A user converts public [ERC-20](https://eips.ethereum.org/EIPS/eip-20) tokens into a private note. The deposit circuit enforces two facts: that the note commitment is correctly formed, and that the depositor has a valid KYC attestation (Merkle inclusion proof against the attestation tree root). The contract verifies the ZK proof, pulls tokens from the user via `transferFrom`, and appends the new commitment to the commitment Merkle tree.
+A user converts public [ERC-20](https://eips.ethereum.org/EIPS/eip-20) tokens into a private note. The deposit circuit enforces two facts: that the note commitment is correctly formed, and that the depositor has a valid KYC attestation (Merkle inclusion proof against the attestation tree root). The contract then performs the following actions:
+1. Verifies the ZK proof
+2. Uses `transferFrom` to pull approved tokens into the pool contract, where they are held in aggregate under the contract’s withdrawal logic and subject to its governance and upgrade controls.
+3. Appends the new commitment to the commitment Merkle tree.
 
 The deposit proof's public inputs are the commitment, token address, amount, and the current attestation tree root. Everything else stays private: the depositor's public key, the salt, the attester's identity, and the attestation details (when it was issued, when it expires). An observer sees that *someone* deposited a known amount of a known token, but cannot determine *who* deposited it or which compliance authority verified them.
 
