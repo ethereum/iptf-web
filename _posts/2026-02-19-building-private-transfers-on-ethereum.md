@@ -2,7 +2,7 @@
 layout: post
 title: "Building Private Transfers on Ethereum with Shielded Pools"
 description: "A proof-of-concept for compliance-first private stablecoin transfers using a shielded pool on Ethereum L1: covering KYC-gated entry, UTXO commitments, dual-key architecture, and ZK circuits in Noir."
-date: 2026-02-19
+date: 2026-02-19 09:00:00 +0100
 author: "Aaryamann"
 hero_image: /assets/images/2026-02-19-building-private-transfers-on-ethereum/hero.png
 ---
