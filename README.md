@@ -81,9 +81,9 @@ To preview draft posts locally:
 ---
 layout: post
 title: "Your Post Title"
-date: 2026-01-09
+date: 2026-01-09 HH::mm::ss TZ
 author: "Author Name"
-hero_image: /assets/images/your-hero.jpg
+image: /assets/images/your-hero.jpg
 description: "Brief description for previews and social cards"
 ---
 ```
@@ -94,7 +94,7 @@ description: "Brief description for previews and social cards"
 
 - Recommended size: 1200x600px (2:1 ratio for Twitter/X cards)
 - Place images in `assets/images/`
-- Reference in frontmatter: `hero_image: /assets/images/filename.jpg`
+- Reference in frontmatter: `image: /assets/images/filename.jpg`
 
 ### Draft Posts
 

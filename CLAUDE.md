@@ -87,7 +87,7 @@ layout: post
 title: "Post Title"
 date: YYYY-MM-DD
 author: "Author Name"
-hero_image: /assets/images/hero-name.jpg
+image: /assets/images/hero-name.jpg
 description: "Brief description for SEO and social cards"
 ---
 ```

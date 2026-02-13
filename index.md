@@ -47,9 +47,9 @@ title: "Institutional Privacy Task Force (IPTF)"
     {% for post in site.posts limit:2 %}
     {% unless post.published == false %}
     <a href="{{ post.url | relative_url }}" class="featured-post-card">
-      {% if post.hero_image %}
+      {% if post.image %}
       <div class="featured-post-image">
-        <img src="{{ post.hero_image | relative_url }}" alt="" loading="lazy">
+        <img src="{{ post.image | relative_url }}" alt="" loading="lazy">
       </div>
       {% endif %}
       <div class="featured-post-content">

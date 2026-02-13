@@ -4,7 +4,13 @@ title: "Building Private Bonds on Ethereum"
 description: "A walkthrough of a proof-of-concept for private zero-coupon bonds using zero-knowledge proofs on Ethereum - covering the UTXO model, JoinSplit circuits, atomic swaps, and the relayer architecture."
 date: 2026-01-21
 author: "Yanis"
-hero_image: /assets/images/2026-01-16-building-private-bonds-on-ethereum/building_private_bonds_on_ethereum.png
+image: /assets/images/2026-01-16-building-private-bonds-on-ethereum/building_private_bonds_on_ethereum.png
+tags:
+  - private-bonds
+  - zero-knowledge-proofs
+  - UTXO
+  - ethereum
+  - proof-of-concept
 ---
 
 2025 has been a turning point and an unprecedented wave of tokenization is on the horizon. For those new to the topic, tokenization means representing traditional financial assets (like bonds, stocks, or real estate) as digital tokens on a blockchain. The main standard for tokens on Ethereum is [ERC-20](https://eips.ethereum.org/EIPS/eip-20), a representation of fungible tokens that is very versatile and can represent any form of asset. This article explores solutions for the problem encountered when using the straight ERC-20 standard. Ethereum being a fully transparent ledger, using ERC-20 exposes too much: who holds what, every transfer, every counterparty relationship. For institutions, that's a dealbreaker.
