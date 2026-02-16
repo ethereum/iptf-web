@@ -1,6 +1,6 @@
 ---
 layout: default
-title: Blog
+title: "Blog"
 permalink: /blog/
 ---
 
@@ -14,9 +14,9 @@ permalink: /blog/
       <li>
         <a href="{{ post.url | relative_url }}" class="post-card-link">
           <article class="post-card">
-            {%- if post.hero_image -%}
+            {%- if post.image -%}
             <div class="post-card-thumbnail">
-              <img src="{{ post.hero_image | relative_url }}" alt="" loading="lazy">
+              <img src="{{ post.image | relative_url }}" alt="" loading="lazy">
             </div>
             {%- endif -%}
 

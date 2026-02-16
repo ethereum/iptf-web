@@ -4,7 +4,14 @@ title: "Building Private Transfers on Ethereum with Shielded Pools"
 description: "A proof-of-concept for compliance-first private stablecoin transfers using a shielded pool on Ethereum L1: covering KYC-gated entry, UTXO commitments, dual-key architecture, and ZK circuits in Noir."
 date: 2026-02-19 09:00:00 +0100
 author: "Aaryamann"
-hero_image: /assets/images/2026-02-19-building-private-transfers-on-ethereum/hero.png
+image: /assets/images/2026-02-19-building-private-transfers-on-ethereum/hero.png
+tags:
+  - private-transfers
+  - shielded-pools
+  - stablecoins
+  - KYC
+  - ethereum
+  - proof-of-concept
 ---
 
 Every stablecoin transfer on Ethereum is public. When an institution moves USDC to a supplier, that payment is visible to every competitor, analyst, and observer on the network. Treasury positions, supplier relationships, settlement timing and payment frequency are visible to anyone with a block explorer.

@@ -2,7 +2,7 @@
 layout: post
 title: "This is a Draft Post"
 author: "IPTF Team"
-hero_image: /assets/images/demo-hero.svg
+image: /assets/images/demo-hero.svg
 description: "This post is in the drafts folder and won't appear on the live site."
 ---
 

@@ -4,7 +4,12 @@ title: "Cypherpunk x Institutional Privacy"
 description: "Exploring the overlap and tension between cypherpunks and institutions - and how the Institutional Privacy Task Force is mapping real institutional privacy requirements to solutions on Ethereum."
 date: 2026-01-09
 author: "Oskar"
-hero_image: /assets/images/2026-01-09-cypherpunk-institutional-privacy/cypherpunk_institutional_privacy.webp
+image: /assets/images/2026-01-09-cypherpunk-institutional-privacy/cypherpunk_institutional_privacy.webp
+tags:
+  - institutional-privacy
+  - cypherpunks
+  - ethereum
+  - privacy-map
 ---
 
 *The following write-up is based on a [talk](https://youtu.be/NkgErrMXuIk?si=vrccSYpwruI1DK3J) given at Cypherpunk Congress, Devconnect in Buenos Aires, November, 2025.*

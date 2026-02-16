@@ -3,8 +3,15 @@ layout: post
 title: "Building Private Bonds on Ethereum - Part 3"
 date: 2026-02-12 09:00:00 +0100
 author: "Yanis"
-hero_image: /assets/images/2026-01-16-building-private-bonds-on-ethereum/building_private_bonds_on_ethereum.png
+image: /assets/images/2026-01-16-building-private-bonds-on-ethereum/building_private_bonds_on_ethereum.png
 description: "Exploring Fully Homomorphic Encryption as a path to confidential institutional bonds on Ethereum, the third approach in our Private Bond PoC series."
+tags:
+  - private-bonds
+  - FHE
+  - fully-homomorphic-encryption
+  - zama
+  - ethereum
+  - proof-of-concept
 ---
 
 _This is Part 3 of our Private Bond proof-of-concept series. In [Part 1](/building-private-bonds-on-ethereum/) we explored Custom UTXOs, in [Part 2](/private-bonds-on-privacy-l2s/) we covered Privacy L2s with Aztec. Now we examine a fundamentally different approach: Fully Homomorphic Encryption._

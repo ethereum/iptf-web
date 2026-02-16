@@ -1,17 +1,45 @@
 theme: minima
 title: IPTF
-description: Institutional Privacy Task Force
+tagline: Privacy infrastructure for institutional Ethereum adoption
+description: >-
+  The Institutional Privacy Task Force (IPTF) is a dedicated team that helps onboard institutions and enterprises onto Ethereum, with a focus on ensuring their privacy needs are met in a performant, secure, usable, and accessible way.
 
 # Blog settings
 permalink: /:title/
 show_excerpts: true
+exclude:
+  - CLAUDE
+  - README.md
+  - serve.sh
+  - CLAUDE.md
 
 # Social/SEO
 url: "https://iptf.ethereum.org"
+lang: en
+
+author:
+  name: IPTF
+  url: https://iptf.ethereum.org
+
 twitter:
+  username: iptf_updates
   card: summary_large_image
+
+social:
+  name: Institutional Privacy Task Force
+  links:
+    - https://x.com/iptf_updates
+    - https://github.com/ethereum/iptf-map
 
 # Plugins
 plugins:
   - jekyll-feed
   - jekyll-seo-tag
+  - jekyll-sitemap
+
+# Default frontmatter values
+defaults:
+  - scope:
+      path: ""
+    values:
+      image: /assets/images/default.png

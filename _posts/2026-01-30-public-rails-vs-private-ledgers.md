@@ -4,7 +4,12 @@ title: "Public Rails vs Private Ledgers"
 description: "An institutional decision framework for choosing between public blockchains with cryptographic privacy and private ledgers with trust-based privacy."
 date: 2026-01-30
 author: "Oskar"
-hero_image: /assets/images/2026-01-30-public-rails-vs-private-ledgers/public_rails_vs_private_ledgers_hero.jpg
+image: /assets/images/2026-01-30-public-rails-vs-private-ledgers/public_rails_vs_private_ledgers_hero.jpg
+tags:
+  - institutional-privacy
+  - decision-framework
+  - public-vs-private
+  - ethereum
 ---
 
 *An institutional decision framework*

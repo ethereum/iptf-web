@@ -4,7 +4,14 @@ title: "Building Private Bonds on Ethereum - Part 2"
 description: "Part 2 of our private bonds series: we rebuild the same protocol on Aztec, where notes, nullifiers, and ZK proofs are handled by the network itself. 200 lines of Noir replace three separate components."
 date: 2026-02-05 09:00:00 +0100
 author: "Yanis"
-hero_image: /assets/images/2026-01-16-building-private-bonds-on-ethereum/building_private_bonds_on_ethereum.png
+image: /assets/images/2026-01-16-building-private-bonds-on-ethereum/building_private_bonds_on_ethereum.png
+tags:
+  - private-bonds
+  - privacy-L2
+  - aztec
+  - noir
+  - ethereum
+  - proof-of-concept
 ---
 
 In [Part 1](/building-private-bonds-on-ethereum/), we built private zero-coupon bonds from scratch on Ethereum. The result worked, but required three distinct components: a Noir circuit for ZK proofs, a Solidity contract for on-chain state, and a Rust wallet for key management and proof generation. We also needed a trusted relayer (the issuer) to coordinate transactions and prevent frontrunning.
