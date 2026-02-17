@@ -23,14 +23,26 @@ The implementation is [open source](https://github.com/ethereum/iptf-pocs/pull/1
 
 ## Plasma, Revived
 
-In 2017, Vitalik Buterin and Joseph Poon proposed [plasma](https://ethereum.org/developers/docs/scaling/plasma/) as a scaling solution where child chains post only block headers to Ethereum L1. The promise: massive throughput at minimal on-chain cost. Several variants followed, including Plasma MVP and Plasma Cash, each attempting different tradeoffs on data structure and exit complexity.
+Plasma was [proposed in 2017](https://ethereum.org/developers/docs/scaling/plasma/) as a scaling solution where child chains post only block headers to Ethereum L1. Several variants followed (Plasma MVP, Plasma Cash), but none succeeded. The core problem was data availability: if the operator withheld transaction data, users could not prove their balances to exit safely. Optimistic rollups solved this by posting full transaction data on-chain; Validiums post validity proofs instead, but still publish enough state data for users to reconstruct balances independently. Both approaches effectively replaced plasma for general computation.
 
-None succeeded. The core problem was data availability: if the operator withheld transaction data, users could not prove their balances to exit safely. The resulting "exit game," a challenge-response protocol for disputed withdrawals, was complex, slow, and UX-hostile. Rollups solved data availability differently by posting full transaction data on-chain, and effectively replaced plasma for general computation.
+[Intmax2](https://eprint.iacr.org/2025/021) revives the idea by removing the data availability requirement entirely. The block builder is stateless: it aggregates transaction hashes into a Merkle tree, posts the root on-chain, and discards the data. If the builder disappears, users still hold everything they need to prove their balances and withdraw. Recursive ZK proofs ([Plonky2](https://github.com/0xPolygonZero/plonky2)) replace the old exit game: users prove their balance cryptographically instead of relying on challenge-response disputes. 
 
+## Architecture
 
-**ZK-plasma** is a scaling architecture where transaction execution happens entirely off-chain, with only compact cryptographic commitments posted to Ethereum. Users hold their own balance proofs locally and can withdraw funds at any time by presenting a zero-knowledge proof of their balance, without relying on any operator to store or reveal transaction data.
+![Architecture](/assets/images/2026-02-26-private-stablecoins-with-plasma/architecture.png)
 
-[Intmax2](https://eprint.iacr.org/2025/021) revives plasma by removing the data availability requirement entirely. Instead of relying on the operator to store and reveal data, each user holds their own balance proof locally. The operator (called a block builder) is stateless: it aggregates transaction hashes into a Merkle tree, posts the root on-chain with an aggregated BLS signature, and discards the data. If the operator disappears, users still hold everything they need to prove their balances and withdraw. Recursive ZK proofs ([Plonky2](https://github.com/0xPolygonZero/plonky2)) replace the old exit game: users prove their balance cryptographically instead of relying on challenge-response disputes.
+- **Institution**: holds keys locally, initiates deposits, transfers, and withdrawals
+- **Store Vault**: encrypted off-chain storage where senders publish transaction data for recipients to retrieve
+- **Balance Prover**: generates ZK proofs for client operations (spend, send, receive, withdraw)
+- **Validity Prover**: monitors on-chain events, maintains Merkle trees, generates validity proofs for block state transitions
+- **Withdrawal Server**: validates withdrawal requests, aggregates proofs, relays to the Withdrawal contract
+- **Block Builder**: collects transaction hashes, aggregates BLS signatures, posts blocks to the Rollup contract
+- **Liquidity Contract (L1)**: holds deposited tokens, relays deposits to L2, releases tokens on withdrawal claims
+- **Rollup Contract (L2)**: stores block commitments, manages the deposit Merkle tree
+- **Withdrawal Contract (L2)**: verifies withdrawal proofs, relays claims to L1
+- **Relayer**: Cross chain messaging service
+
+Each component is pluggable: the proof backend, storage layer, and contract interaction can be replaced independently.
 
 ## How Private Transfers Work
 
@@ -68,10 +80,6 @@ Withdrawals convert a private plasma balance back to public L1 tokens. The user 
 
 *Withdrawal flow: the user proves their balance via a ZK proof and claims tokens on L1.*
 
-## Developer Experience
-
-The Intmax2 Rust SDK has clean API boundaries between proof generation, balance tracking, and encrypted store vault backup. Each component is pluggable: the proof backend, storage layer, and contract interaction can be replaced independently. The deposit-transfer-withdraw cycle runs without requiring the developer to touch recursive proof internals or key management directly.
-
 ## Self-Hosted vs. Public Network
 
 Intmax2 supports two deployment models: a private instance where the institution controls all infrastructure, or the public Intmax network where the protocol team operates block builders and store vaults.
@@ -86,23 +94,23 @@ Intmax2 supports two deployment models: a private instance where the institution
 
 For a pilot or proof-of-concept, the public network minimizes operational overhead. For production deployments with regulatory obligations, where the institution needs to control who can transact, what compliance rules apply, and how data is stored, a private instance provides that control at the cost of running and maintaining the full infrastructure stack.
 
-## Compliance and Threat Model
+## Compliance Properties
 
-Privacy here enables compliance, not the opposite:
+The design maps each privacy mechanism to a specific regulatory obligation:
 
 - **Attestation-gated entry.** Deposits require a ZK proof of KYC verification before funds enter the system, supporting obligations under the Bank Secrecy Act and [MiCA](https://www.esma.europa.eu/esmas-activities/digital-finance-and-innovation/markets-crypto-assets-regulation-mica)'s stablecoin provisions.
 - **Selective disclosure.** Viewing keys give regulators read-only access to a specific participant's full transaction history without exposing other users, supporting [GDPR](https://gdpr-info.eu/art-25-gdpr/)'s data minimization principle.
 - **Separated authority.** The dual-key architecture (spending key for transfers, viewing key for audits) maps directly to how banks separate operational authority from audit access.
 - **Travel Rule support.** The store vault's encrypted data model enables counterparty information sharing between institutions as required by [FATF Recommendation 16](https://www.fatf-gafi.org/en/publications/Fatfrecommendations/update-Recommendation-16-payment-transparency-june-2025.html), without exposing that data to public observers.
 
-The threat model in brief:
+## Threat Model
 
 - **Public observer:** sees block commitments, sender public keys, and deposit/withdrawal amounts; cannot link senders to recipients or determine transfer amounts within a block.
 - **Malicious block builder:** can delay or censor transactions but cannot steal funds or read transaction contents. Users can switch builders or run their own.
 - **Compromised store vault:** operator learns access patterns (who queries when) but cannot decrypt data.
 - **Compromised viewing key:** leaks one user's full history without granting spending authority.
 
-The [specification](https://github.com/ethereum/iptf-pocs/tree/main/pocs/private-payment/plasma/SPEC.md) documents mitigations for each adversary class in detail.
+The [specification](https://github.com/ethereum/iptf-pocs/tree/master/pocs/private-payment/plasma/SPEC.md) documents mitigations for each adversary class in detail.
 
 ## Limitations
 
@@ -124,8 +132,8 @@ None of these are fundamental blockers. Each has a known mitigation path, but th
 
 ## What Comes Next
 
-On the proving layer, [PlasmaBlind](https://pse.dev/mastermap/ptr) is an emerging alternative to the traditional recursive SNARK approach used here. Built on [folding schemes](https://sonobe.pse.dev/) (IVC-based recursion) instead of Plonky2, it is under active R&D by PSE and offers efficiency improvements to the balance proof pipeline.
-
 Private transfers are one layer of an institutional payment pipeline. Upcoming posts will tackle the pieces that connect transfers to real-world payment infrastructure: messaging standards like [ISO 20022](https://www.iso20022.org/) for structured payment data, off-chain coordination for settlement finality, and the full end-to-end pipeline from payment initiation to settlement confirmation.
 
-The implementation is [open source](https://github.com/ethereum/iptf-pocs/pull/19). The [specification](https://github.com/ethereum/iptf-pocs/tree/main/pocs/private-payment/plasma/SPEC.md) covers every protocol flow, data structure, and security consideration in detail. The [use case](https://github.com/ethereum/iptf-map/blob/master/use-cases/private-stablecoins.md) and [approach](https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-payments.md) documents on the IPTF Map provide additional context. Pull requests are welcome.
+On the proving layer, [PlasmaBlind](https://pse.dev/mastermap/ptr) is an emerging alternative that uses [folding-scheme-based IVC](https://sonobe.pse.dev/) rather than Plonky2's recursive SNARKs for the balance proof pipeline. It is under active R&D by PSE.
+
+The implementation is [open source](https://github.com/ethereum/iptf-pocs/pull/19). The [specification](https://github.com/ethereum/iptf-pocs/tree/master/pocs/private-payment/plasma/SPEC.md) covers every protocol flow, data structure, and security consideration in detail. The [use case](https://github.com/ethereum/iptf-map/blob/master/use-cases/private-stablecoins.md) and [approach](https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-payments.md) documents on the IPTF Map provide additional context. Pull requests are welcome.
