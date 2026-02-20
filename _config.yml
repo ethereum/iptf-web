@@ -19,6 +19,7 @@ exclude:
 
 # Social/SEO
 url: "https://iptf.ethereum.org"
+baseurl: ""
 repository: ethereum/iptf-web
 lang: en
 
