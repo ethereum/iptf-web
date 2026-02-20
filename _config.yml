@@ -15,6 +15,7 @@ exclude:
   - map
   - content
   - node_modules
+  - vendor
 
 # Social/SEO
 url: "https://iptf.ethereum.org"
