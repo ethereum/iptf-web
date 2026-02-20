@@ -1,0 +1,47 @@
+name: Deploy site
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      # Build Astro map
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: map/package-lock.json
+      - run: npm ci
+        working-directory: map
+      - run: npm run build
+        working-directory: map
+
+      # Build Jekyll site
+      - uses: actions/setup-ruby@v1
+        with:
+          ruby-version: '3.1'
+      - run: bundle install
+      - run: bundle exec jekyll build
+
+      # Merge: copy Astro output into Jekyll output
+      - run: cp -r map/dist _site/map
+
+      # Deploy
+      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/deploy-pages@v4
