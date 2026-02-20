@@ -6,7 +6,7 @@
  * a graph.json file with nodes (content items) and edges (cross-references).
  */
 
-import { readFileSync, writeFileSync, readdirSync, existsSync } from 'fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync, mkdirSync } from 'fs';
 import { join, relative, basename, dirname } from 'path';
 
 // ---------------------------------------------------------------------------
@@ -303,6 +303,7 @@ export function buildGraph(repoRoot = REPO_ROOT) {
 const isMain = process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'));
 if (isMain) {
   const graph = buildGraph();
+  mkdirSync(dirname(OUTPUT_PATH), { recursive: true });
   writeFileSync(OUTPUT_PATH, JSON.stringify(graph, null, 2));
   console.log(`Graph built: ${graph.meta.node_count} nodes, ${graph.meta.edge_count} edges`);
   console.log(`Written to: ${OUTPUT_PATH}`);
