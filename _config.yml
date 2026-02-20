@@ -12,6 +12,9 @@ exclude:
   - README.md
   - serve.sh
   - CLAUDE.md
+  - map
+  - content
+  - node_modules
 
 # Social/SEO
 url: "https://iptf.ethereum.org"
