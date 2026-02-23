@@ -109,7 +109,7 @@ The design maps each privacy mechanism to a specific regulatory obligation:
 
 ## Threat Model
 
-- **Public observer:** sees block commitments, sender public keys, and deposit/withdrawal amounts; cannot link senders to recipients or determine transfer amounts within a block.
+- **Public observer:** sees block commitments, sender public keys, and deposit/withdrawal amounts; cannot link senders to recipients or determine transfer amounts within a block. Repeated participation across blocks reveals activity frequency.
 - **Malicious block builder:** can delay or censor transactions but cannot steal funds or read transaction contents. Users can switch builders or run their own.
 - **Compromised store vault:** operator learns access patterns (who queries when) but cannot decrypt data.
 - **Compromised viewing key:** leaks one user's full history without granting spending authority.
