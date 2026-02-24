@@ -134,6 +134,10 @@ This PoC demonstrates the full deposit-transfer-withdraw flow against a live tes
 
 None of these are fundamental blockers. Each has a known mitigation path, but they are real constraints for any institution evaluating this approach today.
 
+## Related Work
+
+The idea of replacing Plasma's fraud proofs with SNARKs has been explored since 2018. [Plasma Snapp](https://ethresear.ch/t/plasma-snapp-fully-verified-plasma-chain/3391) proposed a fully SNARK-verified Plasma chain, eliminating exit games and confirmation signatures entirely. [Quark-Gluon Plasma](https://ethresear.ch/t/quark-gluon-plasma-verified-plasma-chain-without-confirmation-signatures/3453) took an account-based approach, using zkSNARKs to prove state transitions over sparse Merkle trees. [NOCUST-ZKP](https://eprint.iacr.org/2018/642) extended commit-chains with zkSNARK-verified operator state, reaching production in 2019. Matter Labs contributed [non-inclusion zkSNARKs](https://ethresear.ch/t/non-inclusion-zksnark-for-plasma-cash-and-cashflow-history-compaction/4543) for compressing Plasma Cash history proofs via RSA accumulators. These proposals predated the proving infrastructure needed to make client-side ZK practical, but they established the core insight that Intmax2 and similar protocols now build on.
+
 ## What Comes Next
 
 Private transfers are one layer of an institutional payment pipeline. Upcoming posts will tackle the pieces that connect transfers to real-world payment infrastructure: messaging standards like [ISO 20022](https://www.iso20022.org/) for structured payment data, off-chain coordination for settlement finality, and the full end-to-end pipeline from payment initiation to settlement confirmation.
