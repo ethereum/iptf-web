@@ -1,9 +1,7 @@
 ---
 layout: post
-title: "Private Crosschain Atomic Swaps with TEEs (Part 1 of 2)"
-description: "How to build atomic delivery-versus-payment across two chains while hiding
-amounts, prices, and counterparty identities. Part 1 covers the protocol: shielded
-UTXO notes, stealth addresses, and a TEE as the coordination point."
+title: "Private Crosschain Atomic Swaps (Part 1 of 2)"
+description: "How to build atomic delivery-versus-payment across two chains while hiding amounts, prices, and counterparty identities. Part 1 covers the protocol: shielded UTXO notes, stealth addresses, and the coordination problem."
 date: 2026-02-05 10:00:00 +0100
 author: "Yanis"
 image: /assets/images/default.png
@@ -12,7 +10,6 @@ tags:
   - crosschain
   - shielded-pools
   - stealth-addresses
-  - TEE
   - proof-of-concept
 ---
 
@@ -30,9 +27,7 @@ But institutions do not live on one chain. Tokenized securities may sit on Ether
 
 On a single chain, atomicity comes from the EVM's execution model: every transaction is processed against a single shared state. Either all state changes apply or none do. The network enforces this guarantee.
 
-Across two chains, there is no shared state. Each network has its own ledger, its own finality, its own mempool. A transaction on Network 1 is invisible to Network 2 until something explicitly bridges the information. And that bridge is where trust creeps back in.
-
-The fundamental challenge is _finality_. For a settlement to be atomic, both legs must finalize, or both must revert. But on two separate chains, finality is not coordinated. A transaction on one chain can finalize while the corresponding transaction on the other is still pending, fails, or gets reorganized away.
+Rollups share L1 as common anchor but that gives you a read relationship, not execution atomicity. A chain can observe what happened on another chain, after finality, but it cannot condition its own state changes on whether a transaction elsewhere finalizes. One leg always settles first. The party that moves second always has the option to defect. Real-time ZK proving of EVM execution may eventually change this — a chain that can verify another's state transition as it happens could in principle condition its own execution on it — but that is not available today.
 
 ### Existing approaches
 
@@ -40,7 +35,7 @@ The fundamental challenge is _finality_. For a settlement to be atomic, both leg
 
 **Trusted bridges** move one asset to the other chain and do the swap locally. They work, but they reintroduce custodial risk: the bridge operator holds your assets during transit. Custody is exactly what institutions were trying to eliminate by settling on-chain.
 
-**Optimistic bridges** reduce trust with fraud proofs, but introduce long finality windows (hours to days) that are incompatible with institutional settlement timelines.
+**Optimistic bridges** reduce trust with fraud proofs, but their seven-day challenge window is longer than the T+2 standard they were meant to improve on.
 
 None of these approaches combine atomicity with privacy. In all of them, trade terms are visible to every observer: amounts, prices, counterparty addresses, timing.
 
@@ -50,13 +45,13 @@ None of these approaches combine atomicity with privacy. In all of them, trade t
 
 In a [previous post](/building-private-transfers-on-ethereum/) we built shielded pools for private stablecoin payments on Ethereum: commitments to notes in a Merkle tree, nullifiers for double-spend prevention, ZK proofs that verify ownership without revealing it. In the UTXO model, assets are discrete private _notes_, not public account balances. A note's contents (amount, owner, asset type) are hidden behind a commitment hash. Only the holder of the spending key can prove ownership.
 
-This model has a property the account model lacks: ownership conditions can be arbitrarily complex. A note's owner does not have to be a single key. It can be a time-locked dual-path condition: _this key can claim immediately, or this other key can claim after a timeout_. The EVM account model has no native equivalent. Notes are not tethered to the account abstraction at all.
+The UTXO model has a property the account model lacks: it is not tied to EVM accounts or direct contract state changes. In the account model, moving funds requires an ECDSA signature the chain validates against a known address — everyone sees who moved what, and for crosschain settlement you would need to verify the state of both asset contracts across two networks.
 
-The question is whether we can use this richer ownership model to build crosschain atomic settlement. A note is just a commitment with an associated spending condition, and spending conditions can encode whatever logic we need.
+The UTXO model sidesteps this entirely. There are no balances in contracts, only note commitments. A transfer is not a state change in a ledger — it is a change of control over a note. The chain never sees the identity, the amount, or the key.
+
+This reframes the crosschain problem. Instead of coordinating state changes across two networks, the question becomes: how do you atomically swap control of two notes — one on each chain — without either party being able to claim one before the other, or spend the same note twice?
 
 The protocol starts from a symmetric setup: a shielded UTXO pool on each network, one for each asset being exchanged.
-
-![Two shielded pools](/assets/images/2026-03-05-private-crosschain-swap-part-1/2-shielded-pools.png)
 
 Alice holds USD notes on Network 1. Bob holds bond notes on Network 2. They want to swap: Alice pays USD, Bob delivers bonds, atomically and privately. Each party will lock a note for the counterparty on their home chain.
 
@@ -76,35 +71,19 @@ Note {
 
 The `fallbackOwner` and `timeout` fields will make sense once we explain what can go wrong. For now, the question is how Alice and Bob claim each other's locked note.
 
-### The coordination problem
+### Memos and the limits of direct exchange
 
-In the single-chain shielded pool protocol, after a private transfer the sender attaches an encrypted memo: the note's contents encrypted for the recipient's viewing key. The recipient scans on-chain events, decrypts memos, and discovers their new notes.
+In the single-chain shielded pool protocol, after a private transfer the sender attaches an encrypted memo: the note's contents encrypted for the recipient's viewing key. The recipient scans on-chain events, decrypts memos, and discovers their new notes. The sender reveals the note's details directly to the recipient, and no one else.
 
-A natural extension to crosschain swaps: Alice locks a note for Bob on Network 1 and sends him an encrypted memo with the salt. Bob locks a note for Alice on Network 2 and sends her an encrypted memo with his salt. Each party needs the other's salt to reconstruct the commitment and generate a claim proof.
+The trivial approach for crosschain swaps: Alice locks a note for Bob on Network 1 and attaches an encrypted memo with the salt. Bob does the same for Alice on Network 2. Each party reconstructs the other's note from the memo and submits a claim proof.
 
-But there is a fatal coordination problem. For Alice to claim the bond note on Network 2, she needs Bob's salt. For Bob to claim the USD note on Network 1, he needs Alice's salt. They each need to reveal a secret to let the other claim. This is exactly the HTLC problem in another form: one party always moves second.
+But memos don't enforce atomicity. The sender is making a one-way transfer, not conditioning their payment on receiving something back. In an atomic swap, Alice needs assurance that Bob's note is locked and claimable before she reveals the details of hers. Memos give no such guarantee. Each party reveals independently, and one always moves first. If Alice's memo goes out before Bob's, Bob can claim Alice's USD note and then walk away without ever locking the bond note.
 
-If Alice reveals her salt first, Bob can claim the USD immediately, and then choose whether to reveal his salt for Alice to claim the bond. He can defect. If Bob reveals first, Alice has the same option. No cryptographic primitive can force two parties to commit to opening secrets at the same instant across two separate networks with no shared clock. You need a coordination mechanism.
-
-### A coordinator that cannot steal
-
-A Trusted Execution Environment (TEE) is a hardware-isolated process: the operator of the machine it runs on cannot read its memory or alter its code. The enclave runs a specific, auditable program and produces an attestation (a cryptographic certificate) that any third party can verify to confirm the expected code is running. Part 2 goes deep on how attestation works and what its real limits are. For now, treat it as a black box: a process whose behavior is determined by its code, not by whoever deployed it.
-
-This makes a TEE a good Schelling point. Both parties can agree to use it without trusting the operator, because the attested code is the contract.
-
-The obvious first use: both parties encrypt their salts for the TEE, the TEE decrypts both, verifies that the locked notes match the agreed terms on-chain, and delivers each party's salt to the other. Simultaneous revelation, no intermediary.
-
-But this has a serious flaw. If Alice sends her note's salt to the TEE, the TEE has everything it needs to compute the nullifier and generate a claim proof. It can spend Alice's note itself. The shielded pool's guarantee is that only the spending key holder can spend a note. We cannot weaken that by handing anyone the spending secret, even an attested enclave.
-
-The TEE can coordinate, but it must not be able to steal.
+What we need is a way for Alice to lock a note that _only_ Bob can spend, without revealing his identity on-chain. Then the remaining question is: how do both parties learn each other's claim secrets at the same time?
 
 ### Stealth addresses
 
-The insight that unblocks this is stealth addresses.
-
-Instead of locking notes to the counterparty's known spending key, each party locks their note to a fresh _one-time address_ that only the counterparty can derive, and that the TEE can publish without being able to use.
-
-Each participant has two key pairs: a long-lived meta key pair `(sk_meta, pk_meta)` that is published, and a one-time ephemeral key pair generated per swap. The sender generates `(r, R = r·G)` and computes a shared secret with the counterparty's meta public key via ECDH:
+Each participant has a long-lived meta key pair `(sk_meta, pk_meta)` that is published. To lock a note for a counterparty, the sender generates a fresh ephemeral key pair `(r, R = r·G)` and computes a shared secret via ECDH:
 
 ```
 shared_secret = r · pk_meta_counterparty
@@ -118,56 +97,57 @@ shared_secret = sk_meta · R        // R is public; sk_meta is secret
 sk_stealth    = sk_meta + H("stealth", shared_secret)
 ```
 
-The sender publishes `R` (the ephemeral public key) and a salt encrypted for the counterparty. The counterparty uses `R` and their `sk_meta` to derive the stealth spending key and decrypt the salt. No one else can.
+To claim, the counterparty needs two things: the ephemeral public key `R` and the salt used to construct the note commitment. With `R` and `sk_meta`, they derive `sk_stealth`. With the salt, they reconstruct the full note and generate a claim proof.
 
-The construction is symmetric: Alice generates `(r_A, R_A)`, computes `pk_stealth_B` from Bob's meta-key, and locks her USD note with `owner = pk_stealth_B` on Network 1. Bob does the same on Network 2 for Alice. Neither can claim the other's note directly: Alice does not have `sk_meta_B`, Bob does not have `sk_meta_A`.
+The construction is symmetric. Alice generates `(r_A, R_A)`, computes `pk_stealth_B` from Bob's meta-key, and locks her USD note with `owner = pk_stealth_B` on Network 1. Bob does the same on Network 2 for Alice. Neither can claim the other's note directly: Alice does not have `sk_meta_B`, Bob does not have `sk_meta_A`.
 
-Both parties then send the TEE `R_A`, `R_B`, and the encrypted salts. The TEE verifies that the two locked notes match the agreed swap terms on-chain, then publishes all four values in a single atomic transaction to the announcement contract.
+### The coordination problem
 
-What the TEE reveals is only public keys and ciphertexts: `R_A` and `R_B` are random curve points, the encrypted salts are random-looking byte strings. The TEE cannot derive `sk_stealth_A` or `sk_stealth_B` because those require `sk_meta_A` and `sk_meta_B`, which were never shared with anyone.
+Both notes are now locked to stealth addresses. For Alice to claim the bond note on Network 2, she needs Bob's ephemeral public key `R_B` and his salt. For Bob to claim the USD note on Network 1, he needs Alice's `R_A` and her salt. Each party must reveal a secret to let the other claim.
 
-The worst the TEE can do is _refuse to publish_. It cannot steal. Push it further: assume a hardware manufacturer reads its memory. They see asset types, amounts, timing, and two meta public keys. Still no spending keys, still no way to move funds. And since `owner` is a private input to the ZK circuit, those key pairs have no on-chain footprint. What leaks is trade terms between two pseudonymous identifiers. Not nothing, but not actionable. Part 2 covers the full threat model: what hardware attestation actually proves, where it falls short, and what a multi-TEE setup adds.
+If Alice reveals first, Bob can claim the USD immediately, then choose whether to reveal his own values for Alice to claim the bond. He can defect. If Bob reveals first, Alice has the same option. This is the HTLC problem in another form: one party always moves second.
 
-The full protocol now has a third on-chain component: the announcement contract.
-
-![Two shielded pools and TEE announcement contract](/assets/images/2026-03-05-private-crosschain-swap-part-1/2-shielded-pools-and-TEE.png)
-
-Once the announcement is published, both parties read it, derive their stealth spending keys, reconstruct the note details from the decrypted salt, and submit claim proofs to their respective shielded pools. The protocol is symmetric: neither can claim without the announcement; once it is public, both can.
-
-Atomicity holds because the TEE's announcement transaction is itself atomic. Both ephemeral keys are published together or not at all. Before the announcement, both notes are locked to stealth addresses that no one can spend. After it, both parties have everything they need.
+No cryptographic primitive can force two parties to reveal secrets simultaneously across two separate networks with no shared clock. You need a coordination mechanism.
 
 ### Fallback and timeout
 
-This is where `fallbackOwner` and `timeout` come in. If the TEE never publishes (because the enclave crashed, went offline, or was censored), both parties need a way to reclaim their locked notes.
+Before solving coordination, there is a simpler question: what happens if coordination never succeeds?
 
-Each note carries the original sender as `fallbackOwner` and a `timeout` timestamp. After the timeout, the sender can spend the note back to themselves using the fallback path, without needing the TEE or the counterparty's cooperation. The TEE also validates that both timeouts match and are set to a reasonable window (typically 48 hours) before proceeding.
+This is where `fallbackOwner` and `timeout` come in. Each note carries the original sender as `fallbackOwner` and a `timeout` timestamp. After the timeout, the sender can spend the note back to themselves using the fallback path, without needing the counterparty or any coordinator.
 
 The protocol always terminates in one of two outcomes: both parties receive the other's asset, or both receive their own back. There is no stuck state, no capital locked indefinitely.
 
-The fallback is symmetric by construction. If the TEE reveals, both parties can claim. If it does not reveal before the timeout, both refund. The TEE cannot selectively reveal one leg and withhold the other: the announcement contract requires both ephemeral keys together.
-
 ## How the pieces fit
 
-The full data structure of the protocol:
+The protocol needs a coordinator: something that receives the claim secrets from both parties, verifies the swap terms, and reveals everything at once.
+
+What does the coordinator need to get right? It must publish both ephemeral keys and encrypted salts atomically — both or neither — with no ability to selectively reveal one leg. Stealth addresses keep it non-custodial: even with access to everything submitted, it cannot derive either party's spending key. Both parties must be able to verify, before handing over their secrets, that the coordinator's code does what it claims. And the failure mode must be bounded: the worst it can do is refuse to act, which triggers the timeout and lets both parties reclaim.
+
+The full protocol flow:
+
+1. Alice and Bob agree on swap terms off-chain (amounts, assets, timeout window).
+2. Alice locks a USD note to `pk_stealth_B` on Network 1. Bob locks a bond note to `pk_stealth_A` on Network 2.
+3. Both submit their ephemeral keys and encrypted salts to the coordinator.
+4. The coordinator verifies both locked notes match the agreed terms on-chain.
+5. The coordinator publishes `R_A`, `R_B`, and the encrypted salts to an announcement contract — atomically.
+6. Both parties read the announcement, derive their stealth spending keys, reconstruct the note, and claim.
+
+If step 5 never happens, the timeout expires and both parties reclaim via the fallback path.
 
 | Component                 | Description                                                                            |
 | ------------------------- | -------------------------------------------------------------------------------------- |
 | Shielded pool (Network 1) | Commitments and nullifiers for stablecoin notes                                        |
 | Shielded pool (Network 2) | Commitments and nullifiers for bond token notes                                        |
-| Announcement contract     | Records the TEE's atomic revelation                                                    |
+| Announcement contract     | Records the coordinator's atomic revelation                                            |
 | Note                      | `{chainId, value, assetId, owner (stealth addr), fallbackOwner, timeout, salt}`        |
-| TEE                       | Verifies both locked legs on-chain; publishes `R_A`, `R_B`, encrypted salts atomically |
+| Coordinator               | Verifies both locked legs on-chain; publishes `R_A`, `R_B`, encrypted salts atomically |
 
 What the protocol hides: amounts, asset types, counterparty identities, the link between the two locked notes.
 
 What the protocol leaks: that a time-locked note exists on each chain, and approximately when the swap window closes. After settlement, both parties can spend their claimed notes into fresh standard notes to rejoin the general anonymity set.
 
-Each component has one job: ZK circuits verify note formation and ownership, shielded pools prevent double-spending, and the TEE makes revelation atomic across chains. These are independent concerns handled by independent mechanisms.
+Each component has one job: ZK circuits verify note formation and ownership, shielded pools prevent double-spending, and the coordinator makes revelation atomic across chains.
 
-For an interactive walkthrough of the full protocol flow — from setup through lock, TEE verification, atomic reveal, and claim/refund — see the [TEE Swap Protocol visual guide](/tee-protocol-page).
-
----
-
-In [Part 2](/private-crosschain-atomic-swaps-tee-part-2/), we go inside the TEE. What does attestation actually prove? What are the real attack surfaces? Why AWS Nitro? We'll work through the threat model and walk through what the demo logs show.
+The coordinator is the only component not yet specified. It could be built from a Trusted Execution Environment, a multi-party computation protocol, or fully homomorphic encryption — each with different trust assumptions and performance trade-offs. In [Part 2](/private-crosschain-atomic-swaps-tee-part-2/), we pick one: a TEE running in AWS Nitro Enclaves. We go inside the enclave, examine what attestation actually proves, work through the real attack surfaces, and walk through what the demo logs show.
 
 The full implementation is open source, with a detailed [specification](https://github.com/ethereum/iptf-pocs/tree/main/pocs/approach-private-trade-settlement/tee_swap/SPEC.md).
