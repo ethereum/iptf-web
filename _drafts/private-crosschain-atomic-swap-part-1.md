@@ -55,19 +55,9 @@ The protocol starts from a symmetric setup: a shielded UTXO pool on each network
 
 Alice holds USD notes on Network 1. Bob holds bond notes on Network 2. They want to swap: Alice pays USD, Bob delivers bonds, atomically and privately. Each party will lock a note for the counterparty on their home chain.
 
-The core note structure is the same as the single-chain protocol (commitment, nullifier, owner key, salt), with two additions we will come back to:
+The core note structure is the same as the single-chain protocol (commitment, nullifier, owner key, salt), with two additions — `fallbackOwner` and `timeout` — that we will come back to:
 
-```
-Note {
-    chainId:       uint256   // Binds the note to a specific network
-    value:         uint64    // Amount
-    assetId:       bytes32   // USD, BOND, etc.
-    owner:         bytes32   // Primary spending key
-    fallbackOwner: bytes32   // Original sender (refund path)
-    timeout:       uint256   // When the fallback becomes valid
-    salt:          bytes32   // Blinding factor
-}
-```
+![Note fields are hashed into a commitment stored on-chain; spending reveals a nullifier that prevents double-spending](/assets/images/2026-03-05-private-crosschain-swap-part-1/diagram-3-note-structure.png)
 
 The `fallbackOwner` and `timeout` fields will make sense once we explain what can go wrong. For now, the question is how Alice and Bob claim each other's locked note.
 
@@ -83,27 +73,29 @@ What we need is a way for Alice to lock a note that _only_ Bob can spend, withou
 
 ### Stealth addresses
 
-Each participant has a long-lived meta key pair `(sk_meta, pk_meta)` that is published. To lock a note for a counterparty, the sender generates a fresh ephemeral key pair `(r, R = r·G)` and computes a shared secret via ECDH:
+Each participant has a long-lived meta key pair `(meta_sk, meta_pk)` that is published. To lock a note for a counterparty, the sender generates a fresh ephemeral key pair `(eph_sk, eph_pk)` (conventionally written `r, R = r·G`) and computes a shared secret via ECDH:
 
 ```
-shared_secret = r · pk_meta_counterparty
-pk_stealth    = pk_meta_counterparty + H("stealth", shared_secret) · G
+shared_secret = eph_sk · meta_pk_counterparty
+stealth_pk    = meta_pk_counterparty + H("stealth", shared_secret) · G
 ```
 
-The stealth address `pk_stealth` is a one-time public key. An observer on-chain cannot link it back to `pk_meta_counterparty`. Only the holder of `sk_meta` can derive the corresponding spending key:
+The stealth address `stealth_pk` is a one-time public key. An observer on-chain cannot link it back to `meta_pk_counterparty`. Only the holder of `meta_sk` can derive the corresponding spending key:
 
 ```
-shared_secret = sk_meta · R        // R is public; sk_meta is secret
-sk_stealth    = sk_meta + H("stealth", shared_secret)
+shared_secret = meta_sk · eph_pk        // eph_pk is public; meta_sk is secret
+stealth_sk    = meta_sk + H("stealth", shared_secret)
 ```
 
-To claim, the counterparty needs two things: the ephemeral public key `R` and the salt used to construct the note commitment. With `R` and `sk_meta`, they derive `sk_stealth`. With the salt, they reconstruct the full note and generate a claim proof.
+To claim, the counterparty needs two things: the ephemeral public key `eph_pk` and the salt used to construct the note commitment. With `eph_pk` and `meta_sk`, they derive `stealth_sk`. With the salt, they reconstruct the full note and generate a claim proof.
 
-The construction is symmetric. Alice generates `(r_A, R_A)`, computes `pk_stealth_B` from Bob's meta-key, and locks her USD note with `owner = pk_stealth_B` on Network 1. Bob does the same on Network 2 for Alice. Neither can claim the other's note directly: Alice does not have `sk_meta_B`, Bob does not have `sk_meta_A`.
+![Sender derives stealth_pk from ephemeral key and recipient's meta_pk; recipient recovers stealth_sk from published eph_pk and own meta_sk](/assets/images/2026-03-05-private-crosschain-swap-part-1/diagram-2-stealth-derivation.png)
+
+The construction is symmetric. Alice generates `(eph_sk_A, eph_pk_A)`, computes `stealth_pk_B` from Bob's meta-key, and locks her USD note with `owner = stealth_pk_B` on Network 1. Bob does the same on Network 2 for Alice. Neither can claim the other's note directly: Alice does not have `meta_sk_B`, Bob does not have `meta_sk_A`.
 
 ### The coordination problem
 
-Both notes are now locked to stealth addresses. For Alice to claim the bond note on Network 2, she needs Bob's ephemeral public key `R_B` and his salt. For Bob to claim the USD note on Network 1, he needs Alice's `R_A` and her salt. Each party must reveal a secret to let the other claim.
+Both notes are now locked to stealth addresses. For Alice to claim the bond note on Network 2, she needs Bob's ephemeral public key `eph_pk_B` and his salt. For Bob to claim the USD note on Network 1, he needs Alice's `eph_pk_A` and her salt. Each party must reveal a secret to let the other claim.
 
 If Alice reveals first, Bob can claim the USD immediately, then choose whether to reveal his own values for Alice to claim the bond. He can defect. If Bob reveals first, Alice has the same option. This is the HTLC problem in another form: one party always moves second.
 
@@ -117,6 +109,8 @@ This is where `fallbackOwner` and `timeout` come in. Each note carries the origi
 
 The protocol always terminates in one of two outcomes: both parties receive the other's asset, or both receive their own back. There is no stuck state, no capital locked indefinitely.
 
+![If the timeout passes without settlement, each party reclaims their own funds using the fallbackOwner key embedded in the note](/assets/images/2026-03-05-private-crosschain-swap-part-1/diagram-5-timeout-refund.png)
+
 ## How the pieces fit
 
 The protocol needs a coordinator: something that receives the claim secrets from both parties, verifies the swap terms, and reveals everything at once.
@@ -126,10 +120,10 @@ What does the coordinator need to get right? It must publish both ephemeral keys
 The full protocol flow:
 
 1. Alice and Bob agree on swap terms off-chain (amounts, assets, timeout window).
-2. Alice locks a USD note to `pk_stealth_B` on Network 1. Bob locks a bond note to `pk_stealth_A` on Network 2.
+2. Alice locks a USD note to `stealth_pk_B` on Network 1. Bob locks a bond note to `stealth_pk_A` on Network 2.
 3. Both submit their ephemeral keys and encrypted salts to the coordinator.
 4. The coordinator verifies both locked notes match the agreed terms on-chain.
-5. The coordinator publishes `R_A`, `R_B`, and the encrypted salts to an announcement contract — atomically.
+5. The coordinator publishes `eph_pk_A`, `eph_pk_B`, and the encrypted salts to an announcement contract — atomically.
 6. Both parties read the announcement, derive their stealth spending keys, reconstruct the note, and claim.
 
 If step 5 never happens, the timeout expires and both parties reclaim via the fallback path.
@@ -139,14 +133,16 @@ If step 5 never happens, the timeout expires and both parties reclaim via the fa
 | Shielded pool (Network 1) | Commitments and nullifiers for stablecoin notes                                        |
 | Shielded pool (Network 2) | Commitments and nullifiers for bond token notes                                        |
 | Announcement contract     | Records the coordinator's atomic revelation                                            |
-| Note                      | `{chainId, value, assetId, owner (stealth addr), fallbackOwner, timeout, salt}`        |
-| Coordinator               | Verifies both locked legs on-chain; publishes `R_A`, `R_B`, encrypted salts atomically |
+| Note                      | `{chainId, value, assetId, owner (stealth_pk), fallbackOwner, timeout, salt}`          |
+| Coordinator               | Verifies both locked legs on-chain; publishes `eph_pk_A`, `eph_pk_B`, encrypted salts atomically |
 
 What the protocol hides: amounts, asset types, counterparty identities, the link between the two locked notes.
 
 What the protocol leaks: that a time-locked note exists on each chain, and approximately when the swap window closes. After settlement, both parties can spend their claimed notes into fresh standard notes to rejoin the general anonymity set.
 
 Each component has one job: ZK circuits verify note formation and ownership, shielded pools prevent double-spending, and the coordinator makes revelation atomic across chains.
+
+![Both parties lock notes to stealth addresses on their respective chains — the contract verifies each note via ZK proof — but the two locks are independent: what makes them atomic is the subject of Part 2](/assets/images/2026-03-05-private-crosschain-swap-part-1/diagram-4-locking-flow.png)
 
 The coordinator is the only component not yet specified. It could be built from a Trusted Execution Environment, a multi-party computation protocol, or fully homomorphic encryption — each with different trust assumptions and performance trade-offs. In [Part 2](/private-crosschain-atomic-swaps-tee-part-2/), we pick one: a TEE running in AWS Nitro Enclaves. We go inside the enclave, examine what attestation actually proves, work through the real attack surfaces, and walk through what the demo logs show.
 
