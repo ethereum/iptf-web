@@ -19,7 +19,7 @@ In repo markets the chain is longer still. A bank holds collateral through a cus
 
 Ethereum changes the settlement model. On a single chain, atomicity is free: a smart contract can exchange two tokens in a single transaction that either completes or reverts entirely in front of the entire network. There is no T+2, no custodian, no clearing house. A bond token and a stablecoin can settle in the same block with no counterparty risk.
 
-But institutions do not live on one chain. Tokenized securities may sit on Ethereum L1, while payment instruments like regulated stablecoins or tokenized deposits may settle on a different network. And crosschain atomicity is an unsolved problem.
+Institutions, however, do not live on one chain. Tokenized securities may sit on Ethereum L1, while payment instruments like regulated stablecoins or tokenized deposits may settle on a different network. And crosschain atomicity is an unsolved problem.
 
 ## The crosschain settlement problem
 
@@ -67,7 +67,7 @@ In the single-chain shielded pool protocol, after a private transfer the sender 
 
 The trivial approach for crosschain swaps: Alice locks a note for Bob on Network 1 and attaches an encrypted memo with the salt. Bob does the same for Alice on Network 2. Each party reconstructs the other's note from the memo and submits a claim proof.
 
-But memos don't enforce atomicity. The sender is making a one-way transfer, not conditioning their payment on receiving something back. In an atomic swap, Alice needs assurance that Bob's note is locked and claimable before she reveals the details of hers. Memos give no such guarantee. Each party reveals independently, and one always moves first. If Alice's memo goes out before Bob's, Bob can claim Alice's USD note and then walk away without ever locking the bond note.
+Memos, however, don't enforce atomicity. The sender is making a one-way transfer, not conditioning their payment on receiving something back. In an atomic swap, Alice needs assurance that Bob's note is locked and claimable before she reveals the details of hers. Memos give no such guarantee. Each party reveals independently, and one always moves first. If Alice's memo goes out before Bob's, Bob can claim Alice's USD note and then walk away without ever locking the bond note.
 
 What we need is a way for Alice to lock a note that _only_ Bob can spend, without revealing his identity on-chain. Then the remaining question is: how do both parties learn each other's claim secrets at the same time?
 
@@ -142,6 +142,6 @@ ZK circuits verify note formation and ownership. Shielded pools prevent double-s
 
 ![Both parties lock notes to stealth addresses on their respective chains — the contract verifies each note via ZK proof — but the two locks are independent: what makes them atomic is the subject of Part 2](/assets/images/2026-03-05-private-crosschain-swap-part-1/diagram-4-locking-flow.png)
 
-The coordinator is the only component not yet specified. It could be built from a Trusted Execution Environment, a multi-party computation protocol, or fully homomorphic encryption, each with different trust assumptions and performance trade-offs. In [Part 2](/private-crosschain-atomic-swaps-tee-part-2/), we pick one: a TEE running in AWS Nitro Enclaves. We go inside the enclave, examine what attestation actually proves, work through the real attack surfaces, and walk through what the demo logs show.
+The coordinator is the only component not yet specified. It could be built from a Trusted Execution Environment, a multi-party computation protocol, or fully homomorphic encryption, each with different trust assumptions and performance trade-offs. In Part 2, we pick one: a TEE running in AWS Nitro Enclaves. We go inside the enclave, examine what attestation actually proves, work through the real attack surfaces, and walk through what the demo logs show.
 
 The full implementation is open source, with a detailed [specification](https://github.com/ethereum/iptf-pocs/tree/main/pocs/approach-private-trade-settlement/tee_swap/SPEC.md).
