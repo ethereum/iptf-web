@@ -31,13 +31,13 @@ Rollups share L1 as common anchor but that gives you a read relationship, not ex
 
 ### Existing approaches
 
-**Hash Time-Locked Contracts (HTLCs)** are the oldest trustless crosschain primitive. Alice generates a secret, locks funds on Chain A against its hash, and Bob locks funds on Chain B against the same hash. Alice reveals the secret to claim on Chain B, which also reveals it to Bob for claiming on Chain A. The problem is timing: the two claim steps are sequential, not atomic. Bob is always the last mover. He can observe the secret from Alice's reveal and decide not to claim, leaving Alice's position exposed. HTLCs also leak trade details publicly: the hash, the timelock, the amounts are all on-chain.
+**Hash Time-Locked Contracts (HTLCs)** are the oldest trustless crosschain primitive. Alice generates a secret, locks funds on Chain A against its hash, and Bob locks funds on Chain B against the same hash. Alice reveals the secret to claim on Chain B, which also reveals it to Bob for claiming on Chain A. The problem is timing: the two claim steps are sequential, not atomic. Bob is always the last mover. He can observe the secret from Alice's reveal and decide not to claim, leaving Alice's position exposed. HTLCs also leak trade details publicly: the hash, the timelock, the amounts are all on-chain.<sup><a href="#ref-1">1</a></sup>
 
 **Trusted bridges** move one asset to the other chain and do the swap locally. They work, but they reintroduce custodial risk: the bridge operator holds your assets during transit. Custody is exactly what institutions were trying to eliminate by settling on-chain.
 
 **Optimistic bridges** reduce trust with fraud proofs, but their seven-day challenge window is longer than the T+2 standard they were meant to improve on.
 
-None of these approaches combine atomicity with privacy. In all of them, trade terms are visible to every observer: amounts, prices, counterparty addresses, timing.
+None of these approaches combine atomicity with privacy.<sup><a href="#ref-2">2</a></sup> In all of them, trade terms are visible to every observer: amounts, prices, counterparty addresses, timing.
 
 ## Building the protocol
 
@@ -45,7 +45,7 @@ None of these approaches combine atomicity with privacy. In all of them, trade t
 
 In a [previous post](/building-private-transfers-on-ethereum/) we built shielded pools for private stablecoin payments on Ethereum: commitments to notes in a Merkle tree, nullifiers for double-spend prevention, ZK proofs that verify ownership without revealing it. In the UTXO model, assets are discrete private _notes_, not public account balances. A note's contents (amount, owner, asset type) are hidden behind a commitment hash. Only the holder of the spending key can prove ownership.
 
-The UTXO model is well suited to privacy protocols (the construction goes back to [Zerocash](https://ieeexplore.ieee.org/document/6956581)). Spending a note means proving, with a ZK proof, that you know the preimage of a commitment that exists in the Merkle tree. The chain verifies the proof and records a nullifier to prevent double-spending, but never learns which commitment was consumed, who spent it, or what it contained. In the account model, moving funds requires an ECDSA signature the chain validates against a known address. Everyone sees who moved what, and for crosschain settlement you would need to verify the state of both asset contracts across two networks.
+The UTXO model is well suited to privacy protocols (the construction goes back to [Zerocash](https://ieeexplore.ieee.org/document/6956581)).<sup><a href="#ref-4">4</a></sup> Spending a note means proving, with a ZK proof, that you know the preimage of a commitment that exists in the Merkle tree. The chain verifies the proof and records a nullifier to prevent double-spending, but never learns which commitment was consumed, who spent it, or what it contained. In the account model, moving funds requires an ECDSA signature the chain validates against a known address. Everyone sees who moved what, and for crosschain settlement you would need to verify the state of both asset contracts across two networks.
 
 So the crosschain question looks different. Instead of coordinating state changes across two networks, it becomes: how do you atomically swap control of two notes, one on each chain, without either party being able to claim one before the other, or spend the same note twice?
 
@@ -71,6 +71,8 @@ What we need is a way for Alice to lock a note that _only_ Bob can spend, withou
 
 ### Stealth addresses
 
+[Stealth addresses](https://github.com/ethereum/iptf-map/blob/master/patterns/pattern-stealth-addresses.md) solve a simple problem: Bob has a public key known to everyone, and Alice wants to send him funds without anyone else being able to tell that Bob is the recipient. She uses Bob's public key to derive a fresh one-time address that only Bob can spend from, but that no observer can link back to him.
+
 Each participant has a long-lived meta key pair `(meta_sk, meta_pk)` that is published. To lock a note for a counterparty, the sender generates a fresh ephemeral key pair `(eph_sk, eph_pk)` (conventionally written `r, R = r·G`) and computes a shared secret via ECDH:
 
 ```
@@ -78,7 +80,7 @@ shared_secret = eph_sk · meta_pk_counterparty
 stealth_pk    = meta_pk_counterparty + H("stealth", shared_secret) · G
 ```
 
-The stealth address `stealth_pk` is a one-time public key. An observer on-chain cannot link it back to `meta_pk_counterparty`. Only the holder of `meta_sk` can derive the corresponding spending key:
+The stealth address `stealth_pk` is a one-time public key.<sup><a href="#ref-3">3</a></sup> An observer on-chain cannot link it back to `meta_pk_counterparty`. Only the holder of `meta_sk` can derive the corresponding spending key:
 
 ```
 shared_secret = meta_sk · eph_pk        // eph_pk is public; meta_sk is secret
@@ -142,11 +144,11 @@ ZK circuits verify note formation and ownership. Shielded pools prevent double-s
 
 The coordinator is the only component not yet specified. It could be built from a Trusted Execution Environment, a multi-party computation protocol, or fully homomorphic encryption, each with different trust assumptions and performance trade-offs. In Part 2, we pick one: a TEE running in AWS Nitro Enclaves. We go inside the enclave, examine what attestation actually proves, work through the real attack surfaces, and walk through what the demo logs show.
 
-The full implementation is open source, with a detailed [specification](https://github.com/ethereum/iptf-pocs/tree/main/pocs/approach-private-trade-settlement/tee_swap/SPEC.md).
+The full implementation is open source, with a detailed [specification](https://github.com/ethereum/iptf-pocs/tree/main/pocs/approach-private-trade-settlement/tee_swap/SPEC.md) and an [interactive protocol walkthrough](/tee-protocol-page).
 
-## Related work
+## References
 
-1. D. Robinson, "HTLCs Considered Harmful," Stanford Blockchain Conference, 2019. [[PDF](https://cyber.stanford.edu/sites/g/files/sbiybj9936/f/htlcs_considered_harmful.pdf)]
-2. A. Deshpande and M. Herlihy, "Privacy-Preserving Cross-Chain Atomic Swaps," FC 2020 Workshops. [[Springer](https://link.springer.com/chapter/10.1007/978-3-030-54455-3_38)]
-3. T. Wahrstätter, M. Solomon, B. DiFrancesco, V. Buterin, "ERC-5564: Stealth Addresses." [[EIP](https://eips.ethereum.org/EIPS/eip-5564)]
-4. [Privacy Pools](https://github.com/ameensol/privacy-pools) and [Railgun](https://railgun.org/) — shielded UTXO pool implementations on Ethereum using the same note-commitment model this protocol extends.
+<span id="ref-1">**[1]**</span> D. Robinson, "HTLCs Considered Harmful," Stanford Blockchain Conference, 2019. [[PDF](https://cyber.stanford.edu/sites/g/files/sbiybj9936/f/htlcs_considered_harmful.pdf)]
+<span id="ref-2">**[2]**</span> A. Deshpande and M. Herlihy, "Privacy-Preserving Cross-Chain Atomic Swaps," FC 2020 Workshops. [[Springer](https://link.springer.com/chapter/10.1007/978-3-030-54455-3_38)]
+<span id="ref-3">**[3]**</span> T. Wahrstätter, M. Solomon, B. DiFrancesco, V. Buterin, "ERC-5564: Stealth Addresses." [[EIP](https://eips.ethereum.org/EIPS/eip-5564)]
+<span id="ref-4">**[4]**</span> [Privacy Pools](https://github.com/ameensol/privacy-pools) and [Railgun](https://railgun.org/) — shielded UTXO pool implementations on Ethereum using the same note-commitment model this protocol extends.
