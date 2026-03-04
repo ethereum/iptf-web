@@ -13,9 +13,9 @@ tags:
   - proof-of-concept
 ---
 
-Settlement risk is one of the oldest problems in finance. When two parties trade a bond for cash, neither wants to deliver first. The buyer does not want to pay before receiving the asset; the seller does not want to transfer the asset before receiving payment. Traditional finance solved this decades ago with chains of trusted actors: custodians, central securities depositories, clearing houses. Delivery-versus-Payment (DvP) infrastructure like [DTCC](https://www.dtcc.com/) or [Euroclear](https://www.euroclear.com/) is the coordinating intermediary for both legs of a trade.
+Settlement risk has been around as long as trading itself. Two parties trade a bond for cash, and neither wants to go first. The buyer will not pay before receiving the asset; the seller will not hand over the asset before receiving payment. Traditional finance solved this decades ago with trusted intermediaries: custodians, depositories, clearing houses. The principle is [Delivery-versus-Payment](https://www.investopedia.com/terms/d/deliveryversuspayment.asp) (DvP) — both legs of the trade are conditioned on each other, so neither finalizes unless both do. Infrastructure like [DTCC](https://www.dtcc.com/) or [Euroclear](https://www.euroclear.com/) enforces this, holding both legs in escrow before releasing them together when conditions are met.
 
-In repo markets the chain is longer still. A bank holds collateral through a custodian, posts it to a triparty agent, which moves it to a counterparty's custodian. Every step needs a trusted party and a separate settlement instruction. The system works, but it is slow (T+2 is standard), expensive, and depends entirely on the integrity of intermediaries.
+In [repo markets](https://www.investopedia.com/terms/r/repurchaseagreement.asp), where one party sells securities and agrees to repurchase them (often overnight), the intermediary chain is longer. A bank holds collateral through a custodian, posts it to a triparty agent, which moves it to a counterparty's custodian. Every step needs a trusted party and a separate settlement instruction. The system works, but it is slow ([T+2](https://www.investor.gov/introduction-investing/investing-basics/glossary/settling-securities-transactions-t2), two business days after the trade, is standard), expensive, and depends on the integrity of every intermediary in the chain.
 
 Ethereum changes the settlement model. On a single chain, atomicity is free: a smart contract can exchange two tokens in a single transaction that either completes or reverts entirely in front of the entire network. There is no T+2, no custodian, no clearing house. A bond token and a stablecoin can settle in the same block with no counterparty risk.
 
@@ -45,9 +45,7 @@ None of these approaches combine atomicity with privacy. In all of them, trade t
 
 In a [previous post](/building-private-transfers-on-ethereum/) we built shielded pools for private stablecoin payments on Ethereum: commitments to notes in a Merkle tree, nullifiers for double-spend prevention, ZK proofs that verify ownership without revealing it. In the UTXO model, assets are discrete private _notes_, not public account balances. A note's contents (amount, owner, asset type) are hidden behind a commitment hash. Only the holder of the spending key can prove ownership.
 
-The UTXO model has the nice property that it is not tied to EVM accounts or direct contract state changes. In the account model, moving funds requires an ECDSA signature the chain validates against a known address. Everyone sees who moved what, and for crosschain settlement you would need to verify the state of both asset contracts across two networks.
-
-There are no balances in contracts, only note commitments. A transfer is a change of control over a note, not a state change in a ledger. The chain never sees the identity, the amount, or the key.
+The UTXO model is well suited to privacy protocols (the construction goes back to [Zerocash](https://ieeexplore.ieee.org/document/6956581)). Spending a note means proving, with a ZK proof, that you know the preimage of a commitment that exists in the Merkle tree. The chain verifies the proof and records a nullifier to prevent double-spending, but never learns which commitment was consumed, who spent it, or what it contained. In the account model, moving funds requires an ECDSA signature the chain validates against a known address. Everyone sees who moved what, and for crosschain settlement you would need to verify the state of both asset contracts across two networks.
 
 So the crosschain question looks different. Instead of coordinating state changes across two networks, it becomes: how do you atomically swap control of two notes, one on each chain, without either party being able to claim one before the other, or spend the same note twice?
 
@@ -119,7 +117,7 @@ What does the coordinator need to get right? It must publish both ephemeral keys
 
 The full protocol flow:
 
-1. Alice and Bob agree on swap terms off-chain (amounts, assets, timeout window).
+1. Alice and Bob agree on swap terms off-chain over a private channel (amounts, assets, chains, timeout window). The protocol assumes counterparty discovery and negotiation have already happened; how parties find each other is out of scope.
 2. Alice locks a USD note to `stealth_pk_B` on Network 1. Bob locks a bond note to `stealth_pk_A` on Network 2.
 3. Both submit their ephemeral keys and encrypted salts to the coordinator.
 4. The coordinator verifies both locked notes match the agreed terms on-chain.
@@ -145,3 +143,10 @@ ZK circuits verify note formation and ownership. Shielded pools prevent double-s
 The coordinator is the only component not yet specified. It could be built from a Trusted Execution Environment, a multi-party computation protocol, or fully homomorphic encryption, each with different trust assumptions and performance trade-offs. In Part 2, we pick one: a TEE running in AWS Nitro Enclaves. We go inside the enclave, examine what attestation actually proves, work through the real attack surfaces, and walk through what the demo logs show.
 
 The full implementation is open source, with a detailed [specification](https://github.com/ethereum/iptf-pocs/tree/main/pocs/approach-private-trade-settlement/tee_swap/SPEC.md).
+
+## Related work
+
+1. D. Robinson, "HTLCs Considered Harmful," Stanford Blockchain Conference, 2019. [[PDF](https://cyber.stanford.edu/sites/g/files/sbiybj9936/f/htlcs_considered_harmful.pdf)]
+2. A. Deshpande and M. Herlihy, "Privacy-Preserving Cross-Chain Atomic Swaps," FC 2020 Workshops. [[Springer](https://link.springer.com/chapter/10.1007/978-3-030-54455-3_38)]
+3. T. Wahrstätter, M. Solomon, B. DiFrancesco, V. Buterin, "ERC-5564: Stealth Addresses." [[EIP](https://eips.ethereum.org/EIPS/eip-5564)]
+4. [Privacy Pools](https://github.com/ameensol/privacy-pools) and [Railgun](https://railgun.org/) — shielded UTXO pool implementations on Ethereum using the same note-commitment model this protocol extends.
