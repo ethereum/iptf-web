@@ -1,0 +1,1063 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TEE Swap Protocol — Whiteboard Review</title>
+<style>
+  :root {
+    --bg: #ffffff;
+    --surface: #f7fafc;
+    --border: #e2e8f0;
+    --text: #1a202c;
+    --muted: #718096;
+    --accent-a: #dd6b20;
+    --accent-b: #3182ce;
+    --accent-tee: #38a169;
+    --accent-chain: #805ad5;
+    --danger: #e53e3e;
+    --success: #2f855a;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 24px;
+    line-height: 1.5;
+  }
+  h1 { font-size: 20px; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+
+  /* Phase navigation */
+  .phase-nav {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+  }
+  .phase-nav button {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: 13px;
+    transition: all 0.2s;
+  }
+  .phase-nav button:hover { border-color: var(--text); color: var(--text); }
+  .phase-nav button.active {
+    border-color: var(--accent-tee);
+    color: var(--accent-tee);
+    background: #38a16910;
+  }
+
+  /* Diagram canvas */
+  .diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    min-height: 500px;
+    position: relative;
+    overflow-x: auto;
+  }
+
+  /* Actors */
+  .actors {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    position: relative;
+  }
+  .actor {
+    text-align: center;
+    min-width: 140px;
+  }
+  .actor-icon {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 8px;
+    font-size: 22px;
+    font-weight: bold;
+  }
+  .actor-a .actor-icon { background: #dd6b2015; border: 2px solid var(--accent-a); color: var(--accent-a); }
+  .actor-b .actor-icon { background: #3182ce15; border: 2px solid var(--accent-b); color: var(--accent-b); }
+  .actor-tee .actor-icon { background: #38a16915; border: 2px solid var(--accent-tee); color: var(--accent-tee); }
+  .actor-chain .actor-icon { background: #805ad515; border: 2px solid var(--accent-chain); color: var(--accent-chain); }
+  .actor-label { font-size: 12px; font-weight: 600; }
+  .actor-sub { font-size: 10px; color: var(--muted); }
+
+  /* Steps */
+  .steps { display: flex; flex-direction: column; gap: 12px; }
+  .step {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 12px 16px;
+    border-radius: 8px;
+    background: #edf2f780;
+    border-left: 3px solid var(--border);
+    transition: all 0.2s;
+  }
+  .step:hover { background: #edf2f7; }
+  .step.from-a { border-left-color: var(--accent-a); }
+  .step.from-b { border-left-color: var(--accent-b); }
+  .step.from-tee { border-left-color: var(--accent-tee); }
+  .step.from-chain { border-left-color: var(--accent-chain); }
+  .step.check { border-left-color: var(--danger); }
+  .step-num {
+    font-size: 11px;
+    font-weight: 700;
+    min-width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .from-a .step-num { background: #dd6b2015; color: var(--accent-a); }
+  .from-b .step-num { background: #3182ce15; color: var(--accent-b); }
+  .from-tee .step-num { background: #38a16915; color: var(--accent-tee); }
+  .from-chain .step-num { background: #805ad515; color: var(--accent-chain); }
+  .check .step-num { background: #e53e3e15; color: var(--danger); }
+  .step-content { flex: 1; }
+  .step-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .step-detail { font-size: 11px; color: var(--muted); }
+  .step-detail code {
+    background: #edf2f7;
+    border: 1px solid var(--border);
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 11px;
+    color: var(--accent-chain);
+  }
+  .step-arrow {
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .step-arrow .arrow { color: var(--accent-tee); }
+
+  /* Flow arrows between columns */
+  .flow-row {
+    display: grid;
+    grid-template-columns: 1fr 80px 1fr 80px 1fr;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 8px;
+    min-height: 48px;
+  }
+  .flow-cell {
+    padding: 8px 12px;
+    font-size: 12px;
+    border-radius: 6px;
+  }
+  .flow-cell.action {
+    background: #edf2f780;
+    border: 1px solid var(--border);
+  }
+  .flow-arrow {
+    text-align: center;
+    font-size: 18px;
+    color: var(--muted);
+  }
+  .flow-empty { }
+
+  /* Crypto box */
+  .crypto-box {
+    background: #edf2f7;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+    font-size: 12px;
+  }
+  .crypto-box h4 {
+    font-size: 12px;
+    color: var(--accent-chain);
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .crypto-box .line {
+    margin: 4px 0;
+    color: var(--muted);
+  }
+  .crypto-box .line .val { color: var(--text); }
+  .crypto-box .line .fn { color: var(--accent-tee); }
+  .crypto-box .line .key { color: var(--accent-a); }
+  .crypto-box .line .key-b { color: var(--accent-b); }
+
+  /* Column layout for parallel actions */
+  .parallel {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin: 16px 0;
+  }
+  .parallel-col {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+  }
+  .parallel-col h4 {
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  .col-a h4 { color: var(--accent-a); }
+  .col-b h4 { color: var(--accent-b); }
+  .col-tee h4 { color: var(--accent-tee); }
+  .col-chain h4 { color: var(--accent-chain); }
+
+  /* Verification checklist */
+  .checklist { list-style: none; }
+  .checklist li {
+    padding: 8px 0;
+    border-bottom: 1px solid #e2e8f080;
+    font-size: 12px;
+    display: flex;
+    gap: 8px;
+    align-items: flex-start;
+  }
+  .checklist li:last-child { border-bottom: none; }
+  .check-icon { color: var(--success); font-weight: bold; flex-shrink: 0; }
+  .check-label { font-weight: 600; }
+  .check-detail { color: var(--muted); }
+
+  /* Section headers inside diagram */
+  .section-header {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 24px 0 12px;
+    padding: 8px 12px;
+    background: linear-gradient(90deg, #e2e8f080, transparent);
+    border-radius: 6px;
+  }
+
+  /* Data flow legend */
+  .legend {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+  }
+
+  /* Note structure */
+  .note-struct {
+    font-size: 12px;
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 12px 0;
+  }
+  .note-struct .field {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    border-bottom: 1px solid #e2e8f060;
+  }
+  .note-struct .field:last-child { border-bottom: none; }
+  .note-struct .fname { color: var(--accent-chain); }
+  .note-struct .fval { color: var(--muted); }
+  .note-struct .fval.pub { color: var(--accent-tee); }
+  .note-struct .fval.priv { color: var(--danger); }
+
+  /* Sequence diagram style */
+  .seq-container { position: relative; padding: 20px 0; }
+  .seq-cols {
+    display: grid;
+    grid-template-columns: 160px 1fr 160px 1fr 160px;
+    position: relative;
+  }
+  .seq-lifeline {
+    text-align: center;
+    position: relative;
+  }
+  .seq-lifeline::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 40px;
+    bottom: 0;
+    width: 1px;
+    border-left: 2px dashed var(--border);
+  }
+  .seq-msgs {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 16px;
+  }
+  .seq-msg {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: #edf2f790;
+  }
+  .seq-msg .dir { font-size: 16px; flex-shrink: 0; }
+
+  /* Phase section */
+  .phase-section { display: none; }
+  .phase-section.active { display: block; }
+
+  /* Warning / note boxes */
+  .warn-box {
+    background: #e53e3e0a;
+    border: 1px solid #e53e3e30;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 16px 0;
+    font-size: 12px;
+  }
+  .warn-box .warn-title { color: var(--danger); font-weight: 700; margin-bottom: 4px; }
+  .info-box {
+    background: #3182ce0a;
+    border: 1px solid #3182ce30;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 16px 0;
+    font-size: 12px;
+  }
+  .info-box .info-title { color: var(--accent-b); font-weight: 700; margin-bottom: 4px; }
+  .ok-box {
+    background: #2f855a0a;
+    border: 1px solid #2f855a30;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 16px 0;
+    font-size: 12px;
+  }
+  .ok-box .ok-title { color: var(--success); font-weight: 700; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<h1>TEE-Coordinated Private Atomic Swap</h1>
+<p class="subtitle">Pen & paper protocol walkthrough — click each phase to step through</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent-a)"></div> Party A (USD seller)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent-b)"></div> Party B (BOND seller)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent-tee)"></div> TEE Coordinator</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent-chain)"></div> On-chain</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--danger)"></div> Verification check</div>
+</div>
+
+<div class="phase-nav">
+  <button class="active" onclick="showPhase('overview')">Overview</button>
+  <button onclick="showPhase('p0')">P0: Setup</button>
+  <button onclick="showPhase('p1')">P1: Lock</button>
+  <button onclick="showPhase('p2')">P2: TEE Verify</button>
+  <button onclick="showPhase('p3')">P3: Reveal</button>
+  <button onclick="showPhase('p4')">P4: Claim/Refund</button>
+  <button onclick="showPhase('invariants')">Invariants</button>
+</div>
+
+<div class="diagram">
+
+  <!-- ===== OVERVIEW ===== -->
+  <div class="phase-section active" id="phase-overview">
+    <div class="section-header">Protocol Flow (High Level)</div>
+
+    <div class="steps">
+      <div class="step from-a">
+        <div class="step-num">0</div>
+        <div class="step-content">
+          <div class="step-title">Intent Matching (off-chain)</div>
+          <div class="step-detail">A & B agree on swap terms → both independently compute <code>swapId</code></div>
+        </div>
+      </div>
+
+      <div class="step from-a">
+        <div class="step-num">1a</div>
+        <div class="step-content">
+          <div class="step-title">Party A: Lock USD on Network 1</div>
+          <div class="step-detail">Create time-locked note → stealth addr for B, fallback to A. Submit deposit proof on-chain. Send <code>(swapId, R_A, enc_salt_A, pk_meta_B, noteDetails_A)</code> to TEE.</div>
+        </div>
+      </div>
+      <div class="step from-b">
+        <div class="step-num">1b</div>
+        <div class="step-content">
+          <div class="step-title">Party B: Lock BOND on Network 2</div>
+          <div class="step-detail">Create time-locked note → stealth addr for A, fallback to B. Submit deposit proof on-chain. Send <code>(swapId, R_B, enc_salt_B, pk_meta_A, noteDetails_B)</code> to TEE.</div>
+        </div>
+      </div>
+
+      <div class="step from-tee">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">TEE: Verify both locks</div>
+          <div class="step-detail">Open binding commitments <code>h_swap, h_R, h_meta, h_enc</code>. Recompute swapId from noteDetails. Verify terms match. <strong>No EC operations — only hashes.</strong></div>
+        </div>
+      </div>
+
+      <div class="step from-tee">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">TEE: Atomic reveal</div>
+          <div class="step-detail"><code>announceSwap(swapId, R_A, R_B, enc_salt_A, enc_salt_B)</code> — single tx, both or neither.</div>
+        </div>
+      </div>
+
+      <div class="step from-a">
+        <div class="step-num">4a</div>
+        <div class="step-content">
+          <div class="step-title">Party A: Claim BOND on Network 2</div>
+          <div class="step-detail">Derive sk_stealth_A from R_B, decrypt salt_B, reconstruct note, prove & spend.</div>
+        </div>
+      </div>
+      <div class="step from-b">
+        <div class="step-num">4b</div>
+        <div class="step-content">
+          <div class="step-title">Party B: Claim USD on Network 1</div>
+          <div class="step-detail">Derive sk_stealth_B from R_A, decrypt salt_A, reconstruct note, prove & spend.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="warn-box">
+      <div class="warn-title">Refund path (timeout)</div>
+      If TEE never reveals → after <code>timeout</code>, each party refunds their own note using <code>fallbackOwner</code> key. Same nullifier either way → no double spend.
+    </div>
+
+    <div class="ok-box">
+      <div class="ok-title">Key insight: What the TEE knows vs. what it can do</div>
+      TEE sees: swap amounts, asset types, party identities (privacy loss if HW compromised).<br>
+      TEE <strong>cannot</strong>: derive stealth keys (needs sk_meta), forge proofs, steal funds.<br>
+      Worst case = censorship, not theft.
+    </div>
+  </div>
+
+  <!-- ===== P0: SETUP ===== -->
+  <div class="phase-section" id="phase-p0">
+    <div class="section-header">Phase 0: Setup & Intent Matching</div>
+
+    <div class="parallel">
+      <div class="parallel-col col-a">
+        <h4>Party A (has USD, wants BOND)</h4>
+        <div class="note-struct">
+          <div style="font-weight:600;margin-bottom:8px;">A's key material</div>
+          <div class="field"><span class="fname">sk_meta_A</span><span class="fval priv">secret — never shared</span></div>
+          <div class="field"><span class="fname">pk_meta_A</span><span class="fval pub">public — shared with B & TEE</span></div>
+        </div>
+      </div>
+      <div class="parallel-col col-b">
+        <h4>Party B (has BOND, wants USD)</h4>
+        <div class="note-struct">
+          <div style="font-weight:600;margin-bottom:8px;">B's key material</div>
+          <div class="field"><span class="fname">sk_meta_B</span><span class="fval priv">secret — never shared</span></div>
+          <div class="field"><span class="fname">pk_meta_B</span><span class="fval pub">public — shared with A & TEE</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="crypto-box">
+      <h4>Swap ID derivation (both compute independently)</h4>
+      <div class="line"><span class="fn">swapId</span> = <span class="fn">H</span>("tee_swap.swap_id",</div>
+      <div class="line">&nbsp;&nbsp;<span class="key">valueA</span>, <span class="key">assetIdA</span>, <span class="key">chainIdA</span>,</div>
+      <div class="line">&nbsp;&nbsp;<span class="key-b">valueB</span>, <span class="key-b">assetIdB</span>, <span class="key-b">chainIdB</span>,</div>
+      <div class="line">&nbsp;&nbsp;timeout, <span class="key">pk_meta_A</span>, <span class="key-b">pk_meta_B</span>, nonce</div>
+      <div class="line">)</div>
+    </div>
+
+    <div class="info-box">
+      <div class="info-title">Whiteboard check</div>
+      Both parties MUST arrive at the same swapId. If any term differs → different hash → TEE rejects in Phase 2.
+    </div>
+  </div>
+
+  <!-- ===== P1: LOCK ===== -->
+  <div class="phase-section" id="phase-p1">
+    <div class="section-header">Phase 1: Lock Notes to Stealth Addresses</div>
+
+    <div class="info-box">
+      <div class="info-title">Core idea</div>
+      Each party locks funds in a note that only the <strong>counterparty</strong> can claim (via stealth address),
+      with a timeout fallback to <strong>themselves</strong>. The deposit proof includes binding commitments
+      so the TEE can verify without doing any EC math.
+    </div>
+
+    <div class="parallel">
+      <div class="parallel-col col-a">
+        <h4>Party A locks USD on Network 1</h4>
+        <div class="steps">
+          <div class="step from-a">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <div class="step-title">Generate ephemerals</div>
+              <div class="step-detail"><code>r_A</code> (secret), <code>R_A = r_A·G</code>, random <code>salt_A</code></div>
+            </div>
+          </div>
+          <div class="step from-a">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <div class="step-title">ECDH + stealth</div>
+              <div class="step-detail">
+                <code>ss = r_A · pk_meta_B</code><br>
+                <code>pk_stealth_B = pk_meta_B + H("stealth", ss)·G</code><br>
+                <code>enc_salt = salt_A ⊕ H("salt_enc", ss)</code>
+              </div>
+            </div>
+          </div>
+          <div class="step from-a">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <div class="step-title">Build Note</div>
+              <div class="step-detail">
+                owner = <code style="color:var(--accent-b)">pk_stealth_B</code><br>
+                fallback = <code style="color:var(--accent-a)">pk_A</code><br>
+                timeout = now + 48h
+              </div>
+            </div>
+          </div>
+          <div class="step from-chain">
+            <div class="step-num">4</div>
+            <div class="step-content">
+              <div class="step-title">Deposit proof → Network 1</div>
+              <div class="step-detail">
+                Public: <code>commitment, chainId, timeout, pk_stealth_B</code><br>
+                + 4 bindings: <code>h_swap, h_R, h_meta, h_enc</code>
+              </div>
+            </div>
+          </div>
+          <div class="step from-tee">
+            <div class="step-num">5</div>
+            <div class="step-content">
+              <div class="step-title">Send to TEE</div>
+              <div class="step-detail"><code>(swapId, nonce, R_A, enc_salt_A, pk_meta_B, noteDetails_A)</code></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="parallel-col col-b">
+        <h4>Party B locks BOND on Network 2</h4>
+        <div class="steps">
+          <div class="step from-b">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <div class="step-title">Generate ephemerals</div>
+              <div class="step-detail"><code>r_B</code> (secret), <code>R_B = r_B·G</code>, random <code>salt_B</code></div>
+            </div>
+          </div>
+          <div class="step from-b">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <div class="step-title">ECDH + stealth</div>
+              <div class="step-detail">
+                <code>ss = r_B · pk_meta_A</code><br>
+                <code>pk_stealth_A = pk_meta_A + H("stealth", ss)·G</code><br>
+                <code>enc_salt = salt_B ⊕ H("salt_enc", ss)</code>
+              </div>
+            </div>
+          </div>
+          <div class="step from-b">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <div class="step-title">Build Note</div>
+              <div class="step-detail">
+                owner = <code style="color:var(--accent-a)">pk_stealth_A</code><br>
+                fallback = <code style="color:var(--accent-b)">pk_B</code><br>
+                timeout = now + 48h
+              </div>
+            </div>
+          </div>
+          <div class="step from-chain">
+            <div class="step-num">4</div>
+            <div class="step-content">
+              <div class="step-title">Deposit proof → Network 2</div>
+              <div class="step-detail">
+                Public: <code>commitment, chainId, timeout, pk_stealth_A</code><br>
+                + 4 bindings: <code>h_swap, h_R, h_meta, h_enc</code>
+              </div>
+            </div>
+          </div>
+          <div class="step from-tee">
+            <div class="step-num">5</div>
+            <div class="step-content">
+              <div class="step-title">Send to TEE</div>
+              <div class="step-detail"><code>(swapId, nonce, R_B, enc_salt_B, pk_meta_A, noteDetails_B)</code></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="crypto-box">
+      <h4>Deposit circuit (6 constraints)</h4>
+      <div class="line">C1: <span class="val">commitment</span> == <span class="fn">H</span>("commitment", chainId, value, assetId, <span class="key-b">pk_stealth</span>, fallback, timeout, salt)</div>
+      <div class="line">C2: <span class="key-b">pk_stealth</span> == <span class="key-b">pk_meta_cpty</span> + <span class="fn">H</span>("stealth", <span class="key">r</span> · <span class="key-b">pk_meta_cpty</span>)·G</div>
+      <div class="line">C3: h_swap == <span class="fn">H</span>("bind_swap", swapId, salt)</div>
+      <div class="line">C4: h_R == <span class="fn">H</span>("bind_R", <span class="key">r</span>·G)</div>
+      <div class="line">C5: h_meta == <span class="fn">H</span>("bind_meta", <span class="key-b">pk_meta_cpty</span>, salt)</div>
+      <div class="line">C6: h_enc == <span class="fn">H</span>("bind_enc", salt ⊕ <span class="fn">H</span>("salt_enc", <span class="key">r</span> · <span class="key-b">pk_meta_cpty</span>))</div>
+    </div>
+
+    <div class="warn-box">
+      <div class="warn-title">Why R must stay secret until Phase 3</div>
+      R is the stealth "unlock". If R were public at deposit time, the counterparty could claim immediately — before locking their own note. Only H("bind_R", R) is on-chain. R is revealed atomically in Phase 3.
+    </div>
+  </div>
+
+  <!-- ===== P2: TEE VERIFY ===== -->
+  <div class="phase-section" id="phase-p2">
+    <div class="section-header">Phase 2: TEE Verification</div>
+
+    <div class="info-box">
+      <div class="info-title">TEE's job</div>
+      The ZK verifier already proved circuit correctness on-chain. The TEE just opens binding commitments (hash comparisons) and checks that off-chain data matches on-chain public inputs.
+    </div>
+
+    <div class="parallel">
+      <div class="parallel-col" style="border-color:var(--accent-tee);">
+        <h4 style="color:var(--accent-tee);">TEE receives (off-chain, attested channel)</h4>
+        <div class="note-struct">
+          <div class="field"><span class="fname">From A</span><span class="fval">swapId, nonce, R_A, enc_salt_A, pk_meta_B, noteDetails_A</span></div>
+          <div class="field"><span class="fname">From B</span><span class="fval">swapId, nonce, R_B, enc_salt_B, pk_meta_A, noteDetails_B</span></div>
+        </div>
+      </div>
+      <div class="parallel-col" style="border-color:var(--accent-chain);">
+        <h4 style="color:var(--accent-chain);">TEE reads (on-chain public inputs)</h4>
+        <div class="note-struct">
+          <div class="field"><span class="fname">Net 1</span><span class="fval">commitment_A, chainId_A, pk_stealth_B, h_swap_A, h_R_A, h_meta_A, h_enc_A</span></div>
+          <div class="field"><span class="fname">Net 2</span><span class="fval">commitment_B, chainId_B, pk_stealth_A, h_swap_B, h_R_B, h_meta_B, h_enc_B</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-header" style="font-size:13px;">7 Verification Steps</div>
+    <ul class="checklist">
+      <li>
+        <span class="check-icon">✓</span>
+        <div>
+          <div class="check-label">1. Deposit proofs exist</div>
+          <div class="check-detail">Verified on their respective chains (ZK verifier passed)</div>
+        </div>
+      </li>
+      <li>
+        <span class="check-icon">✓</span>
+        <div>
+          <div class="check-label">2. Swap binding</div>
+          <div class="check-detail">
+            <code>H("bind_swap", swapId, noteDetails_A.salt) == h_swap_A</code><br>
+            <code>H("bind_swap", swapId, noteDetails_B.salt) == h_swap_B</code><br>
+            Both deposits reference same swap.
+          </div>
+        </div>
+      </li>
+      <li>
+        <span class="check-icon">✓</span>
+        <div>
+          <div class="check-label">3. Commitment correctness</div>
+          <div class="check-detail">
+            <code>H("commitment", noteDetails_A...) == commitment_A</code><br>
+            <code>H("commitment", noteDetails_B...) == commitment_B</code><br>
+            noteDetails match what's on-chain.
+          </div>
+        </div>
+      </li>
+      <li>
+        <span class="check-icon">✓</span>
+        <div>
+          <div class="check-label">4. Binding commitment openings (×6)</div>
+          <div class="check-detail">
+            For each party: <code>h_R</code>, <code>h_meta</code>, <code>h_enc</code><br>
+            Off-chain R, pk_meta, enc_salt match on-chain hashes. All just hash comparisons.
+          </div>
+        </div>
+      </li>
+      <li>
+        <span class="check-icon">✓</span>
+        <div>
+          <div class="check-label">5. Swap terms match (swapId integrity)</div>
+          <div class="check-detail">
+            Recompute <code>expected_swapId</code> from noteDetails values + timeout + pk_metas + nonce.<br>
+            Verify <code>expected_swapId == swapId</code>.<br>
+            If A locked 80 USD instead of 100 → different swapId → rejected.
+          </div>
+        </div>
+      </li>
+      <li>
+        <span class="check-icon">✓</span>
+        <div>
+          <div class="check-label">6. Matching timeout</div>
+          <div class="check-detail">Both notes have the same timeout value.</div>
+        </div>
+      </li>
+      <li>
+        <span class="check-icon">✓</span>
+        <div>
+          <div class="check-label">7. Timeout not expired</div>
+          <div class="check-detail">Current time < timeout. Still within the swap window.</div>
+        </div>
+      </li>
+    </ul>
+
+    <div class="ok-box">
+      <div class="ok-title">Security argument for binding commitments</div>
+      <strong>On-chain ZK verifier</strong> proved: stealth addr derivation (C2), swap binding (C3), R binding (C4), meta binding (C5), enc_salt binding (C6).<br>
+      <strong>TEE</strong> just opens these bindings with hash checks. A malicious party can't produce a valid proof for different values than what the hashes commit to. Circuit enforces consistency internally.
+    </div>
+
+    <div class="warn-box">
+      <div class="warn-title">RPC trust assumption</div>
+      TEE reads on-chain state via RPC (Infura/Alchemy). Compromised RPC → false state → TEE approves against non-existent commitment. Mitigation: run Helios light client inside TEE.
+    </div>
+  </div>
+
+  <!-- ===== P3: REVEAL ===== -->
+  <div class="phase-section" id="phase-p3">
+    <div class="section-header">Phase 3: Atomic Revelation</div>
+
+    <div class="steps">
+      <div class="step from-tee">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">TEE calls announceSwap()</div>
+          <div class="step-detail">
+            Single atomic transaction:<br>
+            <code>announceSwap(swapId, R_A, R_B, enc_salt_A, enc_salt_B)</code>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="crypto-box">
+      <h4>What gets revealed on-chain</h4>
+      <div class="line"><span class="key">R_A</span> — ephemeral public key (random curve point, no semantic meaning)</div>
+      <div class="line"><span class="key-b">R_B</span> — ephemeral public key (random curve point)</div>
+      <div class="line"><span class="key">enc_salt_A</span> — encrypted salt (random-looking 32 bytes)</div>
+      <div class="line"><span class="key-b">enc_salt_B</span> — encrypted salt (random-looking 32 bytes)</div>
+      <div class="line" style="margin-top:8px;color:var(--success);">No amounts, asset types, or party identities revealed.</div>
+    </div>
+
+    <div class="parallel">
+      <div class="parallel-col col-a">
+        <h4>Party A receives</h4>
+        <div class="note-struct">
+          <div class="field"><span class="fname">R_B</span><span class="fval">→ derive sk_stealth_A</span></div>
+          <div class="field"><span class="fname">enc_salt_B</span><span class="fval">→ decrypt salt_B → compute nullifier</span></div>
+        </div>
+      </div>
+      <div class="parallel-col col-b">
+        <h4>Party B receives</h4>
+        <div class="note-struct">
+          <div class="field"><span class="fname">R_A</span><span class="fval">→ derive sk_stealth_B</span></div>
+          <div class="field"><span class="fname">enc_salt_A</span><span class="fval">→ decrypt salt_A → compute nullifier</span></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ok-box">
+      <div class="ok-title">Atomicity source</div>
+      Both keys + encrypted salts in single operation, or neither. This is TEE atomicity, not blockchain consensus. Works identically for same-chain and cross-chain.
+    </div>
+
+    <div class="info-box">
+      <div class="info-title">Anti-replay</div>
+      <code>require(!announcements[swapId].revealed)</code> — prevents duplicate announcements even if TEE state is rolled back.
+    </div>
+
+    <div class="note-struct" style="border-color:var(--accent-tee);">
+      <div style="font-weight:600;margin-bottom:8px;color:var(--accent-tee);">TEE key management (EIP-4337)</div>
+      <div class="field"><span class="fname">Smart Account</span><span class="fval">stable address, decoupled from TEE key type</span></div>
+      <div class="field"><span class="fname">Signature</span><span class="fval">enclave key (P-256, RSA, etc.) — not limited to secp256k1</span></div>
+      <div class="field"><span class="fname">Gas</span><span class="fval">paymaster sponsors UserOps — TEE never holds ETH</span></div>
+      <div class="field"><span class="fname">Rotation</span><span class="fval">rotateSigner() via old key — address unchanged</span></div>
+    </div>
+  </div>
+
+  <!-- ===== P4: CLAIM / REFUND ===== -->
+  <div class="phase-section" id="phase-p4">
+    <div class="section-header">Phase 4: Claim or Refund</div>
+
+    <div class="parallel">
+      <div class="parallel-col col-b">
+        <h4>Party B claims USD (Network 1)</h4>
+        <div class="steps">
+          <div class="step from-b">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <div class="step-title">Read announcement</div>
+              <div class="step-detail">Get <code>R_A</code> and <code>enc_salt_A</code></div>
+            </div>
+          </div>
+          <div class="step from-b">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <div class="step-title">ECDH shared secret</div>
+              <div class="step-detail"><code>ss = sk_meta_B · R_A</code></div>
+            </div>
+          </div>
+          <div class="step from-b">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <div class="step-title">Decrypt salt</div>
+              <div class="step-detail"><code>salt_A = enc_salt_A ⊕ H("salt_enc", ss)</code></div>
+            </div>
+          </div>
+          <div class="step from-b">
+            <div class="step-num">4</div>
+            <div class="step-content">
+              <div class="step-title">Derive stealth key</div>
+              <div class="step-detail"><code>sk_stealth_B = sk_meta_B + H("stealth", ss)</code></div>
+            </div>
+          </div>
+          <div class="step from-b">
+            <div class="step-num">5</div>
+            <div class="step-content">
+              <div class="step-title">Reconstruct note</div>
+              <div class="step-detail">All fields known from swap terms + decrypted salt</div>
+            </div>
+          </div>
+          <div class="step from-chain">
+            <div class="step-num">6</div>
+            <div class="step-content">
+              <div class="step-title">Prove & spend</div>
+              <div class="step-detail">
+                ZK proof: commitment preimage, Merkle inclusion, nullifier, ownership (sk_stealth_B).<br>
+                Nullifier added to NullifierSet. B receives USD.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="parallel-col col-a">
+        <h4>Party A claims BOND (Network 2)</h4>
+        <div class="steps">
+          <div class="step from-a">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <div class="step-title">Read announcement</div>
+              <div class="step-detail">Get <code>R_B</code> and <code>enc_salt_B</code></div>
+            </div>
+          </div>
+          <div class="step from-a">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <div class="step-title">ECDH shared secret</div>
+              <div class="step-detail"><code>ss = sk_meta_A · R_B</code></div>
+            </div>
+          </div>
+          <div class="step from-a">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <div class="step-title">Decrypt salt</div>
+              <div class="step-detail"><code>salt_B = enc_salt_B ⊕ H("salt_enc", ss)</code></div>
+            </div>
+          </div>
+          <div class="step from-a">
+            <div class="step-num">4</div>
+            <div class="step-content">
+              <div class="step-title">Derive stealth key</div>
+              <div class="step-detail"><code>sk_stealth_A = sk_meta_A + H("stealth", ss)</code></div>
+            </div>
+          </div>
+          <div class="step from-a">
+            <div class="step-num">5</div>
+            <div class="step-content">
+              <div class="step-title">Reconstruct note</div>
+              <div class="step-detail">All fields known from swap terms + decrypted salt</div>
+            </div>
+          </div>
+          <div class="step from-chain">
+            <div class="step-num">6</div>
+            <div class="step-content">
+              <div class="step-title">Prove & spend</div>
+              <div class="step-detail">
+                ZK proof: commitment preimage, Merkle inclusion, nullifier, ownership (sk_stealth_A).<br>
+                Nullifier added to NullifierSet. A receives BOND.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-header" style="font-size:13px;">Refund Path (TEE failed to reveal)</div>
+    <div class="steps">
+      <div class="step check">
+        <div class="step-num">!</div>
+        <div class="step-content">
+          <div class="step-title">Wait for timeout</div>
+          <div class="step-detail"><code>block.timestamp > timeout</code></div>
+        </div>
+      </div>
+      <div class="step from-a">
+        <div class="step-num">R</div>
+        <div class="step-content">
+          <div class="step-title">Party A refunds USD (Network 1)</div>
+          <div class="step-detail">
+            A already knows salt_A (they created the note).<br>
+            Prove: commitment preimage + Merkle inclusion + nullifier + <code>sk_A·G == fallbackOwner</code><br>
+            <code>timeout</code> is public output → verifier checks <code>block.timestamp > timeout</code>
+          </div>
+        </div>
+      </div>
+      <div class="step from-b">
+        <div class="step-num">R</div>
+        <div class="step-content">
+          <div class="step-title">Party B refunds BOND (Network 2)</div>
+          <div class="step-detail">Same process, mirrored. B knows salt_B.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="warn-box">
+      <div class="warn-title">Double-spend protection</div>
+      If B already claimed → nullifier is in set → A's refund attempt rejected. Same nullifier regardless of spending path: <code>H("nullifier", commitment, salt)</code>. This is the core safety invariant.
+    </div>
+
+    <div class="info-box">
+      <div class="info-title">Privacy hygiene</div>
+      <strong>Stagger claims:</strong> random delay (minutes to hours) after announcement to avoid timing correlation.<br>
+      <strong>Re-pot:</strong> after claiming swap note (timeout > 0), spend into fresh note with timeout = 0 to rejoin the general anonymity set.
+    </div>
+  </div>
+
+  <!-- ===== INVARIANTS ===== -->
+  <div class="phase-section" id="phase-invariants">
+    <div class="section-header">Protocol Invariants & Threat Summary</div>
+
+    <div class="ok-box">
+      <div class="ok-title">Cryptographic guarantees</div>
+      <ul class="checklist">
+        <li><span class="check-icon">✓</span><div><div class="check-label">No fund theft by TEE</div><div class="check-detail">TEE never receives spending keys (sk_meta, r kept by parties)</div></div></li>
+        <li><span class="check-icon">✓</span><div><div class="check-label">Timeout refund always available</div><div class="check-detail">fallbackOwner path activates after timeout, uses same nullifier</div></div></li>
+        <li><span class="check-icon">✓</span><div><div class="check-label">No double spend</div><div class="check-detail">Canonical nullifier = H("nullifier", commitment, salt) — same for claim & refund path</div></div></li>
+        <li><span class="check-icon">✓</span><div><div class="check-label">Stealth address protection</div><div class="check-detail">Only recipient with sk_meta can derive sk_stealth from R</div></div></li>
+        <li><span class="check-icon">✓</span><div><div class="check-label">Atomic swap</div><div class="check-detail">TEE reveals both R + enc_salt in single op, or neither</div></div></li>
+        <li><span class="check-icon">✓</span><div><div class="check-label">Binding commitment integrity</div><div class="check-detail">Circuit enforces h_swap, h_R, h_meta, h_enc internally — TEE just opens them</div></div></li>
+      </ul>
+    </div>
+
+    <div class="warn-box">
+      <div class="warn-title">Trust assumptions</div>
+      <ul class="checklist">
+        <li><span class="check-icon" style="color:var(--accent-a)">⚠</span><div><div class="check-label">T2: HW manufacturer</div><div class="check-detail">Can see plaintext (privacy loss), cannot steal. Accepted by institutions (same HSM vendors)</div></div></li>
+        <li><span class="check-icon" style="color:var(--accent-a)">⚠</span><div><div class="check-label">T5: TEE censorship</div><div class="check-detail">Can refuse to reveal → DoS. Timeout refund is the escape hatch</div></div></li>
+        <li><span class="check-icon" style="color:var(--accent-a)">⚠</span><div><div class="check-detail">RPC trust for on-chain reads. Mitigated by running Helios light client in TEE</div></div></li>
+        <li><span class="check-icon" style="color:var(--accent-a)">⚠</span><div><div class="check-label">T7: Timing correlation</div><div class="check-detail">Deposit timing + matching timeouts can link swap legs. Amounts/identities still hidden. Re-potting dissolves post-settlement</div></div></li>
+      </ul>
+    </div>
+
+    <div class="section-header" style="font-size:13px;">Data Flow Summary — Who Knows What</div>
+    <div style="overflow-x:auto;">
+    <table style="width:100%;font-size:12px;border-collapse:collapse;">
+      <tr style="border-bottom:1px solid var(--border);">
+        <th style="text-align:left;padding:8px;color:var(--muted);">Data</th>
+        <th style="text-align:center;padding:8px;color:var(--accent-a);">Party A</th>
+        <th style="text-align:center;padding:8px;color:var(--accent-b);">Party B</th>
+        <th style="text-align:center;padding:8px;color:var(--accent-tee);">TEE</th>
+        <th style="text-align:center;padding:8px;color:var(--accent-chain);">On-chain</th>
+      </tr>
+      <tr style="border-bottom:1px solid #e2e8f080;">
+        <td style="padding:6px 8px;">sk_meta_A</td>
+        <td style="text-align:center;color:var(--success);">✓</td>
+        <td style="text-align:center;color:var(--danger);">✗</td>
+        <td style="text-align:center;color:var(--danger);">✗</td>
+        <td style="text-align:center;color:var(--danger);">✗</td>
+      </tr>
+      <tr style="border-bottom:1px solid #e2e8f080;">
+        <td style="padding:6px 8px;">r_A (ephemeral secret)</td>
+        <td style="text-align:center;color:var(--success);">✓</td>
+        <td style="text-align:center;color:var(--danger);">✗</td>
+        <td style="text-align:center;color:var(--danger);">✗</td>
+        <td style="text-align:center;color:var(--danger);">✗</td>
+      </tr>
+      <tr style="border-bottom:1px solid #e2e8f080;">
+        <td style="padding:6px 8px;">R_A (ephemeral public)</td>
+        <td style="text-align:center;color:var(--success);">✓</td>
+        <td style="text-align:center;color:var(--muted);">after P3</td>
+        <td style="text-align:center;color:var(--success);">✓</td>
+        <td style="text-align:center;color:var(--muted);">H(R_A) at P1, R_A at P3</td>
+      </tr>
+      <tr style="border-bottom:1px solid #e2e8f080;">
+        <td style="padding:6px 8px;">salt_A</td>
+        <td style="text-align:center;color:var(--success);">✓</td>
+        <td style="text-align:center;color:var(--muted);">after P3 (decrypt)</td>
+        <td style="text-align:center;color:var(--success);">✓ (plaintext)</td>
+        <td style="text-align:center;color:var(--danger);">✗ (encrypted)</td>
+      </tr>
+      <tr style="border-bottom:1px solid #e2e8f080;">
+        <td style="padding:6px 8px;">swap amounts/assets</td>
+        <td style="text-align:center;color:var(--success);">✓</td>
+        <td style="text-align:center;color:var(--success);">✓</td>
+        <td style="text-align:center;color:var(--success);">✓</td>
+        <td style="text-align:center;color:var(--danger);">✗</td>
+      </tr>
+      <tr style="border-bottom:1px solid #e2e8f080;">
+        <td style="padding:6px 8px;">pk_stealth</td>
+        <td style="text-align:center;color:var(--success);">✓</td>
+        <td style="text-align:center;color:var(--success);">✓</td>
+        <td style="text-align:center;color:var(--success);">✓</td>
+        <td style="text-align:center;color:var(--success);">✓</td>
+      </tr>
+      <tr>
+        <td style="padding:6px 8px;">link(pk_stealth → identity)</td>
+        <td style="text-align:center;color:var(--success);">✓</td>
+        <td style="text-align:center;color:var(--success);">✓</td>
+        <td style="text-align:center;color:var(--success);">✓</td>
+        <td style="text-align:center;color:var(--danger);">✗ (needs R)</td>
+      </tr>
+    </table>
+    </div>
+
+    <div class="section-header" style="font-size:13px;">Hash Domain Tags (cheat sheet)</div>
+    <div class="crypto-box">
+      <div class="line"><span class="fn">tee_swap.commitment</span> — note commitment</div>
+      <div class="line"><span class="fn">tee_swap.nullifier</span> — nullifier (canonical, path-independent)</div>
+      <div class="line"><span class="fn">tee_swap.stealth</span> — stealth address key derivation</div>
+      <div class="line"><span class="fn">tee_swap.salt_enc</span> — salt encryption key (ECDH → XOR)</div>
+      <div class="line"><span class="fn">tee_swap.bind_swap</span> — bind deposit to specific swapId</div>
+      <div class="line"><span class="fn">tee_swap.bind_R</span> — bind to ephemeral public key</div>
+      <div class="line"><span class="fn">tee_swap.bind_meta</span> — bind to intended counterparty</div>
+      <div class="line"><span class="fn">tee_swap.bind_enc</span> — bind to encrypted salt</div>
+      <div class="line"><span class="fn">tee_swap.swap_id</span> — deterministic swap identifier</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function showPhase(id) {
+  document.querySelectorAll('.phase-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.phase-nav button').forEach(b => b.classList.remove('active'));
+  document.getElementById('phase-' + id).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+
+</body>
+</html>
