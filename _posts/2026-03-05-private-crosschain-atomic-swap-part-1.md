@@ -2,7 +2,7 @@
 layout: post
 title: "Private Crosschain Atomic Swaps (Part 1 of 2)"
 description: "How to build atomic delivery-versus-payment across two chains while hiding amounts, prices, and counterparty identities. Part 1 covers the protocol: shielded UTXO notes, stealth addresses, and the coordination problem."
-date: 2026-03-05 10:00:00 +0100
+date: 2026-03-06 10:00:00 +0100
 author: "Yanis, Aaryamann"
 image: /assets/images/2026-03-05-private-crosschain-swap-part-1/hero.png
 tags:
