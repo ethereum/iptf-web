@@ -2,7 +2,7 @@
 layout: post
 title: "Private Crosschain Atomic Swaps (Part 2 of 2)"
 description: "How a Trusted Execution Environment (TEE) can coordinate private crosschain atomic swaps today, what the real attack surfaces are, and why TEEs are a practical bridge to stronger cryptographic solutions."
-date: 2026-03-18 10:00:00 +0100
+date: 2026-03-13 10:00:00 +0100
 author: "Yanis"
 image: /assets/images/2026-03-05-private-crosschain-swap-part-1/hero.png
 tags:
@@ -107,7 +107,7 @@ Atomicity is a TEE-level guarantee: the TEE must post both sides' data or neithe
 
 **Swap-ID griefing.** The swap ID is derived deterministically by both parties from the agreed swap terms. A malicious coordinator could announce garbage for a valid swap ID, permanently blocking that swap (since each ID can only be announced once). The counterparty's funds are not lost — the timeout refund still works — but the swap is killed.
 
-**Liveness.** A single TEE instance is a single point of failure. If the enclave goes down, swaps stall until the timeout expires.
+**Liveness.** A single TEE instance is a single point of failure. If the enclave goes down, swaps stall until the timeout expires. Nothing prevents each party from running its own attested enclave as a fallback, turning the coordinator into a replaceable role rather than a privileged one.
 
 In the institution-to-institution setting, contractual recourse and mutual attestation auditing provide practical deterrents. An economic bond mechanism — where the TEE operator posts collateral that can be slashed on proof of asymmetric behavior — could strengthen these deterrents, but is not implemented in the current PoC.
 
@@ -144,8 +144,6 @@ The shielded pool contracts are permissionless. Both parties to a swap can agree
 The TEE coordinator is a starting point, not the destination. MPC could replace the single enclave with a threshold protocol, removing the hardware trust assumption at the cost of latency and operational complexity. FHE could let the coordinator verify encrypted submissions without decrypting, but remains orders of magnitude too slow.
 
 The coordination problem reduces to this: two parties each hold private inputs (their ephemeral key and encrypted salt), and we need a single proof that both sets of inputs are consistent with the on-chain state. That is what co-SNARKs solve — each party contributes their secret inputs to a joint ZK proof without revealing them to anyone. The proof itself becomes the atomic revelation. If it verifies, both sides are consistent. No trusted intermediary, no hardware assumption, no coordinator to compromise. The coordinator becomes a protocol rather than a party.
-
-Collaborative proving is early stage in terms of usage and development. But it is the actual solution to the problem we posed in Part 1: two private inputs, one proof, zero trust.
 
 The full implementation is open source, with a detailed [specification](https://github.com/ethereum/iptf-pocs/tree/main/pocs/approach-private-trade-settlement/tee_swap/SPEC.md) and an [interactive protocol walkthrough](/tee-protocol-page).
 
