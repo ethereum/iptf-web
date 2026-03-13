@@ -2,7 +2,7 @@
 layout: post
 title: "Private Crosschain Atomic Swaps (Part 2 of 2)"
 description: "How a Trusted Execution Environment (TEE) can coordinate private crosschain atomic swaps today, what the real attack surfaces are, and why TEEs are a practical bridge to stronger cryptographic solutions."
-date: 2026-03-12 10:00:00 +0100
+date: 2026-03-18 10:00:00 +0100
 author: "Yanis"
 image: /assets/images/2026-03-05-private-crosschain-swap-part-1/hero.png
 tags:
@@ -48,7 +48,7 @@ For institution-to-institution bilateral settlement, both parties know each othe
 
 Before submitting anything to the coordinator, each party needs assurance that the code running inside the enclave is exactly the open-source coordinator, unmodified and unobserved by the operator. This is the job of remote attestation.
 
-![Remote attestation flow](/assets/images/2026-03-12-private-crosschain-swap-part-2/diagram-1-attestation-flow.png)
+![Remote attestation flow](/assets/images/2026-03-18-private-crosschain-swap-part-2/diagram-1-attestation-flow.png)
 
 The build process is deterministic. The coordinator binary, its configuration, and its dependencies are packaged into an image. A build tool hashes everything in that image into a set of measurements (fingerprints of the code, configuration, and boot chain). These measurements are public: anyone can rebuild the image from source and verify they get the same hash.
 
@@ -60,7 +60,7 @@ When a client connects, the TLS handshake presents this certificate. The client 
 
 The coordinator's job is narrow: receive submissions from both parties, verify that their locked notes match the agreed swap terms, and publish the claim secrets atomically.
 
-![TEE coordinator architecture](/assets/images/2026-03-12-private-crosschain-swap-part-2/diagram-2-tee-coordinator.png)
+![TEE coordinator architecture](/assets/images/2026-03-18-private-crosschain-swap-part-2/diagram-2-tee-coordinator.png)
 
 ### What the coordinator receives
 
