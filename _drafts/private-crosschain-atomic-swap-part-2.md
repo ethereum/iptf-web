@@ -1,9 +1,9 @@
 ---
 layout: post
 title: "Private Crosschain Atomic Swaps (Part 2 of 2)"
-description: "Inside the TEE coordinator: how a Trusted Execution Environment makes crosschain atomic swaps work today, what the real attack surfaces are, and why TEEs are a bridge to stronger cryptographic solutions."
+description: "How a Trusted Execution Environment (TEE) can coordinate private crosschain atomic swaps today, what the real attack surfaces are, and why TEEs are a practical bridge to stronger cryptographic solutions."
 date: 2026-03-12 10:00:00 +0100
-author: "Yanis, Aaryamann"
+author: "Yanis"
 image: /assets/images/2026-03-05-private-crosschain-swap-part-1/hero.png
 tags:
   - atomic-swap
@@ -15,40 +15,36 @@ tags:
 
 In [Part 1](/private-crosschain-atomic-swap-part-1/), we built a protocol for private crosschain settlement. Shielded UTXO notes on two chains hide amounts and asset types. Stealth addresses let each party lock a note that only the counterparty can claim, without revealing who that counterparty is on-chain. A fallback timeout guarantees that if anything goes wrong, both parties reclaim their own funds.
 
-The remaining problem is coordination. Each party holds a secret (an ephemeral key and an encrypted salt) that the other needs to claim. Revealing these secrets must happen simultaneously: whoever goes first can be cheated, whoever goes second can defect. We left the coordinator as a black box. This post opens it.
+The remaining problem is coordination. Each party holds a secret (an ephemeral key and an encrypted salt) that the other needs to claim. Revealing these secrets must happen simultaneously, otherwise whoever goes first can be cheated, whoever goes second can defect. We left the coordinator as a black box. This post opens it.
 
 ## What is a TEE?
 
-A Trusted Execution Environment (TEE) is a hardware-isolated area inside a processor where code runs without the host machine, its operating system, or the cloud provider being able to read the memory. Think of it as a locked glass room inside a data center: anyone can watch the room being built and verify the blueprints, but once the door closes, nobody outside can see or touch what happens inside. The program runs, produces outputs, and the room is torn down. The operator never gets a key.
+A Trusted Execution Environment (TEE) is an isolated area inside a processor where code runs without the host machine, its operating system, or the cloud provider being able to read the memory. Think of it as a locked glass room inside a data center: anyone can watch the room being built and verify the blueprints, but once the door closes, nobody outside can see or touch what happens inside. The program runs, produces outputs, and the room is torn down. The operator never gets a key.
 
 In our protocol, the TEE is the coordinator. It receives secrets from both swap parties, checks them against on-chain data, and publishes the claim keys. Because the enclave's memory is isolated, the operator running the machine cannot read the swap details passing through it.
 
-For this proof of concept, we use AWS Nitro Enclaves, a stripped-down virtual machine with no persistent storage, no network interface, and no interactive shell. The Nitro hypervisor walls it off from the host instance. Communication happens only through a narrow, pre-defined channel (a vsock).
+For this proof of concept, we use [AWS Nitro Enclaves](#ref-2), a stripped-down virtual machine with no persistent storage, no network interface, and no interactive shell. The Nitro hypervisor walls it off from the host instance. Communication happens only through a narrow, pre-defined channel (a [vsock](https://man7.org/linux/man-pages/man7/vsock.7.html)). TEEs are already used in production in the Ethereum ecosystem, including by [Flashbots](https://writings.flashbots.net/block-building-inside-SGX) for MEV-Share and block building, and by several bridge protocols for cross-chain message verification.
 
-### How Nitro differs from SGX
+[Intel SGX](#ref-1) places the trust boundary at the silicon: the cloud provider's software stack is excluded from the trusted computing base, though the chip vendor and physical access remain attack vectors (see [tee.fail](https://tee.fail)). Nitro places the trust boundary at the hypervisor: AWS's Nitro hypervisor is in the trusted computing base, but the isolation model is simpler and avoids the side-channel attack surface that has historically affected SGX. If your threat model excludes the cloud provider, Nitro is the simpler option. If it includes the cloud provider, chip-level isolation (SGX, AMD SEV) narrows the trust surface, but does not eliminate it.
 
-Intel SGX encrypts enclave memory at the chip level, so even the cloud provider operating the physical machine cannot read it. Nitro Enclaves rely on the hypervisor boundary instead: the isolation is logical, not cryptographic at the hardware level. The trade-off is straightforward. SGX protects against the cloud provider; Nitro trusts the cloud provider (AWS) but offers a simpler operational model with fewer side-channel attack surfaces. If you already trust your cloud provider with your infrastructure, Nitro is the simpler option. If you need protection _from_ the cloud provider, chip-level encryption (SGX, AMD SEV) is required.
+#### TEEs are not HSMs
 
-### TEEs are not HSMs
+Institutions are used to Hardware Security Modules (HSMs) for key storage and signing. An HSM is a physically tamper-resistant vault (Common Criteria EAL5–7) with dedicated silicon and minimal firmware. It stores keys and tightly controls export. A TEE is logical isolation on a general-purpose processor (EAL2–4). It can run arbitrary code, but it lacks physical tamper resistance and has a larger attack surface. TEEs complement HSMs; they do not replace them. The question is not whether a TEE is "as secure" as an HSM — they solve different problems. The relevant question is: what happens when the TEE fails?
 
-Institutions are used to Hardware Security Modules (HSMs) for key storage and signing. An HSM is a physically tamper-resistant vault (Common Criteria EAL5–7) with dedicated silicon and minimal firmware. It stores keys and never exports them. A TEE is logical isolation on a general-purpose processor (EAL2–4). It can run arbitrary code, but it lacks physical tamper resistance and has a larger attack surface. TEEs complement HSMs; they do not replace them. The question is not whether a TEE is "as secure" as an HSM — they solve different problems. The relevant question is: what happens when the TEE fails?
+### TEE trust model
 
-### Where TEEs break
+TEEs give you code isolation, remote attestation, and no persistent storage. What they do not give you is a cryptographic guarantee. A ZK proof holds even if every participant is adversarial. A TEE's confidentiality depends on the hardware vendor not being compromised and the firmware not having exploitable bugs. There is no way to verify either of those after the fact.
 
-The failure modes matter:
+This does not make TEEs unusable, but it means the gaps are real and need more research:
 
 - **Hardware manufacturer compromise.** The chip vendor could theoretically read everything inside the enclave. There is no cryptographic defense against this. Multi-vendor deployments reduce single-vendor risk but do not eliminate it.
-- **Firmware or side-channel bugs.** Spectre, Foreshadow, and similar attacks have historically let an attacker on the same machine extract enclave memory. The class of vulnerability is not eliminated by any TEE architecture.
-- **I/O manipulation.** The host operator controls every byte going into and out of the enclave. They can feed false data, withhold outputs, or selectively censor. The enclave's memory is protected, but its communication channel is not.
-- **No post-hoc verification of privacy.** You can use a ZK proof to verify that a function was executed correctly (the math holds regardless of who ran it). But you cannot verify that a malicious operator did not observe your inputs during execution. Attestation proves the right code is running. It does not prove nobody watched.
+- **Firmware or side-channel bugs.** [Spectre](https://spectreattack.com/), [Foreshadow](#ref-4), and similar attacks have historically let an attacker on the same machine extract enclave memory. The class of vulnerability is not eliminated by any TEE architecture.
+- **I/O manipulation.** The host operator controls the network path into and out of the enclave. With a correctly established TLS session, they cannot read or alter encrypted traffic. But they can selectively deny service: dropping connections, refusing to relay outputs, or blocking specific clients. The enclave's computation is protected, but its availability is not.
+- **No post-hoc verification of privacy.** Attestation proves the right code is running. It does not prove nobody watched. You cannot verify that a malicious operator did not observe your inputs during execution.
 
-### TEEs are not a substitute for cryptography
+For institution-to-institution bilateral settlement, both parties know each other, have contractual recourse, and can audit the enclave code and attestation. In this setting, TEEs reduce the trust surface without requiring new cryptographic breakthroughs. They fill the gap today, and the coordinator can be swapped out when stronger primitives mature.
 
-A ZK proof is a mathematical guarantee: it holds even if every participant is adversarial. A TEE's confidentiality depends on the hardware vendor not being compromised and the firmware not having exploitable bugs. There is no way to verify either of those after the fact.
-
-The scenario we are exploring is institution-to-institution bilateral settlement. Both parties know each other, have contractual recourse, and can audit the enclave code and attestation. In this setting, TEEs are a practical trust-minimization tool. Designing for an end-user-to-institution setting would require a different threat model with stronger guarantees (and likely pure-crypto primitives). TEEs are what works today. When MPC matures enough for interactive coordination, the coordinator can be swapped out.
-
-## How clients verify the enclave
+### How clients verify the enclave
 
 Before submitting anything to the coordinator, each party needs assurance that the code running inside the enclave is exactly the open-source coordinator, unmodified and unobserved by the operator. This is the job of remote attestation.
 
@@ -56,7 +52,7 @@ Before submitting anything to the coordinator, each party needs assurance that t
 
 The build process is deterministic. The coordinator binary, its configuration, and its dependencies are packaged into an image. A build tool hashes everything in that image into a set of measurements (fingerprints of the code, configuration, and boot chain). These measurements are public: anyone can rebuild the image from source and verify they get the same hash.
 
-When the enclave boots, it generates a fresh encryption key pair and asks the hardware security module on the host card to sign a certificate binding that key to the enclave's measurements. The hardware module's signature chains to the cloud provider's root certificate, which is publicly verifiable.
+When the enclave boots, it generates a fresh encryption key pair (no key material persists across reboots). It then asks the Nitro Security Module (NSM) — a dedicated chip on the host card, not a general-purpose HSM — to sign a certificate binding that public key to the enclave's measurements. The hardware module's signature chains to the cloud provider's root certificate, which is publicly verifiable.
 
 When a client connects, the TLS handshake presents this certificate. The client checks three things: the signature chain is valid (the certificate was issued by the hardware module, which chains to the provider's root), the measurements match the expected enclave image (the code is what it claims to be), and the encryption key in the certificate is the one the enclave actually holds (the session is not being intercepted). If all three checks pass, the encrypted channel terminates inside the attested code. The operator cannot read the traffic.
 
@@ -72,22 +68,20 @@ Each party submits a swap identifier, a nonce, their ephemeral public key, an en
 
 ### Hash-only verification
 
-The core design choice: the TEE performs no cryptographic operations beyond hashing. All the expensive math (stealth address derivation, shared secret computation, salt encryption) was already proven correct inside the ZK circuit and verified on-chain when each party locked their note.
+The core design choice: the TEE performs no cryptographic operations on swap data beyond hashing. All the expensive math (stealth address derivation, shared secret computation, salt encryption) was already proven correct inside the ZK circuit and verified on-chain when each party locked their note.
 
-The ZK circuit outputs four binding commitments as public inputs alongside the note commitment:
+The ZK circuit includes four binding commitments as public inputs to the proof (verified on-chain alongside the note commitment):
 
 ```
-h_swap = Hash("tee_swap_v0", swap_id, salt)
+h_swap = Hash(swap_id, salt)
 h_R    = Hash(eph_pk)
 h_meta = Hash(meta_pk_counterparty, salt)
-h_enc  = Hash("enc", encrypted_salt)
+h_enc  = Hash(encrypted_salt)
 ```
 
 These commitments are recorded on-chain when the lock transaction is verified. They are sealed envelopes: the ZK proof guarantees the values inside are consistent with the stealth address derivation, but the values themselves are not revealed on-chain.
 
 The coordinator opens these envelopes. For each party, it recomputes the hashes from the submitted plaintext and checks that they match what was recorded on-chain. Eight hash comparisons per swap, plus commitment and swap ID recomputation. If any check fails, the coordinator rejects the swap.
-
-ZK proves the math is correct. The TEE proves both parties revealed consistent secrets. The blockchain proves finality. If the TEE is compromised, an attacker learns the swap details (amounts, counterparties), which is a privacy breach. But they cannot steal funds, because they never had access to spending keys. Financial correctness comes from the ZK proofs, not from the TEE.
 
 ### Atomic revelation
 
@@ -103,61 +97,55 @@ The demo walks through four phases. First, Alice and Bob each receive a funded n
 
 The full demo output (with links to every on-chain transaction on Sepolia and Scroll explorers) is available as a [gist](https://gist.github.com/Meyanis95/93c01b2d486489633655949997384483).
 
-## Limitations
+## Trust assessment
 
-### Hardware trust
+### What can go wrong
 
-The hardware trust assumption has no cryptographic fallback. If the hardware vendor is compromised, or has been compelled, they can read everything inside the enclave. Side-channel attacks have a long history (Foreshadow, Plundervolt, SGAxe); hypervisor-isolated enclaves have a simpler boundary, but the class of vulnerability is not eliminated. A single TEE instance is also a single point of failure for liveness: if the enclave goes down, swaps stall until the timeout expires.
+Atomicity is a TEE-level guarantee: the TEE must post both sides' data or neither. This cannot be enforced on-chain or by a SNARK. It is a behavioral property of the coordinator itself, and it opens three attack vectors.
+
+**Selective disclosure.** A compromised coordinator could post only one party's claim secrets. Even if the announcement contract requires both sets in a single transaction and rejects a one-sided submission, the secrets are visible in the mempool before inclusion, so the information is already leaked. The victim can only fall back to the timeout refund on their own note, while the other party (or an attacker colluding with them) uses the leaked secrets to claim. This is not a liveness failure — it is effective theft enabled by breaking atomicity.
+
+**Swap-ID griefing.** The swap ID is derived deterministically by both parties from the agreed swap terms. A malicious coordinator could announce garbage for a valid swap ID, permanently blocking that swap (since each ID can only be announced once). The counterparty's funds are not lost — the timeout refund still works — but the swap is killed.
+
+**Liveness.** A single TEE instance is a single point of failure. If the enclave goes down, swaps stall until the timeout expires.
+
+In the institution-to-institution setting, contractual recourse and mutual attestation auditing provide practical deterrents. An economic bond mechanism — where the TEE operator posts collateral that can be slashed on proof of asymmetric behavior — could strengthen these deterrents, but is not implemented in the current PoC.
 
 ### Protocol gaps
 
 The shielded pool contracts must be deployed on every network where assets are traded. Each deployment starts with an empty Merkle tree and zero anonymity set. Growing that set takes time and volume.
 
-Rollup finality is limited. Confirmation times affect the lock and claim windows, and a locked note must survive potential reorgs on both chains before it is safe to coordinate.
+Rollup finality constrains the protocol's timing parameters. Optimistic rollups (Optimism, Arbitrum) have a 7-day challenge window for full finality; ZK rollups (Scroll, zkSync) finalize in roughly 1–4 hours depending on proof generation and L1 inclusion. The lock timeout must exceed the slower chain's finality window to prevent a race where one party claims on a finalized chain while the other's chain reorgs.
 
-The UTXO model requires custom wallet infrastructure: scanning for notes, decrypting memos, tracking nullifiers, managing Merkle proofs. None of this has standardized tooling today. The account model has decades of wallet support and established tooling. The UTXO model trades that for privacy, and the tooling cost is real.
+The UTXO model requires custom wallet infrastructure: scanning for notes, decrypting memos, tracking nullifiers, managing Merkle proofs. None of this has standardized tooling today. The tooling cost is real.
 
 During the lock window, time-locked notes are distinguishable from standard notes (they carry a non-zero timeout). This leaks the existence of a pending swap, though not the amounts, assets, or identities.
 
-### PoC-specific
+The coordinator trusts its RPC endpoint. A compromised RPC could feed false on-chain state. Running a light client like [Helios](https://github.com/a16z/helios) inside the enclave would fix this by verifying state proofs against the consensus layer directly. The announcement contract uses a simple externally owned account for the TEE signer; in production, a smart account ([ERC-4337](https://eips.ethereum.org/EIPS/eip-4337)) would support key rotation and censorship resistance.
 
-The coordinator trusts its RPC endpoint. A compromised RPC could feed false on-chain state. Running a light client like [Helios](https://github.com/a16z/helios) inside the enclave would fix this by verifying state proofs against the consensus layer directly.
+### The ZK layer is the real guarantee
 
-The hash verification could itself be expressed as a SNARK. The coordinator would post a ZK proof of correct verification on-chain instead of raw data, cheaper to verify and independently auditable. The verification logic (Poseidon hashes, no curve arithmetic) is simple enough that the circuit would be straightforward.
+The ZK proofs verify note formation, ownership, and consistency. They hold regardless of who runs the coordinator. No one can forge notes, double-spend, or claim funds they do not own. The math enforces this even if the TEE is fully compromised.
 
-The announcement contract uses a simple externally owned account for the TEE signer. In production, a smart account ([ERC-4337](https://eips.ethereum.org/EIPS/eip-4337)) would support key rotation and censorship resistance: if the TEE's key is compromised or the operator is censoring, the account's governance logic can rotate to a new enclave.
+The TEE is a courier. It checks that both parties revealed consistent secrets, but financial correctness comes from the SNARKs. A compromised TEE leaks swap details (amounts, counterparties) — a privacy breach, but not a theft. The integrity of individual notes is not at risk. What the TEE can break is atomicity: the guarantee that both sides settle or neither does. That is a coordination property, not a cryptographic one, and it is where this protocol is weakest.
 
-## Institutional fit
+### Have we removed counterparty risk?
 
-### Settlement agent, not custodian
+Part 1 framed the problem as removing counterparty risk from crosschain settlement. The honest answer: partially.
 
-A TEE coordinator plays a role similar to a settlement agent. It sits between two counterparties, verifies that both sides have met their obligations, and finalizes the instructions. But unlike a traditional settlement agent, it never holds funds (they stay in on-chain contracts controlled by ZK proofs). Its code is verifiable through remote attestation. And if it goes down, the timeout refund kicks in — the worst case is a delay, not a default.
+The coordinator never holds funds. It cannot forge claims. Its code is publicly verifiable through remote attestation. If it goes down, the timeout refund kicks in. These are real improvements over a traditional settlement agent sitting between two counterparties.
 
-This maps to institutional DvP workflows: tokenized securities on one chain, stablecoins on another, with the coordinator replacing the custodian or depository in the middle.
+But we replaced a custodian with three new trust assumptions: (1) the hardware vendor is not compromised, (2) the operator runs the attested code honestly, and (3) contractual recourse exists if either fails. The trust surface is smaller and more auditable, but it is not gone.
 
-### Censorship resistance
+The shielded pool contracts are permissionless. Both parties to a swap can agree to use any coordinator — they can deploy their own announcement contract, run their own attested enclave, and operate independently. If a coordinator misbehaves, both counterparties can agree to move to a different one. The viewing key architecture from the [shielded pool design](/building-private-transfers-on-ethereum/) still applies: institutions grant viewing keys to regulators for selective disclosure, and the enclave has no persistent storage. These properties make the setup practical for bilateral institutional settlement. But "practical with contractual recourse" is not the same as trustless.
 
-The shielded pool contracts are permissionless. Any institution can run their own TEE coordinator: deploy their own announcement contract, run their own attested enclave, operate independently. If the protocol's default coordinator censors a party, that party can stand up their own infrastructure and complete the swap without anyone's permission.
+## Can we remove the coordinator?
 
-### Compliance
+The TEE coordinator is a starting point, not the destination. MPC could replace the single enclave with a threshold protocol, removing the hardware trust assumption at the cost of latency and operational complexity. FHE could let the coordinator verify encrypted submissions without decrypting, but remains orders of magnitude too slow.
 
-The coordinator sees trade metadata in memory during execution, but the enclave has no persistent storage. When it shuts down, the data is gone. The viewing key architecture from the [shielded pool design](/building-private-transfers-on-ethereum/) still applies: institutions can grant viewing keys to regulators for selective disclosure of their transaction history.
+The coordination problem reduces to this: two parties each hold private inputs (their ephemeral key and encrypted salt), and we need a single proof that both sets of inputs are consistent with the on-chain state. That is what co-SNARKs solve — each party contributes their secret inputs to a joint ZK proof without revealing them to anyone. The proof itself becomes the atomic revelation. If it verifies, both sides are consistent. No trusted intermediary, no hardware assumption, no coordinator to compromise. The coordinator becomes a protocol rather than a party.
 
-The TEE operator is a service provider with contractual obligations, not a custodian. The worst they can do is refuse to act, which triggers the timeout refund.
-
-For bilateral trades between institutions already operating on-chain, this setup removes the custodian from the settlement chain. The trade-off is a hardware trust assumption: you are trusting a chip vendor instead of a custodian bank. For institutions not yet on-chain, the TEE is a new trust surface to evaluate against their existing clearing and settlement infrastructure.
-
-## Potential alternative coordinator primitives
-
-The TEE coordinator is a starting point. Other primitives make different trade-offs between trust and performance.
-
-**MPC (Multi-Party Computation).** Replace the single TEE with a threshold protocol: n-of-m independent parties must collude to break privacy. No hardware trust assumption, but higher latency and more complex operational setup.
-
-**Co-SNARKs (Collaborative ZK Proving).** Each party contributes private inputs to a joint ZK proof without revealing them to anyone. The coordinator becomes a protocol rather than a trusted party. Research-stage, not yet practical for interactive coordination.
-
-**FHE (Fully Homomorphic Encryption).** The coordinator verifies encrypted submissions without ever decrypting. Impractical today (orders of magnitude slower than plaintext hashes) but worth watching as performance improves.
-
-TEEs are the fastest and simplest option but carry hardware trust. MPC removes the hardware dependency at the cost of latency and operational complexity. ZK and FHE would eliminate trust entirely but are not yet fast enough for interactive settlement.
+Collaborative proving is early stage in terms of usage and development. But it is the actual solution to the problem we posed in Part 1: two private inputs, one proof, zero trust.
 
 The full implementation is open source, with a detailed [specification](https://github.com/ethereum/iptf-pocs/tree/main/pocs/approach-private-trade-settlement/tee_swap/SPEC.md) and an [interactive protocol walkthrough](/tee-protocol-page).
 
@@ -168,3 +156,4 @@ The full implementation is open source, with a detailed [specification](https://
 <span id="ref-3">**[3]**</span> S. Knauth et al., "Integrating Remote Attestation with Transport Layer Security," Intel, 2018. [[arXiv](https://arxiv.org/abs/1801.05863)]
 <span id="ref-4">**[4]**</span> J. Van Bulck et al., "Foreshadow: Extracting the Keys to the Intel SGX Kingdom," USENIX Security 2018. [[PDF](https://foreshadowattack.eu/foreshadow.pdf)]
 <span id="ref-5">**[5]**</span> Confidential Computing Consortium (Linux Foundation). [[Site](https://confidentialcomputing.io/)]
+<span id="ref-6">**[6]**</span> O. Ozdemir and T. Boneh, "Experimenting with Collaborative zk-SNARKs: Zero-Knowledge Proofs for Distributed Secrets," Cryptology ePrint Archive 2021/1530. [[PDF](https://eprint.iacr.org/2021/1530.pdf)]
