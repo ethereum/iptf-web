@@ -1,0 +1,88 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "manual",
+  "elements": [
+    {
+      "type": "rectangle", "id": "box-normal", "x": 50, "y": 60, "width": 260, "height": 180,
+      "strokeColor": "#047857", "backgroundColor": "#a7f3d0", "fillStyle": "solid",
+      "strokeWidth": 2, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 1001, "version": 1, "versionNonce": 1002,
+      "isDeleted": false, "groupIds": [], "boundElements": [{"id": "txt-normal", "type": "text"}],
+      "link": null, "locked": false, "roundness": {"type": 3}
+    },
+    {
+      "type": "text", "id": "txt-normal", "x": 70, "y": 90, "width": 220, "height": 120,
+      "text": "Normal Withdrawal\n\nOperator cooperates\n\nOperator provides\nMerkle path, generates\nproof, bridge transfers",
+      "originalText": "Normal Withdrawal\n\nOperator cooperates\n\nOperator provides\nMerkle path, generates\nproof, bridge transfers",
+      "fontSize": 13, "fontFamily": 3, "textAlign": "center", "verticalAlign": "middle",
+      "strokeColor": "#047857", "backgroundColor": "transparent", "fillStyle": "solid",
+      "strokeWidth": 1, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 1003, "version": 1, "versionNonce": 1004,
+      "isDeleted": false, "groupIds": [], "boundElements": null,
+      "link": null, "locked": false, "containerId": "box-normal", "lineHeight": 1.25
+    },
+    {
+      "type": "rectangle", "id": "box-forced", "x": 350, "y": 60, "width": 260, "height": 180,
+      "strokeColor": "#b45309", "backgroundColor": "#fef3c7", "fillStyle": "solid",
+      "strokeWidth": 2, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 2001, "version": 1, "versionNonce": 2002,
+      "isDeleted": false, "groupIds": [], "boundElements": [{"id": "txt-forced", "type": "text"}],
+      "link": null, "locked": false, "roundness": {"type": 3}
+    },
+    {
+      "type": "text", "id": "txt-forced", "x": 370, "y": 90, "width": 220, "height": 120,
+      "text": "Forced Withdrawal\n\nUser forces on-chain\n\nUser submits ZK proof\ndirectly. 1-day deadline.\nOperator processes or\nsystem freezes.",
+      "originalText": "Forced Withdrawal\n\nUser forces on-chain\n\nUser submits ZK proof\ndirectly. 1-day deadline.\nOperator processes or\nsystem freezes.",
+      "fontSize": 13, "fontFamily": 3, "textAlign": "center", "verticalAlign": "middle",
+      "strokeColor": "#b45309", "backgroundColor": "transparent", "fillStyle": "solid",
+      "strokeWidth": 1, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 2003, "version": 1, "versionNonce": 2004,
+      "isDeleted": false, "groupIds": [], "boundElements": null,
+      "link": null, "locked": false, "containerId": "box-forced", "lineHeight": 1.25
+    },
+    {
+      "type": "rectangle", "id": "box-escape", "x": 650, "y": 60, "width": 260, "height": 180,
+      "strokeColor": "#dc2626", "backgroundColor": "#fee2e2", "fillStyle": "solid",
+      "strokeWidth": 2, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 3001, "version": 1, "versionNonce": 3002,
+      "isDeleted": false, "groupIds": [], "boundElements": [{"id": "txt-escape", "type": "text"}],
+      "link": null, "locked": false, "roundness": {"type": 3}
+    },
+    {
+      "type": "text", "id": "txt-escape", "x": 670, "y": 90, "width": 220, "height": 120,
+      "text": "Escape Hatch\n\nSystem frozen, no ZK\n\n7-day inactivity\ntriggers freeze. Reveal\nbalance on-chain via\nMerkle proof. Privacy\nsacrificed.",
+      "originalText": "Escape Hatch\n\nSystem frozen, no ZK\n\n7-day inactivity\ntriggers freeze. Reveal\nbalance on-chain via\nMerkle proof. Privacy\nsacrificed.",
+      "fontSize": 13, "fontFamily": 3, "textAlign": "center", "verticalAlign": "middle",
+      "strokeColor": "#dc2626", "backgroundColor": "transparent", "fillStyle": "solid",
+      "strokeWidth": 1, "strokeStyle": "solid", "roughness": 0, "opacity": 100,
+      "angle": 0, "seed": 3003, "version": 1, "versionNonce": 3004,
+      "isDeleted": false, "groupIds": [], "boundElements": null,
+      "link": null, "locked": false, "containerId": "box-escape", "lineHeight": 1.25
+    },
+    {
+      "type": "arrow", "id": "arrow-spectrum", "x": 50, "y": 270, "width": 860, "height": 0,
+      "strokeColor": "#64748b", "backgroundColor": "transparent", "fillStyle": "solid",
+      "strokeWidth": 2, "strokeStyle": "solid", "roughness": 0, "opacity": 70,
+      "angle": 0, "seed": 4001, "version": 1, "versionNonce": 4002,
+      "isDeleted": false, "groupIds": [], "boundElements": null,
+      "link": null, "locked": false,
+      "points": [[0, 0], [860, 0]],
+      "startBinding": null, "endBinding": null,
+      "startArrowhead": null, "endArrowhead": "arrow"
+    },
+    {
+      "type": "text", "id": "txt-spectrum", "x": 300, "y": 280, "width": 350, "height": 18,
+      "text": "Less operator cooperation required  \u2192",
+      "originalText": "Less operator cooperation required  \u2192",
+      "fontSize": 13, "fontFamily": 3, "textAlign": "center", "verticalAlign": "top",
+      "strokeColor": "#64748b", "backgroundColor": "transparent", "fillStyle": "solid",
+      "strokeWidth": 1, "strokeStyle": "solid", "roughness": 0, "opacity": 70,
+      "angle": 0, "seed": 4003, "version": 1, "versionNonce": 4004,
+      "isDeleted": false, "groupIds": [], "boundElements": null,
+      "link": null, "locked": false, "containerId": null, "lineHeight": 1.25
+    }
+  ],
+  "appState": {"viewBackgroundColor": "#ffffff", "gridSize": null},
+  "files": {}
+}
