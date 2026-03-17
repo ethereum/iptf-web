@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "DIY Validium: Private Logic on Public Rails"
-description: "We built a validium in a few hundred lines of Rust and Solidity to understand what programmable privacy looks like end to end. The business logic is just Rust, proved in zero knowledge and verified on Ethereum."
+description: "A validium PoC where the business logic is ordinary Rust, proved in zero knowledge and verified on Ethereum."
 date: 2026-03-21 10:00:00 +0800
 author: "Oskar"
 image: /assets/images/2026-03-21-diy-validium/hero.png
