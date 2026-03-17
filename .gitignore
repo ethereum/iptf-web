@@ -8,3 +8,6 @@ Gemfile.lock
 
 # macOS
 .DS_Store
+
+# Excalidraw source files
+*.excalidraw

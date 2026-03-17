@@ -25,11 +25,11 @@ We built a [validium](https://ethereum.org/developers/docs/scaling/validium/) ar
 
 ## Write Rust, prove it, verify on-chain
 
-A validium keeps account data off-chain (held by an operator) and posts only Merkle roots and validity proofs on-chain. The chain stores almost nothing, but every state transition is cryptographically proven. If a transfer violates the rules, the proof won't verify and the contract rejects it.
+A validium is a type of rollup that keeps account data off-chain with an operator and posts only commitments and proofs to L1. The L1 contract verifies that the operator performed each state transition correctly. If a transfer violates the rules, the proof won't verify and the contract rejects it.
 
-Why build one from scratch? Production systems like ZKSync's Prividium implement this architecture with real infrastructure. But the internals are opaque. We wanted to answer a narrower question: what are the minimum moving parts for a private payment system with ZK validity proofs on L1?
+Why build one from scratch? Production systems like ZKSync's Prividium implement this architecture with full infrastructure. We wanted to answer a narrower question: what are the moving parts for a private payment system with ZK validity proofs on L1?
 
-The thing that makes this possible is the zkVM (zero-knowledge virtual machine). RISC Zero is one of several, alongside Succinct's SP1 and Polygon Miden's VM. The idea is the same: write a program in Rust, execute it inside the zkVM, get a cryptographic proof that the execution was correct. The verifier contract checks the proof without seeing the inputs. We used RISC Zero here, but nothing about the approach requires a specific prover.
+The key component is the zkVM (zero-knowledge virtual machine). RISC Zero is one of several, alongside Succinct's SP1 and Polygon Miden's VM. The idea is the same: write a program in Rust, execute it inside the zkVM, get a cryptographic proof that the execution was correct. The verifier contract checks the proof without seeing the inputs. We used RISC Zero here, but nothing about the approach requires a specific prover.
 
 In earlier posts we explored [shielded pools](/building-private-transfers-on-ethereum/) (UTXO model, privacy from everyone) and [plasma](/private-stablecoins-with-plasma/) (client-side proving, self-sovereign exit). The validium sits at a different point in the design space: the operator sees everything, but the chain enforces correctness. That tradeoff is worth understanding, and this post tries to make it explicit.
 
@@ -37,7 +37,7 @@ In earlier posts we explored [shielded pools](/building-private-transfers-on-eth
 
 ## Inside a guest program
 
-The best way to show the pattern is the disclosure proof. It lets an account holder prove to an auditor that their balance meets some threshold, without revealing the actual balance. Here's the full program, about 40 lines of Rust:
+A good way to show the pattern is the disclosure proof. It lets an account holder prove to an auditor that their balance meets some threshold, without revealing the actual balance. Here's the full program, about 40 lines of Rust:
 
 ```rust
 use guest_crypto::{account_commitment, compute_root, sha256};
@@ -79,7 +79,7 @@ The actual business logic is one line: `assert!(balance >= threshold)`. If it fa
 
 The program commits three values to the proof's public journal: the Merkle root, the threshold, and the disclosure key hash. That's all the auditor gets. Balance met a threshold, against a specific state root, bound to their identity.
 
-A compliance officer can read this code. Compare that to Circom, where the same check needs roughly 80 lines of manual signal routing and SHA-256 constraint wiring. The business logic (`balance >= threshold`) is identical either way; everything around it in Circom is circuit plumbing.
+A compliance officer can read this code. Compare that to Circom, where the same check needs roughly 80 lines of manual signal routing and SHA-256 constraint wiring. The business logic (`balance >= threshold`) is identical either way; everything around it in Circom is circuit plumbing. The tradeoff is maintainability vs performance: zkVMs are slower than hand-optimized circuits, but the code is readable and auditable.
 
 What else could go in that `assert!` line?
 
@@ -94,19 +94,13 @@ The guest program is the only thing that changes. The proving and verification i
 
 ## The validium architecture
 
-The disclosure proof proves something about an account inside a Merkle tree, maintained by an operator, anchored to Ethereum. Here's the minimal architecture we ended up with:
+The disclosure proof proves something about an account inside a Merkle tree, maintained by an operator, anchored to Ethereum. Here's the architecture we ended up with:
 
 ![Three-layer validium architecture: operator, ZK layer, Ethereum](/assets/images/2026-03-21-diy-validium/architecture.png)
 
-The operator holds account state off-chain: a public key, a balance, and a random salt per account. This is the only place where plaintext balances exist. RISC Zero guest programs prove that state transitions follow the rules (the prover executes the program, produces a STARK proof, hands it to the contract). Ethereum stores a single Merkle root and verifies proofs. The contracts are a few hundred lines of Solidity. They check that the old root matches, verify the STARK seal, and update the root.
+The operator holds account state off-chain: a public key, a balance, and a random salt per account. This is the only place where plaintext balances exist. RISC Zero guest programs prove that state transitions follow the rules (the prover executes the program, produces a STARK proof, hands it to the contract). Ethereum stores a single Merkle root and verifies proofs. The contracts check that the old root matches, verify the STARK seal, and update the root.
 
-Each account is a leaf in a binary SHA-256 Merkle tree (depth 20, roughly one million accounts). The leaf commitment:
-
-```
-commitment = SHA256(pubkey || balance_le || salt)
-```
-
-`balance_le` is the balance encoded as little-endian bytes (matching Rust's `u64::to_le_bytes()`). Sequential root checks (`require(oldRoot == stateRoot)`) prevent replay: each operation changes the root, making stale proofs invalid. We don't need nullifiers (unlike UTXO models like Zcash or our [shielded pool PoC](/building-private-transfers-on-ethereum/)), but the tradeoff is that a centralized state holder is required.
+Each account is a leaf in a Merkle tree. The leaf is a hash of the account's public key, balance, and a random salt. Each operation updates the on-chain root, so stale proofs are automatically invalid. Unlike UTXO models (Zcash, our [shielded pool PoC](/building-private-transfers-on-ethereum/)), there are no nullifiers, but the tradeoff is that a centralized state holder is required.
 
 Four operations, each following the same guest-program structure (read private inputs, verify Merkle membership, assert business rules, commit new state root):
 
@@ -139,7 +133,7 @@ The PoC implements three tiers of withdrawal. Each assumes less about operator c
 
 ![Censorship resistance spectrum: normal, forced, escape](/assets/images/2026-03-21-diy-validium/censorship-resistance.png)
 
-Normal withdrawal is the happy path. The operator provides the Merkle path, generates a proof, the bridge transfers tokens.
+Normal withdrawal is the default path. The operator provides the Merkle path, generates a proof, the bridge transfers tokens.
 
 If the operator refuses to process your withdrawal (censorship), you can submit a valid ZK withdrawal proof directly to the bridge contract. The operator then has one day to process it. If they don't, anyone can freeze the entire bridge. The operator can't dodge this by churning state: even if they post other proofs that change the state root (making the forced request's old root stale), the deadline still ticks. Either they process it, or the system freezes.
 
@@ -182,7 +176,7 @@ The validium makes sense when the operator is trusted by design (a single-issuer
 
 This is a PoC. Some of the gaps are straightforward to close, others are open problems.
 
-On the engineering side: the operator is centralized (production would use a DA committee or post calldata). Users save their own data for escape (production would add blob checkpoints or encrypted DA). Disclosure keys are hash-based (production would use verifiable encryption; both Aztec and Miden are exploring this). There's no batching, and deposits and withdrawals are public.
+On the engineering side: the operator is centralized (production would use a DA committee or post calldata). Each state transition updates the root, which invalidates any in-flight proofs built against the old root, so there's no concurrent transaction processing without batching. Users save their own data for escape (production would add blob checkpoints or encrypted DA). Disclosure keys are hash-based (production would use verifiable encryption; both Aztec and Miden are exploring this). Deposits and withdrawals are public.
 
 ### Where this leads
 
