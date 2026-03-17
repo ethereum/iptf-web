@@ -21,7 +21,9 @@ This line runs inside a zero-knowledge proof. Ethereum verifies the proof on-cha
 
 No circuit DSL, no constraint wiring. Just Rust.
 
-We built a [validium](https://ethereum.org/developers/docs/scaling/validium/) around this idea to see what a private payment system looks like when the business logic is ordinary code proved in ZK and settled on Ethereum.
+The question we wanted to answer: what are the moving parts for a private payment system where the business logic is ordinary Rust, proved in ZK, settled on Ethereum?
+
+This post walks through the PoC layer by layer: the guest program pattern, the validium architecture, and the trust model.
 
 ## Write Rust, prove it, verify on-chain
 
@@ -31,13 +33,13 @@ Why build one from scratch? Production systems like ZKSync's Prividium implement
 
 The key component is the zkVM (zero-knowledge virtual machine). RISC Zero is one of several, alongside Succinct's SP1 and Polygon Miden's VM. The idea is the same: write a program in Rust, execute it inside the zkVM, get a cryptographic proof that the execution was correct. The verifier contract checks the proof without seeing the inputs. We used RISC Zero here, but nothing about the approach requires a specific prover.
 
-In earlier posts we explored [shielded pools](/building-private-transfers-on-ethereum/) (UTXO model, privacy from everyone) and [plasma](/private-stablecoins-with-plasma/) (client-side proving, self-sovereign exit). The validium sits at a different point in the design space: the operator sees everything, but the chain enforces correctness. That tradeoff is worth understanding, and this post tries to make it explicit.
+In earlier posts we explored [shielded pools](/building-private-transfers-on-ethereum/) (UTXO model, privacy from everyone) and [plasma](/private-stablecoins-with-plasma/) (client-side proving, self-sovereign exit). The validium sits at a different point in the design space: the operator sees everything, but the chain enforces correctness. That tradeoff is worth understanding. The operator is trusted for liveness and deposit crediting, but cannot forge state transitions. The trust section below makes the boundaries explicit.
 
 ![zkVM pattern: private inputs go in, only proof comes out](/assets/images/2026-03-21-diy-validium/zkvm-pattern.png)
 
 ## Inside a guest program
 
-A good way to show the pattern is the disclosure proof. It lets an account holder prove to an auditor that their balance meets some threshold, without revealing the actual balance. Here's the full program, about 40 lines of Rust:
+The easiest way to see the pattern is the disclosure proof. It lets an account holder prove to an auditor that their balance meets some threshold, without revealing the actual balance. Here's the full program, about 40 lines of Rust:
 
 ```rust
 use guest_crypto::{account_commitment, compute_root, sha256};
@@ -100,7 +102,7 @@ The disclosure proof proves something about an account inside a Merkle tree, mai
 
 The operator holds account state off-chain: a public key, a balance, and a random salt per account. This is the only place where plaintext balances exist. RISC Zero guest programs prove that state transitions follow the rules (the prover executes the program, produces a STARK proof, hands it to the contract). Ethereum stores a single Merkle root and verifies proofs. The contracts check that the old root matches, verify the STARK seal, and update the root.
 
-Each account is a leaf in a Merkle tree. The leaf is a hash of the account's public key, balance, and a random salt. Each operation updates the on-chain root, so stale proofs are automatically invalid. Unlike UTXO models (Zcash, our [shielded pool PoC](/building-private-transfers-on-ethereum/)), there are no nullifiers, but the tradeoff is that a centralized state holder is required.
+Each account is a leaf in a Merkle tree. The leaf is a hash of the account's public key, balance, and a random salt. Each operation updates the on-chain root, so stale proofs are automatically invalid. The tradeoff is that a centralized state holder is required. If you're used to UTXO models (Zcash, our [shielded pool PoC](/building-private-transfers-on-ethereum/)), this is different: no nullifiers, no note-splitting, no change outputs. One leaf per account, updated in place.
 
 Four operations, each following the same guest-program structure (read private inputs, verify Merkle membership, assert business rules, commit new state root):
 
@@ -135,7 +137,7 @@ The PoC implements three tiers of withdrawal. Each assumes less about operator c
 
 Normal withdrawal is the default path. The operator provides the Merkle path, generates a proof, the bridge transfers tokens.
 
-If the operator refuses to process your withdrawal (censorship), you can submit a valid ZK withdrawal proof directly to the bridge contract. The operator then has one day to process it. If they don't, anyone can freeze the entire bridge. The operator can't dodge this by churning state: even if they post other proofs that change the state root (making the forced request's old root stale), the deadline still ticks. Either they process it, or the system freezes.
+If the operator refuses to process your withdrawal (censorship), you can submit a forced withdrawal request with a valid ZK proof. The contract verifies the proof but does not execute the withdrawal; it queues the request with a one-day deadline. The operator must process it within that window. If they don't, anyone can freeze the entire bridge. The operator can't dodge this by churning state: even if they post other proofs that change the state root (making the forced request's old root stale), the deadline still ticks. Either they process it, or the system freezes.
 
 If the operator disappears entirely (seven days of inactivity), anyone can freeze the bridge permanently. Once frozen, users recover funds by revealing their balance on-chain via a Merkle proof. No ZK proof needed, because there's no one left to hide from. Privacy gets sacrificed for fund recovery. This is the same escape hatch pattern that StarkEx and ZKSync use.
 
@@ -145,7 +147,7 @@ There's a real catch, though. To use the escape hatch, you need to have saved yo
 
 | Question | Short answer | Detail |
 |----------|--------------|--------|
-| Can the operator steal funds or forge transactions? | No | ZK proofs enforce correct state transitions. But the operator is trusted to credit deposits correctly (no on-chain enforcement of deposit crediting). |
+| Can the operator steal funds or forge transactions? | No | ZK proofs enforce correct state transitions. The operator cannot forge withdrawals or fake balances. But deposit crediting is trusted, not enforced on-chain: a malicious operator could strand deposited funds by refusing to credit them. |
 | Can the operator block you from leaving? | No | Forced withdrawal (1-day deadline) or escape hatch (7-day fallback). But the operator controls day-to-day access via the allowlist. |
 | Who can see what? | It depends | Public observers see deposits and withdrawals only. The operator sees everything. Regulators see exactly what disclosure proofs reveal. |
 
@@ -187,5 +189,7 @@ A few questions we keep returning to:
 **Cross-validium transfers.** Moving funds between validiums currently requires a public withdraw-then-deposit cycle, which links the two operations on-chain. Private atomic bridges are unsolved. The fundamental tension is between privacy, atomicity, and latency, and it's not clear you can have all three.
 
 **Programmable privacy beyond payments.** The guest-program pattern works for any private computation: identity attestation, credit scoring, portfolio rebalancing, supply chain proofs. The question we don't have a good answer to yet is what the right abstraction layer looks like. Should each institution build custom guest programs? Or do we need a shared library of composable privacy primitives that different institutions can plug together? It probably depends on how much the business logic actually varies between institutions, and we don't know that yet.
+
+The `assert!` line we started with is the whole point. The guest program is where business logic lives. Everything else, the Merkle tree, the bridge contract, the escape hatch, exists to make that one line trustworthy on a public chain.
 
 The full implementation is [open source](https://github.com/ethereum/iptf-pocs/tree/main/pocs/diy-validium), with a detailed [specification](https://github.com/ethereum/iptf-pocs/tree/main/pocs/diy-validium/SPEC.md) and [formal requirements](https://github.com/ethereum/iptf-pocs/tree/main/pocs/diy-validium/REQUIREMENTS.md). For production validium infrastructure, ZKSync's Prividium provides this architecture with production DA and sequencing. The code is open and we'd welcome feedback.
