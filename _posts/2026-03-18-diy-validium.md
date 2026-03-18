@@ -98,7 +98,7 @@ The disclosure proof proves something about an account inside a Merkle tree, mai
 
 ![Three-layer validium architecture: operator, ZK layer, Ethereum](/assets/images/2026-03-18-diy-validium/architecture.png)
 
-The operator holds account state off-chain: a public key, a balance, and a random salt per account. This is the only place where plaintext balances exist. RISC Zero guest programs prove that state transitions follow the rules (the prover executes the program, produces a STARK proof, hands it to the contract). Ethereum stores a single Merkle root and verifies proofs. The contracts check that the old root matches, verify the STARK seal, and update the root.
+The operator holds account state off-chain: a public key, a balance, and a random salt per account. This is the only place where plaintext balances exist. RISC Zero guest programs prove that state transitions follow the rules: the prover executes the program and produces a STARK proof. Raw STARKs are too large to verify on Ethereum directly, so RISC Zero wraps each one in a Groth16 SNARK via proof composition. The on-chain verifier checks the compact Groth16 proof (a few hundred bytes, affordable gas). Ethereum stores a single Merkle root and verifies these proofs. The contracts check that the old root matches, verify the proof seal, and update the root.
 
 Each account is a leaf in a Merkle tree. The leaf is a hash of the account's public key, balance, and a random salt. Each operation updates the on-chain root, so stale proofs are automatically invalid. The tradeoff is that a centralized state holder is required. If you're used to UTXO models (Zcash, our [shielded pool PoC](/building-private-transfers-on-ethereum/)), this is different: no nullifiers, no note-splitting, no change outputs. One leaf per account, updated in place.
 
@@ -121,7 +121,7 @@ Withdrawal is a single-leaf state transition. The bridge verifies the proof, upd
 
 Disclosure is the compliance proof detailed above. Read-only, no state mutation.
 
-The full [specification](https://github.com/ethereum/iptf-pocs/tree/main/pocs/diy-validium/SPEC.md) covers each operation in detail.
+The full [specification](https://github.com/ethereum/iptf-pocs/tree/master/pocs/diy-validium/SPEC.md) covers each operation in detail.
 
 ## Trust, safety, and trade-offs
 
@@ -139,7 +139,7 @@ If the operator refuses to process your withdrawal (censorship), you can submit 
 
 If the operator disappears entirely (seven days of inactivity), anyone can freeze the bridge permanently. Once frozen, users recover funds by revealing their balance on-chain via a Merkle proof. No ZK proof needed, because there's no one left to hide from. Privacy gets sacrificed for fund recovery. This is the same escape hatch pattern that StarkEx and ZKSync use.
 
-There's a real catch, though. To use the escape hatch, you need to have saved your current public key, balance, salt, leaf index, and Merkle sibling path. The salt changes on every state transition. Lose your current salt and you can't construct a valid commitment. For multi-device setups and institutional key management, this is not a trivial problem. The [SPEC](https://github.com/ethereum/iptf-pocs/tree/main/pocs/diy-validium/SPEC.md) describes layered DA extensions to reduce the burden: blob checkpoints (operator periodically posts Merkle snapshots to EIP-4844 blobs) and encrypted blobs (data encrypted to a DA committee, preserving privacy until escape is actually needed).
+There's a real catch, though. To use the escape hatch, you need to have saved your current public key, balance, salt, leaf index, and Merkle sibling path. The salt changes on every state transition. Lose your current salt and you can't construct a valid commitment. For multi-device setups and institutional key management, this is not a trivial problem. The [SPEC](https://github.com/ethereum/iptf-pocs/tree/master/pocs/diy-validium/SPEC.md) describes layered DA extensions to reduce the burden: blob checkpoints (operator periodically posts Merkle snapshots to EIP-4844 blobs) and encrypted blobs (data encrypted to a DA committee, preserving privacy until escape is actually needed).
 
 ### The trust model
 
@@ -190,4 +190,4 @@ A few questions we keep returning to:
 
 The `assert!` line in the guest program is the whole point. The guest program is where business logic lives. Everything else, the Merkle tree, the bridge contract, the escape hatch, exists to make that one line trustworthy on a public chain.
 
-The full implementation is [open source](https://github.com/ethereum/iptf-pocs/tree/main/pocs/diy-validium), with a detailed [specification](https://github.com/ethereum/iptf-pocs/tree/main/pocs/diy-validium/SPEC.md) and [formal requirements](https://github.com/ethereum/iptf-pocs/tree/main/pocs/diy-validium/REQUIREMENTS.md). For production validium infrastructure, ZKSync's Prividium provides this architecture with production DA and sequencing. The code is open and we'd welcome feedback.
+The full implementation is [open source](https://github.com/ethereum/iptf-pocs/tree/master/pocs/diy-validium), with a detailed [specification](https://github.com/ethereum/iptf-pocs/tree/master/pocs/diy-validium/SPEC.md) and [formal requirements](https://github.com/ethereum/iptf-pocs/tree/master/pocs/diy-validium/REQUIREMENTS.md). For production validium infrastructure, ZKSync's Prividium provides this architecture with production DA and sequencing. The code is open and we'd welcome feedback.
