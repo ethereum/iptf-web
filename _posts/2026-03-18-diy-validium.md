@@ -2,9 +2,9 @@
 layout: post
 title: "DIY Validium: Private Logic on Public Rails"
 description: "A validium PoC where the business logic is ordinary Rust, proved in zero knowledge and verified on Ethereum."
-date: 2026-03-21 10:00:00 +0800
+date: 2026-03-18 10:00:00 +0800
 author: "Oskar"
-image: /assets/images/2026-03-21-diy-validium/hero.png
+image: /assets/images/2026-03-18-diy-validium/hero.png
 tags:
   - private-transfers
   - validium
@@ -33,7 +33,7 @@ The key component is the zkVM (zero-knowledge virtual machine). RISC Zero is one
 
 In earlier posts we explored [shielded pools](/building-private-transfers-on-ethereum/) (UTXO model, privacy from everyone) and [plasma](/private-stablecoins-with-plasma/) (client-side proving, self-sovereign exit). The validium sits at a different point in the design space: the operator sees everything, but the chain enforces correctness. That tradeoff is worth understanding. The operator is trusted for liveness and deposit crediting, but cannot forge state transitions. The trust section below makes the boundaries explicit.
 
-![zkVM pattern: private inputs go in, only proof comes out](/assets/images/2026-03-21-diy-validium/zkvm-pattern.png)
+![zkVM pattern: private inputs go in, only proof comes out](/assets/images/2026-03-18-diy-validium/zkvm-pattern.png)
 
 ## Inside a guest program
 
@@ -96,7 +96,7 @@ The guest program is the only thing that changes. The proving and verification i
 
 The disclosure proof proves something about an account inside a Merkle tree, maintained by an operator, anchored to Ethereum. Here's the architecture we ended up with:
 
-![Three-layer validium architecture: operator, ZK layer, Ethereum](/assets/images/2026-03-21-diy-validium/architecture.png)
+![Three-layer validium architecture: operator, ZK layer, Ethereum](/assets/images/2026-03-18-diy-validium/architecture.png)
 
 The operator holds account state off-chain: a public key, a balance, and a random salt per account. This is the only place where plaintext balances exist. RISC Zero guest programs prove that state transitions follow the rules (the prover executes the program, produces a STARK proof, hands it to the contract). Ethereum stores a single Merkle root and verifies proofs. The contracts check that the old root matches, verify the STARK seal, and update the root.
 
@@ -131,7 +131,7 @@ The operator sees every balance, every transfer, every identity. They control wh
 
 The PoC implements three tiers of withdrawal. Each assumes less about operator cooperation.
 
-![Censorship resistance spectrum: normal, forced, escape](/assets/images/2026-03-21-diy-validium/censorship-resistance.png)
+![Censorship resistance spectrum: normal, forced, escape](/assets/images/2026-03-18-diy-validium/censorship-resistance.png)
 
 Normal withdrawal is the default path. The operator provides the Merkle path, generates a proof, the bridge transfers tokens.
 
