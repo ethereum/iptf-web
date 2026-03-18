@@ -13,23 +13,21 @@ tags:
   - proof-of-concept
 ---
 
+What does a private payment system look like when the business logic is ordinary Rust, proved in zero knowledge and verified on Ethereum? We built a [validium](https://ethereum.org/developers/docs/scaling/validium/) to find out.
+
+Here's a line of vanilla Rust code:
+
 ```rust
 assert!(balance >= threshold, "Balance below threshold");
 ```
 
-This line runs inside a zero-knowledge proof. Ethereum verifies the proof on-chain. An auditor learns that `balance >= threshold` and nothing else. Not the actual balance, not who holds it, not where it sits in the ledger.
-
-No circuit DSL, no constraint wiring. Just Rust.
-
-The question we wanted to answer: what are the moving parts for a private payment system where the business logic is ordinary Rust, proved in ZK, settled on Ethereum?
+This runs inside a zero-knowledge proof. Ethereum verifies the proof on-chain. An auditor learns that `balance >= threshold` and nothing else. Not the actual balance, not who holds it, not where it sits in the ledger.
 
 This post walks through the PoC layer by layer: the guest program pattern, the validium architecture, and the trust model.
 
 ## Write Rust, prove it, verify on-chain
 
-A validium is a type of rollup that keeps account data off-chain with an operator and posts only commitments and proofs to L1. The L1 contract verifies that the operator performed each state transition correctly. If a transfer violates the rules, the proof won't verify and the contract rejects it.
-
-Why build one from scratch? Production systems like ZKSync's Prividium implement this architecture with full infrastructure. We wanted to answer a narrower question: what are the moving parts for a private payment system with ZK validity proofs on L1?
+A validium is a type of rollup that keeps account data off-chain with an operator and posts only commitments and proofs to L1. The L1 contract verifies that the operator performed each state transition correctly. If a transfer violates the rules, the proof won't verify and the contract rejects it. Production systems like ZKSync's Prividium implement this architecture with full infrastructure. We wanted to strip it down to the moving parts.
 
 The key component is the zkVM (zero-knowledge virtual machine). RISC Zero is one of several, alongside Succinct's SP1 and Polygon Miden's VM. The idea is the same: write a program in Rust, execute it inside the zkVM, get a cryptographic proof that the execution was correct. The verifier contract checks the proof without seeing the inputs. We used RISC Zero here, but nothing about the approach requires a specific prover.
 
@@ -190,6 +188,6 @@ A few questions we keep returning to:
 
 **Programmable privacy beyond payments.** The guest-program pattern works for any private computation: identity attestation, credit scoring, portfolio rebalancing, supply chain proofs. The question we don't have a good answer to yet is what the right abstraction layer looks like. Should each institution build custom guest programs? Or do we need a shared library of composable privacy primitives that different institutions can plug together? It probably depends on how much the business logic actually varies between institutions, and we don't know that yet.
 
-The `assert!` line we started with is the whole point. The guest program is where business logic lives. Everything else, the Merkle tree, the bridge contract, the escape hatch, exists to make that one line trustworthy on a public chain.
+The `assert!` line in the guest program is the whole point. The guest program is where business logic lives. Everything else, the Merkle tree, the bridge contract, the escape hatch, exists to make that one line trustworthy on a public chain.
 
 The full implementation is [open source](https://github.com/ethereum/iptf-pocs/tree/main/pocs/diy-validium), with a detailed [specification](https://github.com/ethereum/iptf-pocs/tree/main/pocs/diy-validium/SPEC.md) and [formal requirements](https://github.com/ethereum/iptf-pocs/tree/main/pocs/diy-validium/REQUIREMENTS.md). For production validium infrastructure, ZKSync's Prividium provides this architecture with production DA and sequencing. The code is open and we'd welcome feedback.
