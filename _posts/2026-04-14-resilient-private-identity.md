@@ -4,7 +4,7 @@ title: "Resilient Identity Continuity on Ethereum"
 description: "Explore how vOPRF enrollment and ZK proofs enable private identity on Ethereum that survives issuer failure. Covers sybil resistance, on-chain trust anchors, and selective disclosure."
 date: 2026-04-16 10:00:00 +0100
 author: "Aaryamann"
-image: /assets/images/2026-03-05-private-crosschain-swap-part-1/hero.png
+image: /assets/images/2026-04-14-resilient-private-identity/hero.png
 tags:
   - identity
   - vOPRF
