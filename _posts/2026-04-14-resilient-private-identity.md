@@ -1,25 +1,26 @@
 ---
 layout: post
-title: "Resilient Identity Continuity on Ethereum"
-description: "Explore how vOPRF enrollment and ZK proofs enable private identity on Ethereum that survives issuer failure. Covers sybil resistance, on-chain trust anchors, and selective disclosure."
+title: "Resilient Plural Identity"
+description: "Designing identity on Ethereum that survives issuer failure: plural attestation sources, vOPRF sybil resistance, and an on-chain trust anchor that no single party can revoke."
 date: 2026-04-16 10:00:00 +0100
 author: "Aaryamann"
 image: /assets/images/2026-04-14-resilient-private-identity/hero.png
 tags:
   - identity
+  - plural-identity
   - vOPRF
   - sybil-resistance
   - zero-knowledge
   - proof-of-concept
 ---
 
-Institutions building on Ethereum need to verify counterparty identity without exposing it. Every compliance-gated system, from private payments to tokenized deposits, starts with the same dependency: a KYC provider who verifies participants and issues credentials. We have built several of these systems ourselves. The [shielded pool](/building-private-transfers-on-ethereum/) and [plasma chain](/private-stablecoins-with-plasma/) both gate entry behind a KYC attestation that participants prove via a zero-knowledge proof, with no identity revealed on-chain.
+Ethereum's core promise is self-sovereignty: users have the final say over their identities, assets, and actions. Identity is where that promise meets its hardest test. Every privacy system we build, from private payments to tokenized deposits, eventually depends on someone vouching for who you are. A KYC provider verifies participants and issues credentials. A government signs a passport. A compliance authority maintains a revocation list. That dependency is the weak link.
 
-The compliance gate works. It is also a single point of failure.
+We have run into this ourselves. The [shielded pool](/building-private-transfers-on-ethereum/) and [plasma chain](/private-stablecoins-with-plasma/) we built both gate entry behind a KYC attestation that participants prove via a zero-knowledge proof, with no identity revealed on-chain. The compliance gate works. It is also a single point of failure.
 
-If the KYC provider shuts down, gets sanctioned, or turns adversarial, every institution that relied on it faces the same problem: verified participants can no longer prove they were verified. New participants cannot onboard. The payment infrastructure is intact, the privacy layer is intact, and nobody can get through the compliance gate. For an institution running regulated operations on Ethereum, this is operational risk equivalent to losing a core banking partner.
+When the KYC provider shuts down, gets sanctioned, or turns adversarial, verified participants can no longer prove they were verified. New participants cannot onboard. The payment infrastructure is intact, the privacy layer is intact, and nobody can get through the front door. This is not a hypothetical edge case. Identity capture, jurisdictional disruption, and issuer failure are recurring patterns globally. For institutions running regulated operations on Ethereum, losing an identity provider is operational risk equivalent to losing a core banking partner. For individuals, it means losing agency over a status they legitimately earned.
 
-We built a proof-of-concept that removes this dependency. After a one-time enrollment, an on-chain Merkle root becomes the sole trust anchor. The identity provider can go offline, revoke everything, or turn adversarial. Holders keep proving attributes. New enrollees can still join without the original provider.
+We built a proof-of-concept that removes this dependency. After a one-time enrollment, an on-chain Merkle root on Ethereum, censorship-resistant and always available, becomes the sole trust anchor. The identity provider can go offline, revoke everything, or turn adversarial. Holders keep proving attributes. New enrollees join through any accepted identity source, not just the original provider. Plurality is the default: no single issuer holds a monopoly over who gets to participate.
 
 The implementation is [open source](https://github.com/ethereum/iptf-pocs/tree/master/pocs/private-identity/resilient-private-identity), with a detailed [specification](https://github.com/ethereum/iptf-pocs/tree/master/pocs/private-identity/resilient-private-identity/SPEC.md).
 
@@ -39,7 +40,7 @@ The issuer can fail in several ways. It can shut down (bankruptcy, sanctions, co
 
 ## Breaking the issuer dependency
 
-The protocol replaces the live issuer with two components: a threshold MPC (Multi-Party Computation) network that processes enrollments, where multiple independent operators each hold a share of a secret key and must cooperate above a threshold to produce a result, and an on-chain Merkle tree that serves as the permanent trust anchor. After enrollment, neither the MPC network nor the original identity source is needed for verification.
+The protocol replaces the live issuer with two components: a threshold MPC (Multi-Party Computation) network that processes enrollments, where multiple independent operators each hold a share of a secret key and must cooperate above a threshold to produce a result, and an on-chain Merkle tree that is the permanent trust anchor. After enrollment, neither the MPC network nor the original identity source is needed for verification.
 
 Each enrolled identity becomes a leaf in the tree. The leaf commits to the holder's secret and four attributes (age, nationality, name hash, enrollment timestamp) via [Poseidon](https://www.poseidon-hash.info/), a ZK-friendly hash function. The commitment hides every field behind the hash. An observer sees a 32-byte value in the Merkle tree and nothing else. The holder's secret authorizes proof generation. The attributes can be queried via ZK predicates later, without revealing the full set.
 
@@ -49,7 +50,7 @@ Enrollment is a single on-chain transaction. The work before that transaction is
 
 ![Enrollment flow: the holder obtains identity evidence, blinds it, sends it to the vOPRF MPC network for evaluation with a link proof, then submits the enrollment proof and leaf to the on-chain contract](/assets/images/2026-04-14-resilient-private-identity/resilient_identity_flow.png)
 
-After this transaction, the holder stores their secret and attributes locally. The issuer is no longer involved in anything.
+After this transaction, the holder stores their secret and attributes locally. The issuer is no longer involved. Ethereum itself becomes the trust anchor: a censorship-resistant, permissionless ledger that no single party can take offline or tamper with. The smart contract with its ZK verifier is the resilient issuer.
 
 ## Verification
 
@@ -77,13 +78,15 @@ The protocol layers three independent gates:
 | **Economic** | Refundable stake (default 0.1 ETH) | Capital lockup per leaf | Attacker capital is finite |
 | **Social** (future) | Web-of-trust vouching (K=3 vouches, V=2 budget) | Amplification bounded by social reach | Social graph not fully captured by attacker |
 
-When sources are honest, the cryptographic layer alone enforces one-to-one binding. When sources are compromised, the economic layer kicks in: N sybil leaves require N * 0.1 ETH locked. The stake is a refundable bond, not a burned fee. Holders reclaim it by unstaking, which removes their leaf from the tree.
+When sources are honest, the cryptographic layer alone enforces one-to-one binding. When sources are compromised, the economic layer kicks in: N sybil leaves require N * 0.1 ETH locked. The stake is a refundable bond. Holders reclaim it by unstaking, which removes their leaf from the tree.
 
 The social layer (specified in the [README](https://github.com/ethereum/iptf-pocs/tree/master/pocs/private-identity/resilient-private-identity#future-work-web-of-trust)) adds a third constraint: each existing member has a lifetime vouch budget of V=2, and new enrollees need K=3 vouches from existing members. Vouches are aggregated into a single recursive proof off-chain and submitted atomically with the enrollment transaction. No vouch graph is ever visible on-chain. An attacker with T fake identities creates at most 2T additional sybils. Growth is linear, not exponential.
 
+This layered approach matters for a reason beyond sybil prevention: it supports plural identity. Not every use case wants strict one-person-one-identity. Vitalik's [recent framework](https://vitalik.eth.limo/general/2025/06/28/zkid.html) argues for "N identities at a cost of N^2," making multiple pseudonyms achievable but increasingly expensive. The economic stake here does something similar. One identity is cheap. Ten identities cost ten times as much. The cryptographic layer ensures each identity is rooted in a real credential; the economic layer prices the right to hold multiples. This is closer to how identity works in practice, where people legitimately hold different roles and personas, than a system that forces everyone into a single global identifier.
+
 ## Compliance without the issuer
 
-Identity systems for institutions need to satisfy regulatory obligations, not just cryptographic properties. The protocol maps its privacy mechanisms to specific compliance requirements.
+Institutions need more than cryptographic properties. They need to satisfy regulatory obligations. Here is how the protocol's privacy mechanisms map to specific compliance requirements.
 
 **Attestation-gated enrollment.** In a [previous PoC](/building-private-transfers-on-ethereum/), we built KYC-gated deposits using an on-chain attestation registry: a Merkle tree of compliance attestations where depositors prove inclusion via ZK without revealing which attestation is theirs. The same mechanism gates enrollment here. A compliance authority attests that an identity source is valid, and the enrollee proves attestation inclusion alongside their enrollment proof.
 
@@ -91,21 +94,21 @@ Identity systems for institutions need to satisfy regulatory obligations, not ju
 
 **Audit trails.** Every on-chain verification emits a `ProofVerified` event recording the nullifier, root, and external nullifier. Regulators with the verifier's application scope can reconstruct the audit trail of verification events without learning holder identities. This supports obligations under the [Bank Secrecy Act](https://www.fincen.gov/resources/statutes-and-regulations/bank-secrecy-act) and [MiCA](https://www.esma.europa.eu/esmas-activities/digital-finance-and-innovation/markets-crypto-assets-regulation-mica) record-keeping requirements.
 
-**Surviving jurisdictional disruptions.** An institution in a sanctioned jurisdiction loses its KYC providers. Pre-enrolled employees continue proving attributes against the on-chain root. New enrollees use self-contained sources (passport NFC, email DKIM) via the vOPRF network. Verifiers see no disruption. This is the core value proposition: identity continuity under conditions where traditional credential chains break.
+**Surviving jurisdictional disruptions.** An institution in a sanctioned jurisdiction loses its KYC providers. Pre-enrolled employees continue proving attributes against the on-chain root. New enrollees use self-contained sources (passport NFC, email DKIM) via the vOPRF network. Verifiers see no disruption. This is the point of the whole exercise: identity continuity under conditions where traditional credential chains break.
 
 ## Architecture
 
 | Layer | Tools |
 | --- | --- |
-| Circuits | [Noir](https://noir-lang.org/) v1.0.0-beta.3, [UltraHonk](https://github.com/AztecProtocol/barretenberg) (Barretenberg v0.82.0) |
+| Circuits | [Noir](https://noir-lang.org/), [UltraHonk](https://github.com/AztecProtocol/barretenberg) |
 | Contracts | Solidity, [Foundry](https://book.getfoundry.sh/), [LeanIMT](https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/lean-imt) |
 | Client | Rust, [Alloy](https://github.com/alloy-rs/alloy) |
-| Hashing | [Poseidon](https://www.poseidon-hash.info/) (BN254), SHA-256 (DLEQ Fiat-Shamir) |
+| Hashing | [Poseidon](https://www.poseidon-hash.info/) (BN254), SHA-256 |
 | OPRF | [RFC 9497](https://www.rfc-editor.org/rfc/rfc9497) vOPRF (threshold extension per [Jarecki et al.](https://eprint.iacr.org/2017/363)) |
 
-Three [Noir](https://noir-lang.org/) circuits. `pi_link` proves the blinded OPRF request and identity commitment derive from the same user ID, including an in-circuit [hash-to-curve](https://www.rfc-editor.org/rfc/rfc9380) via witness-based SVDW verification. The enrollment circuit verifies Chaum-Pedersen DLEQ over BN254 G1 using non-native field arithmetic, plus leaf construction. The membership circuit proves tree inclusion with selective disclosure. All proofs use [UltraHonk](https://github.com/AztecProtocol/barretenberg) with a universal SRS from the Aztec Ignition ceremony, so there is no per-circuit trusted setup.
+Three [Noir](https://noir-lang.org/) circuits. `pi_link` proves the blinded OPRF request and identity commitment derive from the same user ID. The enrollment circuit verifies the vOPRF evaluation proof and constructs the Merkle leaf. The membership circuit proves tree inclusion with selective disclosure. All proofs use [UltraHonk](https://github.com/AztecProtocol/barretenberg) with a universal SRS from the Aztec Ignition ceremony, so there is no per-circuit trusted setup.
 
-Three Solidity contracts. `IdentityTree` manages the incremental Merkle tree (depth 20, capacity 2^20 leaves, [LeanIMT](https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/lean-imt)) with a circular buffer of the last 1000 roots. `Enrollment` gates tree insertion behind the enrollment ZK proof, manages the MPC public key with a 48-hour timelock and guardian veto, and enforces the refundable stake. `IdentityVerifier` checks membership proofs, enforces nullifier uniqueness, and restricts attribute queries to the two queryable indices.
+Three Solidity contracts. `IdentityTree` manages the incremental Merkle tree ([LeanIMT](https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/lean-imt)). `Enrollment` gates tree insertion behind the enrollment ZK proof, manages the MPC public key with a 48-hour timelock, and enforces the refundable stake. `IdentityVerifier` checks membership proofs, enforces nullifier uniqueness, and restricts attribute queries to the two queryable indices.
 
 A Rust client handles key derivation, identity source canonicalization, vOPRF interaction, proof generation, and contract calls via [Alloy](https://github.com/alloy-rs/alloy).
 
@@ -122,11 +125,11 @@ The critical boundary: after enrollment, the holder's ability to prove attribute
 
 ## Limitations
 
-This is a proof-of-concept. The following limitations are real constraints, not hypothetical edge cases.
+This is a proof-of-concept with real limitations.
 
 **Key loss is permanent.** There is no revocation mechanism. If a holder loses `identity_secret`, the leaf remains and the enrollment nullifier stays consumed. Production path: a revocation bitmap checked in-circuit alongside Merkle membership, with governance-gated enrollment nullifier clearing. In the interim, [Shamir secret sharing](https://en.wikipedia.org/wiki/Shamir%27s_secret_sharing) of `identity_secret` across trusted devices is recommended.
 
-**Self-declared attributes.** Enrollees self-declare their attribute vector. The protocol does not verify attribute truthfulness on-chain. This is a PoC scope decision, not a fundamental limitation. The production path uses recursive per-source `pi_link` circuits that verify the identity proof inside the circuit and extract attributes directly from the source's cryptographic output (e.g., parsing age from an Anon Aadhaar proof, nationality from a ZKPassport proof).
+**Self-declared attributes.** Enrollees self-declare their attribute vector. The protocol does not verify attribute truthfulness on-chain. We scoped it this way for the PoC. The production path uses recursive per-source `pi_link` circuits that verify the identity proof inside the circuit and extract attributes directly from the source's cryptographic output (e.g., parsing age from an Anon Aadhaar proof, nationality from a ZKPassport proof).
 
 **Predicate parameter leakage.** `predicate_type`, `predicate_attr_index`, `predicate_value`, and `predicate_result` are public inputs visible on-chain. With 2 queryable attributes (`age_over_18`: 2 values, `nationality`: ~249 values), the anonymity set ceiling is approximately 498 buckets. Repeated observations across verifiers narrow this further. Production path: universal predicate circuits where all predicate parameters are private inputs.
 
@@ -138,7 +141,7 @@ This is a proof-of-concept. The following limitations are real constraints, not 
 
 ## Related work
 
-This protocol builds on and differs from several existing approaches to private identity on Ethereum.
+Several projects tackle private identity on Ethereum from different angles. Here is where this protocol fits.
 
 [Semaphore](https://semaphore.pse.dev/) (PSE) is the most established private membership proof system. Holders commit an identity to a Merkle tree and generate ZK proofs of membership with nullifiers. It provides the core primitive this protocol extends, but does not enforce sybil resistance at the identity layer: nothing prevents one person from inserting multiple commitments.
 
@@ -154,8 +157,12 @@ This protocol builds on and differs from several existing approaches to private 
 
 [PLUME](https://aayushg.com/thesis.pdf) (ERC-7524) generates deterministic nullifiers from existing ECDSA keys, allowing Ethereum address holders to prove membership and prevent double-actions without new key material. It reuses existing keys (no enrollment ceremony) but does not support attribute predicates or identity-layer sybil resistance.
 
+[TACEO](https://core.taceo.io/articles/taceo-oprf/) already runs a distributed threshold vOPRF in production using MPC across 13 globally distributed servers. Their roadmap explicitly targets preventing identity issuers from tracing on-chain usage by verified individuals. This is the same problem we are working on from the enrollment side, and their infrastructure is a natural deployment target for the vOPRF network this protocol requires.
+
+The [privacy-ethereum/zkspecs](https://github.com/privacy-ethereum/zkspecs/tree/main/specs/5) repository has complementary specs for ZK-based human verification and [age eligibility proofs](https://github.com/privacy-ethereum/zkspecs/pull/19). Both address how to prove credential possession without disclosing personal attributes, which is the same separation of verification from disclosure that this design is built around.
+
 ## What comes next
 
-The immediate extensions are multi-source identity integration (recursive verification of existing identity proof systems inside Noir, enabling cross-source sybil resistance and cryptographically verified attributes), web-of-trust vouching as a third sybil gate, and epoch-based key rotation for forward secrecy.
+The immediate extensions are multi-source identity integration (recursive verification of existing identity proof systems inside Noir, so attributes are cryptographically verified rather than self-declared and sybil resistance works across identity sources), web-of-trust vouching as a third sybil gate, and epoch-based key rotation for forward secrecy.
 
-The [specification](https://github.com/ethereum/iptf-pocs/tree/master/pocs/private-identity/resilient-private-identity/SPEC.md) covers every circuit constraint, data structure, and security consideration in detail. The [use case](https://github.com/ethereum/iptf-map/blob/master/use-cases/resilient-identity-continuity.md) and [approach](https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-identity.md) documents on the IPTF Map provide additional context on how this fits into the broader institutional privacy landscape. Pull requests are welcome.
+The [specification](https://github.com/ethereum/iptf-pocs/tree/master/pocs/private-identity/resilient-private-identity/SPEC.md) covers every circuit constraint, data structure, and security consideration. The [use case](https://github.com/ethereum/iptf-map/blob/master/use-cases/resilient-identity-continuity.md) and [approach](https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-identity.md) documents on the IPTF Map show how this fits into the broader institutional privacy work. Pull requests are welcome.
