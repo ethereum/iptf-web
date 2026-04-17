@@ -159,7 +159,7 @@ Several projects tackle private identity on Ethereum from different angles. Here
 
 [TACEO](https://core.taceo.io/articles/taceo-oprf/) already runs a distributed threshold vOPRF in production using MPC across 13 globally distributed servers. Their roadmap explicitly targets preventing identity issuers from tracing on-chain usage by verified individuals. This is the same problem we are working on from the enrollment side, and their infrastructure is a natural deployment target for the vOPRF network this protocol requires.
 
-The [privacy-ethereum/zkspecs](https://github.com/privacy-ethereum/zkspecs/tree/main/specs/5) repository has complementary specs for ZK-based human verification and [age eligibility proofs](https://github.com/privacy-ethereum/zkspecs/pull/19). Both address how to prove credential possession without disclosing personal attributes, which is the same separation of verification from disclosure that this design is built around.
+The [privacy-ethereum/zkspecs](https://github.com/privacy-ethereum/zkspecs) repository has complementary specs for [ZK-based human verification](https://github.com/privacy-ethereum/zkspecs/tree/main/specs/5) and [age eligibility proofs](https://github.com/privacy-ethereum/zkspecs/pull/19). Both address how to prove credential possession without disclosing personal attributes, which is the same separation of verification from disclosure that this design is built around.
 
 ## What comes next
 
