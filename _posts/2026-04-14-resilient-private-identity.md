@@ -3,7 +3,7 @@ layout: post
 title: "Resilient Plural Identity"
 description: "Designing identity on Ethereum that survives issuer failure: plural attestation sources, vOPRF sybil resistance, and an on-chain trust anchor that no single party can revoke."
 date: 2026-04-16 10:00:00 +0100
-author: "Aaryamann"
+author: "Oskar, Aaryamann"
 image: /assets/images/2026-04-14-resilient-private-identity/hero.png
 tags:
   - identity
@@ -14,11 +14,13 @@ tags:
   - proof-of-concept
 ---
 
-Ethereum's core promise is self-sovereignty: users have the final say over their identities, assets, and actions. Identity is where that promise meets its hardest test. Every privacy system we build, from private payments to tokenized deposits, eventually depends on someone vouching for who you are. A KYC provider verifies participants and issues credentials. A government signs a passport. A compliance authority maintains a revocation list. That dependency is the weak link.
+*This post opens our three-part resilience series on identity, payments, and coordination. Where previous IPTF writeups started from an institutional requirement and designed forward, these start from a failure mode (a sanctioned jurisdiction, a collapsed issuer, an internet shutdown) and work back to what Ethereum can offer. Expect the voice to shift accordingly.*
+
+Self-sovereign identity is a user having the final say over who they are online, and over the status they carry into any system they join. Most coordination problems we care about, whether voting in a DAO, posting in a community forum, claiming aid from an NGO, or settling a regulated transaction, eventually need to answer a question about the person on the other side: are they real, are they unique, do they meet some criterion. Today that question is almost always answered by a single outside authority. A government issues a passport. A platform issues an account. A compliance vendor maintains a list. Identity is where self-sovereignty meets its hardest test, because dependence on that authority is the weak link.
 
 We have run into this ourselves. The [shielded pool](/building-private-transfers-on-ethereum/) and [plasma chain](/private-stablecoins-with-plasma/) we built both gate entry behind a KYC attestation that participants prove via a zero-knowledge proof, with no identity revealed on-chain. The compliance gate works. It is also a single point of failure.
 
-When the KYC provider shuts down, gets sanctioned, or turns adversarial, verified participants can no longer prove they were verified. New participants cannot onboard. The payment infrastructure is intact, the privacy layer is intact, and nobody can get through the front door. This is not a hypothetical edge case. Identity capture, jurisdictional disruption, and issuer failure are recurring patterns globally. For institutions running regulated operations on Ethereum, losing an identity provider is operational risk equivalent to losing a core banking partner. For individuals, it means losing agency over a status they legitimately earned.
+When that authority shuts down, gets sanctioned, or turns adversarial, already-verified people can no longer prove they were verified, and new people cannot onboard. The application is intact, the privacy layer is intact, and nobody can get through the front door. This is not a hypothetical edge case. Governments revoke digital IDs. Platforms deplatform. Email providers close accounts. Compliance vendors get acquired or dissolved. For a voter in a community decision, a recipient of humanitarian aid, a researcher on an adversarial platform, or an institution running regulated operations on Ethereum, losing the identity provider means losing agency over a status that was legitimately earned.
 
 We built a proof-of-concept that removes this dependency. After a one-time enrollment, an on-chain Merkle root on Ethereum, censorship-resistant and always available, becomes the sole trust anchor. The identity provider can go offline, revoke everything, or turn adversarial. Holders keep proving attributes. New enrollees join through any accepted identity source, not just the original provider. Plurality is the default: no single issuer holds a monopoly over who gets to participate.
 
@@ -44,6 +46,14 @@ The protocol replaces the live issuer with two components: a threshold MPC (Mult
 
 Each enrolled identity becomes a leaf in the tree. The leaf commits to the holder's secret and four attributes (age, nationality, name hash, enrollment timestamp) via [Poseidon](https://www.poseidon-hash.info/), a ZK-friendly hash function. The commitment hides every field behind the hash. An observer sees a 32-byte value in the Merkle tree and nothing else. The holder's secret authorizes proof generation. The attributes can be queried via ZK predicates later, without revealing the full set.
 
+## What we mean by identity
+
+Identity in this protocol is not one thing. It is whatever combination of signals an application is willing to accept: a passport for strong legal attestations, a national ID or email for web services, a social-graph vouch or an economic stake for forums and smaller communities. Each signal is partial. Strong signals (passport, national ID) are expensive for the verifier to accept because they pull in regulatory obligations, and expensive for the holder to produce because they require a cooperative government. Weak signals (email, social vouch) are cheap but easy to forge at scale.
+
+A plural identity system treats these signals as composable rather than substitutable. A person can hold one identity for voting in a DAO, another for institutional transactions, a third for posting pseudonymously in a research forum, each one rooted in a different source. [Gitcoin Passport](https://passport.human.tech/) (now Human Passport) already works this way for sybil-resistant grant rounds, aggregating weak web2 and web3 signals into a combined score. Vitalik's [framework on zk-identity](https://vitalik.eth.limo/general/2025/06/28/zkid.html) argues the cost of holding N distinct identities should scale as N^2, so multiple pseudonyms remain achievable for people who legitimately need them, while mass-sybil attacks stay too expensive to be worth running.
+
+In this view, sybil resistance is not bolted on top of identity. It is the property that makes plural identity economically coherent. The protocol below is one way to get that shape.
+
 ## Enrollment
 
 Enrollment is a single on-chain transaction. The work before that transaction is what makes the protocol resilient. The holder proves identity ownership using an existing source (passport, national ID, email, web2 account), then obtains a deterministic sybil-resistant tag from a [vOPRF](https://www.rfc-editor.org/rfc/rfc9497) (verifiable Oblivious Pseudorandom Function) network: a cryptographic protocol that maps an input to a deterministic but unpredictable output using a secret key, without the key holder learning the input or the requester learning the key. The tag ensures one real-world identity maps to exactly one on-chain leaf, regardless of when enrollment happens. The holder generates a ZK proof binding everything together and submits it in a single transaction.
@@ -66,11 +76,17 @@ The verifier calls `IdentityVerifier.verifyProof(...)`. The contract checks root
 
 No issuer endpoint is contacted. No registry is queried. The on-chain root is the only external input. The verifier learns that the holder is enrolled and that the requested attribute predicate holds. The verifier does not learn who the holder is, when they enrolled, or any attribute not included in the query.
 
+## Unlinkability
+
+Two proofs from the same holder, one submitted to Verifier A and another to Verifier B, should look unrelated. No on-chain or off-chain observer should be able to tell they came from the same person. This is what separates useful private identity from tokenized surveillance. Most ZK identity systems fall short of it, either because the credential exposes a persistent identifier during presentation (the holder's pubkey, a hash that is deterministic across scopes), or because the issuer accumulates enough metadata during issuance to correlate later verifications back to a person.
+
+This protocol targets unlinkability on two axes. Across verifiers, the scope-bound nullifier makes the same holder look unrelated to different applications. Across issuance and use, the vOPRF sits at the one point where the identity-source credential would otherwise become a correlation handle, so no single party, including any MPC subset below threshold, sees both sides of the mapping. This was the design goal behind [OpenAC](https://eprint.iacr.org/2026/251) and the motivating reason [TACEO](https://core.taceo.io/articles/taceo-oprf/) puts a vOPRF in the identity path. Without it, identity providers can still watch their users on-chain.
+
 ## Sybil resistance
 
-A single cryptographic gate is not enough. If the identity source itself is compromised (unlimited burner emails, forged documents), an attacker can generate fake source identities that each pass the vOPRF legitimately. The cryptographic gate holds (one source identity, one leaf) but the source is a mint.
+A single cryptographic factor is not enough. If the identity source itself is compromised (unlimited burner emails, forged documents), an attacker can generate fake source identities that each pass the vOPRF legitimately. The cryptographic factor holds (one source identity, one leaf) but the source is a mint.
 
-The protocol layers three independent gates:
+The protocol layers three independent factors:
 
 | Layer | Mechanism | What it bounds | Assumption |
 | --- | --- | --- | --- |
@@ -82,7 +98,7 @@ When sources are honest, the cryptographic layer alone enforces one-to-one bindi
 
 The social layer (specified in the [README](https://github.com/ethereum/iptf-pocs/tree/master/pocs/private-identity/resilient-private-identity#future-work-web-of-trust)) adds a third constraint: each existing member has a lifetime vouch budget of V=2, and new enrollees need K=3 vouches from existing members. Vouches are aggregated into a single recursive proof off-chain and submitted atomically with the enrollment transaction. No vouch graph is ever visible on-chain. An attacker with T fake identities creates at most 2T additional sybils. Growth is linear, not exponential.
 
-This layered approach matters for a reason beyond sybil prevention: it supports plural identity. Not every use case wants strict one-person-one-identity. Vitalik's [recent framework](https://vitalik.eth.limo/general/2025/06/28/zkid.html) argues for "N identities at a cost of N^2," making multiple pseudonyms achievable but increasingly expensive. The economic stake here does something similar. One identity is cheap. Ten identities cost ten times as much. The cryptographic layer ensures each identity is rooted in a real credential; the economic layer prices the right to hold multiples. This is closer to how identity works in practice, where people legitimately hold different roles and personas, than a system that forces everyone into a single global identifier.
+These three factors match the plural-identity cost structure from earlier: one identity is cheap, ten cost ten times as much, a million are priced out of reach. The cryptographic factor binds each identity to a real credential. The economic factor prices the right to hold multiples.
 
 ## Compliance without the issuer
 
@@ -163,6 +179,6 @@ The [privacy-ethereum/zkspecs](https://github.com/privacy-ethereum/zkspecs) repo
 
 ## What comes next
 
-The immediate extensions are multi-source identity integration (recursive verification of existing identity proof systems inside Noir, so attributes are cryptographically verified rather than self-declared and sybil resistance works across identity sources), web-of-trust vouching as a third sybil gate, and epoch-based key rotation for forward secrecy.
+The immediate extensions are multi-source identity integration (recursive verification of existing identity proof systems inside Noir, so attributes are cryptographically verified rather than self-declared and sybil resistance works across identity sources), web-of-trust vouching as a third sybil factor, and epoch-based key rotation for forward secrecy.
 
 The [specification](https://github.com/ethereum/iptf-pocs/tree/master/pocs/private-identity/resilient-private-identity/SPEC.md) covers every circuit constraint, data structure, and security consideration. The [use case](https://github.com/ethereum/iptf-map/blob/master/use-cases/resilient-identity-continuity.md) and [approach](https://github.com/ethereum/iptf-map/blob/master/approaches/approach-private-identity.md) documents on the IPTF Map show how this fits into the broader institutional privacy work. Pull requests are welcome.
