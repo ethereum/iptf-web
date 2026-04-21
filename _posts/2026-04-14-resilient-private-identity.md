@@ -2,7 +2,7 @@
 layout: post
 title: "Resilient Plural Identity"
 description: "Designing identity on Ethereum that survives issuer failure: plural attestation sources, vOPRF sybil resistance, and an on-chain trust anchor that no single party can revoke."
-date: 2026-04-16 10:00:00 +0100
+date: 2026-04-23 10:00:00 +0100
 author: "Aaryamann, Oskar"
 image: /assets/images/2026-04-14-resilient-private-identity/hero.png
 tags:
