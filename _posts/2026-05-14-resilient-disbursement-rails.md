@@ -2,7 +2,7 @@
 layout: post
 title: "Resilient Disbursement Rails"
 description: "Aid disbursement on Ethereum that survives partner compromise and off-ramp deanonymization."
-date: 2026-05-06 10:00:00 +0100
+date: 2026-05-14 10:00:00 +0100
 author: "Aaryamann"
 image: /assets/images/2026-05-14-resilient-disbursement-rails/hero.png
 tags:
