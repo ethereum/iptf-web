@@ -1,0 +1,42 @@
+---
+import Guide from '../../layouts/Guide.astro';
+import { getNodesByType } from '../../lib/data';
+
+const jurisdictions = getNodesByType('jurisdiction').sort((a, b) => a.title.localeCompare(b.title));
+const base = import.meta.env.BASE_URL;
+
+// Group by region
+const byRegion = new Map<string, typeof jurisdictions>();
+for (const j of jurisdictions) {
+  const region = j.region || 'Other';
+  if (!byRegion.has(region)) byRegion.set(region, []);
+  byRegion.get(region)!.push(j);
+}
+---
+
+<Guide title="Jurisdictions" description="Regulatory frameworks relevant to institutional privacy" activeSection="jurisdictions">
+  <div style="max-width:1000px; margin:0 auto; padding:6rem 2rem 4rem;">
+
+    <div style="margin-bottom:3rem;">
+      <div style="font-size:0.65rem; font-weight:700; color:#818cf8; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.5rem;">Jurisdictions</div>
+      <h1 style="font-family:'Newsreader',Georgia,serif; font-size:2.5rem; font-weight:400; color:white; letter-spacing:-0.025em; line-height:1.15; margin-bottom:0.75rem;">Regulatory context</h1>
+      <p style="font-size:1rem; color:#a1a1aa; line-height:1.7; max-width:640px;">{jurisdictions.length} jurisdictions covered. Each summarizes compliance expectations, enforcement posture, and actionable guidance by business domain.</p>
+    </div>
+
+    <!-- Grouped by region -->
+    {Array.from(byRegion.entries()).map(([region, items]) => (
+      <div style="margin-bottom:3rem;">
+        <div style="font-size:0.6rem; font-weight:700; color:#71717a; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:1rem; padding-bottom:0.5rem; border-bottom:1px solid rgba(255,255,255,0.06);">{region}</div>
+        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:1rem;">
+          {items.map(j => (
+            <a href={`/jurisdictions/${j.slug}`} style="padding:1.25rem; border:1px solid rgba(255,255,255,0.06); border-radius:10px; background:#18181b; text-decoration:none; color:inherit; transition:all 0.15s;" onmouseover="this.style.borderColor='rgba(129,140,248,0.25)'; this.style.background='#1c1c20';" onmouseout="this.style.borderColor='rgba(255,255,255,0.06)'; this.style.background='#18181b';">
+              <div style="font-family:'Newsreader',Georgia,serif; font-size:1.1rem; font-weight:500; color:white; letter-spacing:-0.01em; margin-bottom:0.4rem;">{j.title}</div>
+              {j.summary && <div style="font-size:0.78rem; color:#71717a; line-height:1.5;">{j.summary.slice(0, 140)}{j.summary.length > 140 ? '…' : ''}</div>}
+            </a>
+          ))}
+        </div>
+      </div>
+    ))}
+
+  </div>
+</Guide>

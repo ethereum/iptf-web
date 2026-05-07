@@ -1,0 +1,171 @@
+---
+import Guide from '../layouts/Guide.astro';
+import { getGlossary } from '../lib/data';
+
+const base = import.meta.env.BASE_URL;
+
+const allTerms = getGlossary();
+
+// Group by category, preserving order of first appearance
+const categoryOrder: string[] = [];
+const grouped: Record<string, typeof allTerms> = {};
+for (const entry of allTerms) {
+  if (!grouped[entry.category]) {
+    grouped[entry.category] = [];
+    categoryOrder.push(entry.category);
+  }
+  grouped[entry.category].push(entry);
+}
+
+// Build slug for anchor IDs
+function catSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+}
+---
+
+<Guide title="Glossary" description="Terms and definitions used across the IPTF Guide">
+
+  <div style="max-width:1120px; margin:0 auto; padding:5rem 2rem 4rem;">
+
+    <!-- Breadcrumb (full width) -->
+    <nav style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:#71717a; margin-bottom:2rem;">
+      <a href={`/`} style="color:#71717a; text-decoration:none;">Guide</a>
+      <span style="color:#3f3f46;">/</span>
+      <span>Glossary</span>
+    </nav>
+
+    <!-- Header (full width) -->
+    <div style="margin-bottom:1rem;">
+      <div style="font-size:0.65rem; font-weight:700; color:#818cf8; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.5rem;">Glossary</div>
+      <h1 style="font-family:'Newsreader',Georgia,serif; font-size:2.25rem; font-weight:400; color:white; letter-spacing:-0.025em; margin-bottom:0.75rem;">Terms and definitions</h1>
+      <p style="font-size:0.95rem; color:#a1a1aa; line-height:1.7; max-width:600px;">
+        {allTerms.length}+ terms used across the IPTF Guide. Organized by category. These same definitions appear as inline tooltips throughout the guide.
+      </p>
+    </div>
+
+    <!-- Search (full width) -->
+    <div style="margin-bottom:1.5rem;">
+      <input
+        type="text"
+        id="glossary-search"
+        placeholder="Search terms..."
+        style="width:100%; max-width:480px; padding:0.7rem 1rem 0.7rem 2.5rem; background:#18181b; border:1px solid rgba(255,255,255,0.08); border-radius:10px; color:white; font-size:0.85rem; font-family:'Inter',sans-serif; outline:none; background-image:url(\"data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2.5' stroke-linecap='round' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='M21 21l-4.35-4.35'/%3E%3C/svg%3E\"); background-repeat:no-repeat; background-position:0.75rem center;"
+      />
+    </div>
+
+    <!-- Two-column layout -->
+    <div style="display:grid; grid-template-columns:200px 1fr; gap:3rem;" id="glossary-grid">
+
+      <!-- Sidebar nav -->
+      <nav style="position:sticky; top:80px; align-self:start;" id="cat-nav">
+        {categoryOrder.map((cat, i) => (
+          <a
+            href={`#${catSlug(cat)}`}
+            class:list={['cat-nav-link', { active: i === 0 }]}
+            data-cat={catSlug(cat)}
+            style={`display:block; padding:0.4rem 0; font-size:0.8rem; font-weight:500; color:${i === 0 ? '#a5b4fc' : '#71717a'}; text-decoration:none;`}
+          >
+            {cat}
+          </a>
+        ))}
+      </nav>
+
+      <!-- Terms -->
+      <div id="glossary-terms">
+        {categoryOrder.map(cat => (
+          <div class="cat-section" id={catSlug(cat)} data-category={catSlug(cat)}>
+            <div style="font-size:0.6rem; font-weight:700; color:#818cf8; letter-spacing:0.12em; text-transform:uppercase; padding-bottom:0.75rem; border-bottom:1px solid rgba(255,255,255,0.06); margin-bottom:0;">
+              {cat}
+            </div>
+            {grouped[cat].filter(entry => entry.definition).map((entry, i) => (
+              <div class="glossary-term" data-term={entry.term.toLowerCase()} data-def={entry.definition.toLowerCase()} style={`padding:1rem 0; ${i < grouped[cat].filter(e => e.definition).length - 1 ? 'border-bottom:1px solid rgba(255,255,255,0.04);' : ''}`}>
+                <div style="font-size:0.9rem; font-weight:700; color:white; margin-bottom:0.25rem; letter-spacing:-0.01em;">
+                  {entry.term}
+                </div>
+                <div style="font-size:0.85rem; color:#a1a1aa; line-height:1.6;">
+                  {entry.definition}
+                </div>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+
+    </div>
+
+  </div>
+
+  <style>
+    #glossary-search:focus {
+      border-color: rgba(129,140,248,0.4) !important;
+    }
+    #glossary-search::placeholder {
+      color: #52525b;
+    }
+    .cat-nav-link:hover {
+      color: #d4d4d8 !important;
+    }
+    .cat-nav-link.active {
+      color: #a5b4fc !important;
+    }
+    @media (max-width: 768px) {
+      #glossary-grid {
+        grid-template-columns: 1fr !important;
+      }
+      #cat-nav {
+        position: static !important;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+      }
+      .cat-nav-link {
+        font-size: 0.75rem !important;
+      }
+    }
+  </style>
+
+  <script>
+    const searchInput = document.getElementById('glossary-search') as HTMLInputElement;
+    const terms = document.querySelectorAll('.glossary-term');
+    const sections = document.querySelectorAll('.cat-section');
+
+    searchInput.addEventListener('input', () => {
+      const q = searchInput.value.toLowerCase().trim();
+
+      terms.forEach(term => {
+        const name = term.getAttribute('data-term') || '';
+        const def = term.getAttribute('data-def') || '';
+        (term as HTMLElement).style.display = (!q || name.includes(q) || def.includes(q)) ? '' : 'none';
+      });
+
+      // Hide empty category sections
+      sections.forEach(sec => {
+        const visibleTerms = Array.from(sec.querySelectorAll('.glossary-term')).some(
+          t => (t as HTMLElement).style.display !== 'none'
+        );
+        (sec as HTMLElement).style.display = visibleTerms ? '' : 'none';
+      });
+    });
+
+    // Highlight active nav on scroll
+    const navLinks = document.querySelectorAll('.cat-nav-link');
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const id = entry.target.id;
+            navLinks.forEach(link => {
+              const isActive = link.getAttribute('data-cat') === id;
+              link.classList.toggle('active', isActive);
+              (link as HTMLElement).style.color = isActive ? '#a5b4fc' : '#71717a';
+            });
+          }
+        });
+      },
+      { rootMargin: '-80px 0px -60% 0px', threshold: 0 }
+    );
+    sections.forEach(sec => observer.observe(sec));
+  </script>
+
+</Guide>

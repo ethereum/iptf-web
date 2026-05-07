@@ -1,0 +1,388 @@
+---
+import Guide from '../../layouts/Guide.astro';
+import { getNodesByType, getNodeBySlug, getRelated, getEdgesFrom } from '../../lib/data';
+import { parseSections, getSection } from '../../lib/parse-sections';
+import { marked } from 'marked';
+
+export function getStaticPaths() {
+  const patterns = getNodesByType('pattern');
+  return patterns.map(p => ({ params: { slug: p.slug } }));
+}
+
+const { slug } = Astro.params;
+const node = getNodeBySlug('pattern', slug!);
+if (!node) return Astro.redirect('/guide');
+
+const related = getRelated(node.id);
+
+// SOURCE: iptf-map field — do not alter. Body is rendered through marked() verbatim.
+const sections = parseSections(node.content);
+const intent = getSection(sections, 'intent');
+const components = getSection(sections, 'components') || getSection(sections, 'ingredients');
+const protocol = getSection(sections, 'protocol');
+const guarantees = getSection(sections, 'guarantees');
+const tradeoffs = getSection(sections, 'trade-offs') || getSection(sections, 'trade');
+const example = getSection(sections, 'example');
+
+const isMeta = node.kind === 'meta';
+const cropsObj = typeof node.crops_profile === 'object' ? node.crops_profile : null;
+
+const cropsColorBg = (val?: string) => {
+  if (!val) return { bg: 'rgba(82,82,91,0.08)', fg: '#52525b' };
+  if (['high', 'yes', 'full'].includes(val)) return { bg: 'rgba(52,211,153,0.08)', fg: '#34d399' };
+  if (['medium', 'partial'].includes(val)) return { bg: 'rgba(251,191,36,0.08)', fg: '#fbbf24' };
+  return { bg: 'rgba(248,113,113,0.08)', fg: '#f87171' };
+};
+const cropsLabel: Record<string, string> = {
+  cr: 'Censorship Resistance',
+  o:  'Open Source',
+  p:  'Privacy',
+  s:  'Security',
+};
+const cropsAbbr: Record<string, string> = { cr: 'CR', o: 'O', p: 'P', s: 'S' };
+
+const pqRiskColor = (risk?: string) => {
+  if (risk === 'high') return { bg: 'rgba(248,113,113,0.08)', fg: '#f87171', border: 'rgba(248,113,113,0.2)' };
+  if (risk === 'medium') return { bg: 'rgba(251,191,36,0.08)', fg: '#fbbf24', border: 'rgba(251,191,36,0.2)' };
+  return { bg: 'rgba(52,211,153,0.08)', fg: '#34d399', border: 'rgba(52,211,153,0.2)' };
+};
+
+// Sub-pattern lookup for meta patterns
+const subPatternNodes = (node.sub_patterns || [])
+  .map(sub => {
+    const target = getNodesByType('pattern').find(p => p.file === `patterns/${sub.pattern}.md`);
+    return target ? { ...sub, node: target } : null;
+  })
+  .filter(Boolean) as Array<{ name: string; pattern: string; crops_summary?: string; node: any }>;
+
+// Resolve typed `related_patterns` slugs to nodes once, in frontmatter scope
+type RelKey = 'requires' | 'composes_with' | 'alternative_to' | 'see_also';
+const relGroups: Array<[RelKey, string, any[]]> = (
+  [
+    ['requires', 'Requires'],
+    ['composes_with', 'Composes with'],
+    ['alternative_to', 'Alternative to'],
+    ['see_also', 'See also'],
+  ] as Array<[RelKey, string]>
+).map(([key, label]) => {
+  const slugs = (node.related_patterns as any)?.[key] as string[] | undefined;
+  const targets = (slugs || [])
+    .map(s => getNodesByType('pattern').find(p => p.file === `patterns/${s}.md`))
+    .filter(Boolean);
+  return [key, label, targets] as [RelKey, string, any[]];
+}).filter(([, , targets]) => targets.length > 0);
+
+const S = {
+  page: 'max-width:1120px; margin:0 auto; padding:5rem 2rem 4rem; display:grid; grid-template-columns:1fr 280px; gap:4rem;',
+  breadcrumb: 'display:flex; align-items:center; gap:6px; font-size:0.75rem; color:#71717a; margin-bottom:2rem;',
+  bcLink: 'color:#71717a; text-decoration:none;',
+  bcSep: 'color:#3f3f46;',
+  badge: (bg:string, fg:string) => `font-size:0.65rem; font-weight:600; padding:3px 8px; border-radius:4px; background:${bg}; color:${fg};`,
+  title: "font-family:'Newsreader',Georgia,serif; font-size:2.25rem; font-weight:400; color:white; line-height:1.15; letter-spacing:-0.025em; margin-bottom:0.75rem;",
+  intent: 'font-size:1rem; color:#a1a1aa; line-height:1.7; max-width:640px;',
+  sectionLabel: 'font-size:0.6rem; font-weight:700; color:#818cf8; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.5rem;',
+  sidebarLabel: 'font-size:0.6rem; font-weight:700; color:#71717a; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.75rem; padding-bottom:0.5rem; border-bottom:1px solid rgba(255,255,255,0.06);',
+  sidebarRow: 'display:flex; justify-content:space-between; padding:0.5rem 0; border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.8rem;',
+  sidebarLink: 'display:flex; align-items:center; gap:6px; padding:0.4rem 0; font-size:0.8rem; font-weight:500; color:#a1a1aa; text-decoration:none;',
+  step: 'display:flex; gap:1rem; align-items:baseline; padding:0.75rem 0; border-bottom:1px solid rgba(255,255,255,0.03);',
+  stepNum: 'font-size:0.7rem; font-weight:700; color:#818cf8; background:rgba(129,140,248,0.1); width:24px; height:24px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0;',
+  stepText: 'font-size:0.85rem; color:#a1a1aa; line-height:1.5;',
+};
+---
+
+<Guide title={node.title} description={node.summary} activeSection="patterns">
+  <div style={S.page}>
+
+    <!-- LEFT COLUMN -->
+    <div style="min-width:0;">
+
+      <!-- Breadcrumb -->
+      <nav style={S.breadcrumb}>
+        <a href={`/`} style={S.bcLink}>Guide</a>
+        <span style={S.bcSep}>/</span>
+        <a href={`/patterns`} style={S.bcLink}>Patterns</a>
+        <span style={S.bcSep}>/</span>
+        <span>{node.title}</span>
+      </nav>
+
+      <!-- Header -->
+      <div style="margin-bottom:2.5rem;">
+        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:1rem;">
+          {node.maturity && <span style={S.badge('rgba(251,191,36,0.12)', '#fbbf24')}>{node.maturity}</span>}
+          {node.layer && <span style={S.badge('rgba(255,255,255,0.06)', '#a1a1aa')}>{node.layer}</span>}
+          {node.context && <span style={S.badge('rgba(129,140,248,0.08)', '#818cf8')}>{node.context === 'both' ? 'I2I + I2U' : node.context.toUpperCase()}</span>}
+          {isMeta && <span style={S.badge('rgba(165,180,252,0.12)', '#a5b4fc')}>meta</span>}
+        </div>
+        <h1 style={S.title}>{node.title}</h1>
+        {/* SOURCE: iptf-map intent paragraph — do not alter */}
+        {node.summary && <p style={S.intent}>{node.summary}</p>}
+      </div>
+
+      <!-- CROPS profile (badges) -->
+      {cropsObj && (
+        <div style="display:flex; gap:6px; margin:2rem 0; padding:1.25rem; border:1px solid rgba(255,255,255,0.06); border-radius:12px; background:#18181b;">
+          {(['cr','o','p','s'] as const).map(key => {
+            const val = (cropsObj as any)[key] as string | undefined;
+            const { bg, fg } = cropsColorBg(val);
+            return (
+              <div style={`flex:1; text-align:center; padding:1rem 0.5rem; border-radius:8px; background:${bg};`}>
+                <div style={`font-size:0.75rem; font-weight:500; letter-spacing:0.08em; color:${fg}; opacity:0.6;`}>{cropsAbbr[key]}</div>
+                <div style={`font-size:1.25rem; font-weight:700; color:${fg}; margin-top:2px; line-height:1.2;`}>{val ? val.charAt(0).toUpperCase() + val.slice(1) : '—'}</div>
+                <div style={`font-size:0.55rem; margin-top:6px; color:${fg}; opacity:0.4; letter-spacing:0.02em;`}>{cropsLabel[key]}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <!-- CROPS context narrative (new in v2 schema) -->
+      {node.crops_context && (
+        <div style="margin-bottom:2.5rem;">
+          <div style={S.sectionLabel}>CROPS context</div>
+          <div style="border:1px solid rgba(255,255,255,0.06); border-radius:10px; overflow:hidden; margin-top:0.75rem;">
+            {(['cr','o','p','s'] as const).map((key, i, arr) => {
+              const text = (node.crops_context as any)?.[key];
+              if (!text) return null;
+              const { fg } = cropsColorBg(cropsObj ? (cropsObj as any)[key] : undefined);
+              const isLast = i === arr.length - 1;
+              return (
+                <div style={`display:grid; grid-template-columns:120px 1fr; ${isLast ? '' : 'border-bottom:1px solid rgba(255,255,255,0.04);'}`}>
+                  <div style={`padding:0.85rem 1rem; background:rgba(255,255,255,0.02); font-size:0.7rem; font-weight:700; letter-spacing:0.06em; color:${fg};`}>{cropsLabel[key]}</div>
+                  <div style="padding:0.85rem 1rem; font-size:0.82rem; color:#a1a1aa; line-height:1.6;" set:html={marked.parseInline(text)} />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <!-- Context differentiation (when context: both) -->
+      {node.context === 'both' && node.context_differentiation && (
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:1.5rem 0;">
+          {node.context_differentiation.i2i && (
+            <div style="padding:1rem 1.25rem; border-radius:10px; border:1px solid rgba(129,140,248,0.15); background:rgba(99,102,241,0.04);">
+              <div style="font-size:0.6rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:#a5b4fc; margin-bottom:0.5rem;">I2I</div>
+              <div style="font-size:0.82rem; color:#a1a1aa; line-height:1.55;">{node.context_differentiation.i2i}</div>
+            </div>
+          )}
+          {node.context_differentiation.i2u && (
+            <div style="padding:1rem 1.25rem; border-radius:10px; border:1px solid rgba(251,191,36,0.15); background:rgba(251,191,36,0.04);">
+              <div style="font-size:0.6rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:#fbbf24; margin-bottom:0.5rem;">I2U</div>
+              <div style="font-size:0.82rem; color:#a1a1aa; line-height:1.55;">{node.context_differentiation.i2u}</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <!-- Works best / Avoid when -->
+      {(node.works_best_when || node.avoid_when) && (
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:1.5rem 0;">
+          {node.works_best_when && (
+            <div style="padding:1rem 1.25rem; border-radius:10px; border:1px solid rgba(52,211,153,0.15); background:rgba(52,211,153,0.04);">
+              <div style="font-size:0.6rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:#34d399; margin-bottom:0.5rem;">Works best when</div>
+              {node.works_best_when.map(item => (
+                <div style="font-size:0.82rem; color:#a1a1aa; line-height:1.5; padding-left:1rem; position:relative; margin-bottom:0.35rem;">
+                  <span style="position:absolute; left:0; top:7px; width:4px; height:4px; border-radius:50%; background:#34d399; display:block;"></span>
+                  {item}
+                </div>
+              ))}
+            </div>
+          )}
+          {node.avoid_when && (
+            <div style="padding:1rem 1.25rem; border-radius:10px; border:1px solid rgba(248,113,113,0.15); background:rgba(248,113,113,0.04);">
+              <div style="font-size:0.6rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:#f87171; margin-bottom:0.5rem;">Avoid when</div>
+              {node.avoid_when.map(item => (
+                <div style="font-size:0.82rem; color:#a1a1aa; line-height:1.5; padding-left:1rem; position:relative; margin-bottom:0.35rem;">
+                  <span style="position:absolute; left:0; top:7px; width:4px; height:4px; border-radius:50%; background:#f87171; display:block;"></span>
+                  {item}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <!-- INTENT -->
+      {intent && (
+        <div style="margin-bottom:2.5rem;">
+          <div style={S.sectionLabel}>Intent</div>
+          {/* SOURCE: iptf-map field — do not alter */}
+          <div set:html={marked(intent.content)} class="prose" />
+        </div>
+      )}
+
+      <!-- SUB-PATTERNS (meta only) -->
+      {isMeta && subPatternNodes.length > 0 && (
+        <div style="margin-bottom:2.5rem;">
+          <div style={S.sectionLabel}>Sub-patterns</div>
+          <div style="display:grid; grid-template-columns:1fr; gap:1px; background:rgba(255,255,255,0.04); border-radius:10px; overflow:hidden; margin-top:0.75rem;">
+            {subPatternNodes.map(sub => (
+              <a href={`/patterns/${sub.node.slug}`} style="background:#18181b; padding:1rem 1.25rem; text-decoration:none; color:inherit; display:flex; align-items:baseline; justify-content:space-between; gap:1rem;">
+                <div>
+                  <div style="font-size:0.9rem; font-weight:600; color:white; margin-bottom:0.2rem;">{sub.name}</div>
+                  {sub.crops_summary && <div style="font-size:0.75rem; color:#71717a;">{sub.crops_summary}</div>}
+                </div>
+                <svg style="width:14px; height:14px; color:#52525b; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <!-- COMPONENTS -->
+      {components && (
+        <div style="margin-bottom:2.5rem;">
+          <div style={S.sectionLabel}>{components.heading}</div>
+          {/* SOURCE: iptf-map field — do not alter */}
+          <div set:html={marked(components.content)} class="prose" />
+        </div>
+      )}
+
+      <!-- PROTOCOL (numbered steps) -->
+      {protocol && protocol.items.length > 0 && (
+        <div style="margin-bottom:2.5rem;">
+          <div style={S.sectionLabel}>{protocol.heading}</div>
+          <div>
+            {protocol.items.map((step, i) => (
+              <div style={S.step}>
+                <div style={S.stepNum}>{i + 1}</div>
+                <span style={S.stepText}>{step}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <!-- GUARANTEES -->
+      {guarantees && (
+        <div style="margin-bottom:2.5rem;">
+          <div style={S.sectionLabel}>{guarantees.heading}</div>
+          {/* SOURCE: iptf-map field — do not alter */}
+          <div set:html={marked(guarantees.content)} class="prose" />
+        </div>
+      )}
+
+      <!-- TRADE-OFFS -->
+      {tradeoffs && (
+        <div style="margin-bottom:2.5rem;">
+          <div style={S.sectionLabel}>Trade-offs</div>
+          {/* SOURCE: iptf-map field — do not alter */}
+          <div set:html={marked(tradeoffs.content)} class="prose" />
+        </div>
+      )}
+
+      <!-- POST-QUANTUM -->
+      {node.post_quantum && (() => {
+        const c = pqRiskColor(node.post_quantum.risk);
+        return (
+          <div style={`margin-bottom:2.5rem; padding:1.25rem 1.5rem; border:1px solid ${c.border}; border-radius:12px; background:${c.bg};`}>
+            <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem;">
+              <div style={`font-size:0.6rem; font-weight:700; color:${c.fg}; letter-spacing:0.12em; text-transform:uppercase;`}>Post-quantum</div>
+              {node.post_quantum.risk && <span style={`font-size:0.65rem; font-weight:600; padding:2px 8px; border-radius:4px; background:${c.bg}; color:${c.fg}; border:1px solid ${c.border};`}>{node.post_quantum.risk} risk</span>}
+            </div>
+            {node.post_quantum.vector && <div style="font-size:0.85rem; color:#d4d4d8; line-height:1.6; margin-bottom:0.5rem;"><strong style="color:white;">Vector:</strong> <span set:html={marked.parseInline(node.post_quantum.vector)} /></div>}
+            {node.post_quantum.mitigation && <div style="font-size:0.85rem; color:#a1a1aa; line-height:1.6;"><strong style="color:#d4d4d8;">Mitigation:</strong> <span set:html={marked.parseInline(node.post_quantum.mitigation)} /></div>}
+          </div>
+        );
+      })()}
+
+      <!-- EXAMPLE -->
+      {example && (
+        <div style="margin-bottom:2.5rem;">
+          <div style={S.sectionLabel}>Example</div>
+          {/* SOURCE: iptf-map field — do not alter */}
+          <div set:html={marked(example.content)} class="prose" />
+        </div>
+      )}
+
+      <!-- OPEN-SOURCE IMPLEMENTATIONS -->
+      {node.open_source_implementations && node.open_source_implementations.length > 0 && (
+        <div style="margin-bottom:2.5rem;">
+          <div style={S.sectionLabel}>Open-source implementations</div>
+          <div style="margin-top:0.75rem; border:1px solid rgba(255,255,255,0.06); border-radius:10px; overflow:hidden;">
+            {node.open_source_implementations.map((impl, i, arr) => (
+              <a href={impl.url} target="_blank" rel="noopener noreferrer" style={`display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; padding:0.85rem 1.25rem; text-decoration:none; color:inherit; ${i === arr.length - 1 ? '' : 'border-bottom:1px solid rgba(255,255,255,0.04);'}`}>
+                <div>
+                  <div style="font-size:0.85rem; color:#d4d4d8; line-height:1.5;">{impl.description || impl.url}</div>
+                  {impl.language && <div style="font-size:0.7rem; color:#71717a; margin-top:0.25rem;">{impl.language}</div>}
+                </div>
+                <svg style="width:14px; height:14px; color:#52525b; flex-shrink:0; margin-top:2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
+    </div>
+
+    <!-- RIGHT COLUMN -->
+    <aside>
+      <div style="position:sticky; top:80px;">
+
+        <!-- Metadata -->
+        <div style="margin-bottom:2.5rem;">
+          <div style={S.sidebarLabel}>Details</div>
+          {node.status && <div style={S.sidebarRow}><span style="color:#71717a;">Status</span><span style="color:#d4d4d8; font-weight:500;">{node.status}</span></div>}
+          {node.maturity && <div style={S.sidebarRow}><span style="color:#71717a;">Maturity</span><span style="color:#d4d4d8; font-weight:500;">{node.maturity}</span></div>}
+          {node.layer && <div style={S.sidebarRow}><span style="color:#71717a;">Layer</span><span style="color:#d4d4d8; font-weight:500;">{node.layer}</span></div>}
+          {node.context && <div style={S.sidebarRow}><span style="color:#71717a;">Context</span><span style="color:#d4d4d8; font-weight:500;">{node.context === 'both' ? 'I2I + I2U' : node.context.toUpperCase()}</span></div>}
+          {node.kind && <div style={S.sidebarRow}><span style="color:#71717a;">Kind</span><span style="color:#d4d4d8; font-weight:500;">{node.kind}</span></div>}
+          {node.last_reviewed && <div style="display:flex; justify-content:space-between; padding:0.5rem 0; font-size:0.8rem;"><span style="color:#71717a;">Last reviewed</span><span style="color:#d4d4d8; font-weight:500;">{new Date(node.last_reviewed).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span></div>}
+        </div>
+
+        <!-- Standards -->
+        {node.standards && node.standards.length > 0 && (
+          <div style="margin-bottom:2.5rem;">
+            <div style={S.sidebarLabel}>Standards</div>
+            <div style="display:flex; flex-wrap:wrap; gap:6px;">
+              {node.standards.map(s => (
+                <span style="font-size:0.7rem; font-family:'JetBrains Mono',monospace; color:#a1a1aa; padding:3px 8px; border-radius:4px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06);">{s}</span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <!-- Used in case studies -->
+        {related.usedInApproaches.length > 0 && (
+          <div style="margin-bottom:2.5rem;">
+            <div style={S.sidebarLabel}>Used in case studies</div>
+            {related.usedInApproaches.map(a => (
+              <a href={`/approaches/${a.slug}`} style={S.sidebarLink}>
+                <svg style="width:12px; height:12px; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+                {a.title}
+              </a>
+            ))}
+          </div>
+        )}
+
+        <!-- Vendor tooling -->
+        {related.implementedBy.length > 0 && (
+          <div style="margin-bottom:2.5rem;">
+            <div style={S.sidebarLabel}>Vendor tooling</div>
+            {related.implementedBy.map(v => (
+              <a href={`/vendors/${v.slug}`} style={S.sidebarLink}>
+                <svg style="width:12px; height:12px; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
+                {v.title}
+              </a>
+            ))}
+          </div>
+        )}
+
+        <!-- Related patterns (typed) -->
+        {relGroups.map(([_, label, targets]) => (
+          <div style="margin-bottom:2rem;">
+            <div style={S.sidebarLabel}>{label}</div>
+            {targets.map(target => (
+              <a href={`/patterns/${target.slug}`} style={S.sidebarLink}>
+                <svg style="width:12px; height:12px; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+                {target.title}
+              </a>
+            ))}
+          </div>
+        ))}
+
+      </div>
+    </aside>
+
+  </div>
+</Guide>

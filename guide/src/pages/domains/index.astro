@@ -1,0 +1,51 @@
+---
+import Guide from '../../layouts/Guide.astro';
+import { getNodesByType, getRelated } from '../../lib/data';
+
+const domains = getNodesByType('domain').sort((a, b) => a.title.localeCompare(b.title));
+const base = import.meta.env.BASE_URL;
+
+// Gather stats per domain
+const domainsWithStats = domains.map(d => {
+  const related = getRelated(d.id);
+  return {
+    ...d,
+    approachCount: related.approaches.length,
+    patternCount: related.patterns.length,
+    vendorCount: related.vendors.length,
+  };
+});
+---
+
+<Guide title="Domains" description="Browse by business area" activeSection="domains">
+  <div style="max-width:1200px; margin:0 auto; padding:6rem 2rem 4rem;">
+
+    <div style="margin-bottom:3rem;">
+      <div style="font-size:0.65rem; font-weight:700; color:#818cf8; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.5rem;">Domains</div>
+      <h1 style="font-family:'Newsreader',Georgia,serif; font-size:2.5rem; font-weight:400; color:white; letter-spacing:-0.025em; line-height:1.15; margin-bottom:0.75rem;">Browse by domain</h1>
+      <p style="font-size:1rem; color:#a1a1aa; line-height:1.7; max-width:640px;">Start from your area of work to see relevant case studies, patterns, and vendors. Jurisdictions and compliance frameworks overlay on every domain.</p>
+    </div>
+
+    <!-- Card grid -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:1.25rem;">
+      {domainsWithStats.map(d => (
+        <a href={`/domains/${d.slug}`} style="padding:1.75rem; border:1px solid rgba(255,255,255,0.06); border-radius:12px; background:#18181b; text-decoration:none; color:inherit; display:flex; flex-direction:column; gap:0.75rem; transition:all 0.15s;" onmouseover="this.style.borderColor='rgba(129,140,248,0.25)'; this.style.background='#1c1c20';" onmouseout="this.style.borderColor='rgba(255,255,255,0.06)'; this.style.background='#18181b';">
+          <h3 style="font-family:'Newsreader',Georgia,serif; font-size:1.4rem; font-weight:500; color:white; letter-spacing:-0.02em;">{d.title}</h3>
+          {d.summary && <p style="font-size:0.85rem; color:#71717a; line-height:1.6; flex:1;">{d.summary}</p>}
+          <div style="display:flex; gap:1.25rem; margin-top:auto; padding-top:0.75rem; border-top:1px solid rgba(255,255,255,0.04);">
+            <div style="font-size:0.75rem; color:#52525b;">
+              <strong style="color:#d4d4d8; font-weight:600;">{d.approachCount}</strong> {d.approachCount === 1 ? 'case study' : 'case studies'}
+            </div>
+            <div style="font-size:0.75rem; color:#52525b;">
+              <strong style="color:#d4d4d8; font-weight:600;">{d.patternCount}</strong> {d.patternCount === 1 ? 'pattern' : 'patterns'}
+            </div>
+            <div style="font-size:0.75rem; color:#52525b;">
+              <strong style="color:#d4d4d8; font-weight:600;">{d.vendorCount}</strong> {d.vendorCount === 1 ? 'vendor' : 'vendors'}
+            </div>
+          </div>
+        </a>
+      ))}
+    </div>
+
+  </div>
+</Guide>

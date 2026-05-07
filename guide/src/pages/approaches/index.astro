@@ -1,0 +1,109 @@
+---
+import Guide from '../../layouts/Guide.astro';
+import { getNodesByType, getNodeBySlug } from '../../lib/data';
+
+const approaches = getNodesByType('approach');
+
+// SOURCE: iptf-map field — do not alter. `title` is the prefix-stripped frontmatter
+// title; `summary` is the first paragraph of `## Problem framing → ### Scenario`.
+const rows = approaches.map(a => {
+  const useCase = a.use_case ? getNodeBySlug('use-case', a.use_case) : null;
+  return { ...a, useCase };
+});
+---
+
+<Guide title="Case Studies" description="Solution architectures for institutional privacy on Ethereum" activeSection="approaches">
+  <div class="idx-page">
+
+    <div class="idx-header">
+      <div class="idx-label">Case Studies</div>
+      <h1 class="idx-title">From requirements to solutions</h1>
+      <p class="idx-desc">{rows.length} case studies combining privacy primitives to solve concrete institutional problems — from private payments to confidential settlement.</p>
+    </div>
+
+    <div class="cs-list">
+      {rows.map((row, i) => {
+        const idx = String(i + 1).padStart(2, '0');
+        const isLast = i === rows.length - 1;
+        return (
+          <a href={`/approaches/${row.slug}`} class={`cs-row ${isLast ? 'last' : ''}`}>
+            <span class="cs-idx">{idx}</span>
+            <div class="cs-body">
+              <div class="cs-name">{row.title}</div>
+              {row.summary && <div class="cs-blurb">{row.summary}</div>}
+              {row.useCase && (
+                <div class="cs-uc">Addresses use case: {row.useCase.title}</div>
+              )}
+            </div>
+          </a>
+        );
+      })}
+    </div>
+
+  </div>
+
+  <style is:global>
+    .idx-page {
+      max-width: 1200px; margin: 0 auto;
+      padding: 6rem 2rem 4rem;
+    }
+    .idx-header { margin-bottom: 3rem; }
+    .idx-label {
+      font-size: 0.65rem; font-weight: 700; color: #818cf8;
+      letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.5rem;
+    }
+    .idx-title {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 2.5rem; font-weight: 400; color: white;
+      letter-spacing: -0.025em; line-height: 1.15; margin-bottom: 0.75rem;
+    }
+    .idx-desc {
+      font-size: 1rem; color: #a1a1aa; line-height: 1.7; max-width: 640px;
+    }
+
+    .cs-row {
+      display: grid;
+      grid-template-columns: 48px 1fr;
+      gap: 1.5rem;
+      align-items: baseline;
+      padding: 1.5rem 0;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      text-decoration: none; color: inherit;
+      transition: padding-left 0.15s;
+    }
+    .cs-row.last { border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .cs-row:hover { padding-left: 0.75rem; }
+    .cs-row:hover .cs-name { color: #a5b4fc; }
+    .cs-idx {
+      font-size: 0.75rem; font-weight: 500; color: #a1a1aa;
+      font-variant-numeric: tabular-nums;
+    }
+    .cs-body { min-width: 0; }
+    .cs-name {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 1.2rem; font-weight: 500; color: white;
+      letter-spacing: -0.01em; margin-bottom: 0.35rem;
+      transition: color 0.15s;
+    }
+    .cs-blurb {
+      font-size: 0.85rem; color: #a1a1aa; line-height: 1.6;
+      margin-bottom: 0.5rem;
+    }
+    .cs-uc {
+      font-size: 0.72rem; color: #71717a;
+      letter-spacing: 0.01em;
+    }
+
+    @media (max-width: 640px) {
+      .idx-page { padding: 5rem 1.25rem 3rem; }
+      .idx-title { font-size: 1.75rem; }
+      .cs-row {
+        grid-template-columns: 1fr;
+        gap: 0.4rem;
+        padding: 1.25rem 0;
+      }
+      .cs-idx { font-size: 0.7rem; }
+      .cs-name { font-size: 1.1rem; }
+    }
+  </style>
+</Guide>

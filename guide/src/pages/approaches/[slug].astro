@@ -1,0 +1,761 @@
+---
+import Guide from '../../layouts/Guide.astro';
+import { getNodesByType, getNodeBySlug } from '../../lib/data';
+import { parseSections, getSection, parseSubSections, extractLabelledBlock, extractYamlBlock } from '../../lib/parse-sections';
+import { marked } from 'marked';
+import yaml from 'js-yaml';
+
+export function getStaticPaths() {
+  const approaches = getNodesByType('approach');
+  return approaches.map(a => ({ params: { slug: a.slug } }));
+}
+
+const { slug } = Astro.params;
+const node = getNodeBySlug('approach', slug!);
+if (!node) return Astro.redirect('/guide');
+
+// SOURCE: iptf-map field — do not alter. Body is rendered through marked() verbatim.
+const sections = parseSections(node.content);
+const problemFraming = getSection(sections, 'problem-framing') || getSection(sections, 'problem');
+const approachesSec = getSection(sections, 'approaches');
+const comparison = getSection(sections, 'comparison');
+const personas = getSection(sections, 'persona-perspectives') || getSection(sections, 'persona');
+const recommendation = getSection(sections, 'recommendation');
+const openQuestions = getSection(sections, 'open-questions') || getSection(sections, 'open');
+const exampleScenario = getSection(sections, 'example-scenario') || getSection(sections, 'example');
+
+// Display title from frontmatter (already prefix-stripped by build-graph)
+const displayTitle = node.title;
+const goal = node.summary;
+
+// Use case lookup
+const useCaseNode = node.use_case
+  ? getNodeBySlug('use-case', node.use_case)
+  : null;
+const useCaseDomain = (useCaseNode as any)?.primary_domain || '';
+
+const contextLabel = node.context
+  ? (node.context === 'both' ? 'I2I + I2U' : node.context.toUpperCase())
+  : '';
+
+// ── Problem framing sub-sections
+const pfSubs = problemFraming ? parseSubSections(problemFraming.content) : [];
+const pfScenario = pfSubs.find(s => s.key === 'scenario');
+const pfRequirements = pfSubs.find(s => s.key === 'requirements');
+const pfConstraints = pfSubs.find(s => s.key === 'constraints');
+
+// ── Sub-approach blocks
+interface SubApproach {
+  name: string;
+  yaml: {
+    maturity?: string;
+    context?: string;
+    crops?: { cr?: string; o?: string; p?: string; s?: string };
+    uses_patterns?: string[];
+    poc_spec?: string;
+    example_vendors?: string[];
+  };
+  summary: string;
+  howItWorks: string;
+  trustAssumptions: string;
+  threatModel: string;
+  worksBestWhen: string;
+  avoidWhen: string;
+  implementationNotes: string;
+  benchmarksContent: string;
+}
+
+function parseSubApproach(name: string, content: string): SubApproach {
+  const yamlText = extractYamlBlock(content);
+  let yamlData: any = {};
+  try { yamlData = yamlText ? (yaml.load(yamlText) || {}) : {}; }
+  catch { yamlData = {}; }
+
+  // Strip the YAML block from content for further parsing
+  const withoutYaml = content.replace(/```yaml\s*\n[\s\S]*?\n```/, '').trim();
+
+  // Pull out a #### Benchmarks subsection
+  const benchMatch = withoutYaml.match(/#### Benchmarks\s*\n([\s\S]*?)(?=\n####|\n###|$)/);
+  const benchmarksContent = benchMatch ? benchMatch[1].trim() : '';
+
+  return {
+    name,
+    yaml: yamlData,
+    summary: extractLabelledBlock(withoutYaml, 'Summary'),
+    howItWorks: extractLabelledBlock(withoutYaml, 'How it works'),
+    trustAssumptions: extractLabelledBlock(withoutYaml, 'Trust assumptions'),
+    threatModel: extractLabelledBlock(withoutYaml, 'Threat model'),
+    worksBestWhen: extractLabelledBlock(withoutYaml, 'Works best when'),
+    avoidWhen: extractLabelledBlock(withoutYaml, 'Avoid when'),
+    implementationNotes: extractLabelledBlock(withoutYaml, 'Implementation notes'),
+    benchmarksContent,
+  };
+}
+
+const subApproaches = approachesSec
+  ? parseSubSections(approachesSec.content).map(s => parseSubApproach(s.heading, s.content))
+  : [];
+
+// ── Personas
+const personaSubs = personas ? parseSubSections(personas.content) : [];
+const personaList = personaSubs.map(s => ({
+  key: s.key,
+  label: s.heading.replace(/\s*perspective\s*$/i, '').trim(),
+  content: s.content,
+}));
+
+// ── Recommendation sub-sections
+const recSubs = recommendation ? parseSubSections(recommendation.content) : [];
+
+// ── Pattern lookup helpers
+const allPatterns = getNodesByType('pattern');
+function patternBySlug(slug: string) {
+  return allPatterns.find(p => p.file === `patterns/${slug}.md`);
+}
+
+const primaryPatterns = (node.primary_patterns || []).map(patternBySlug).filter(Boolean) as any[];
+const supportingPatterns = (node.supporting_patterns || []).map(patternBySlug).filter(Boolean) as any[];
+
+// ── Vendor lookup
+const allVendors = getNodesByType('vendor');
+const vendorRoles: Record<string, { role: string; node: any }> = {};
+for (const sub of subApproaches) {
+  for (const v of sub.yaml.example_vendors || []) {
+    const target = allVendors.find(vn => vn.slug === v);
+    if (target && !vendorRoles[v]) {
+      vendorRoles[v] = { role: sub.name, node: target };
+    }
+  }
+}
+
+// ── Related use cases
+const relatedUseCases = (node.related_use_cases || [])
+  .map(slug => getNodeBySlug('use-case', slug))
+  .filter(Boolean) as any[];
+
+// ── Color helpers
+const cropsColor = (val?: string) => {
+  if (!val) return '#52525b';
+  if (['high', 'yes', 'full'].includes(val)) return '#34d399';
+  if (['medium', 'partial'].includes(val)) return '#fbbf24';
+  return '#f87171';
+};
+const maturityColor = (m?: string) => {
+  switch (m) {
+    case 'production': case 'benchmarked': return { bg: 'rgba(52,211,153,0.12)', fg: '#34d399' };
+    case 'prototyped': case 'implemented': return { bg: 'rgba(251,191,36,0.12)', fg: '#fbbf24' };
+    case 'documented': case 'spec-only': return { bg: 'rgba(165,180,252,0.12)', fg: '#a5b4fc' };
+    case 'concept': return { bg: 'rgba(255,255,255,0.06)', fg: '#a1a1aa' };
+    default: return { bg: 'rgba(255,255,255,0.06)', fg: '#a1a1aa' };
+  }
+};
+
+const personaColor = (key: string) => {
+  if (key.startsWith('business')) return { bg: 'rgba(99,102,241,0.04)', border: 'rgba(129,140,248,0.15)' };
+  if (key.startsWith('technical')) return { bg: 'rgba(52,211,153,0.04)', border: 'rgba(52,211,153,0.15)' };
+  return { bg: 'rgba(251,191,36,0.04)', border: 'rgba(251,191,36,0.15)' };
+};
+---
+
+<Guide title={displayTitle} description={goal} activeSection="approaches">
+  <div class="page">
+    <div class="main">
+
+      <!-- Breadcrumb -->
+      <nav class="breadcrumb">
+        <a href={`/`}>Guide</a>
+        <span class="sep">/</span>
+        <a href={`/approaches`}>Case Studies</a>
+        <span class="sep">/</span>
+        <span>{displayTitle}</span>
+      </nav>
+
+      <!-- Header -->
+      <div class="cs-header">
+        {useCaseNode && (
+          <a href={`/use-cases/${useCaseNode.slug}`} class="cs-use-case">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
+            Use case: {useCaseNode.title}
+          </a>
+        )}
+        <h1 class="cs-title">{displayTitle}</h1>
+        {/* SOURCE: iptf-map intent paragraph (## Problem framing → ### Scenario) — do not alter */}
+        {goal && <p class="cs-goal">{goal}</p>}
+        <div class="cs-meta">
+          {useCaseDomain && <span class="cs-badge cs-badge-domain">{useCaseDomain}</span>}
+          {contextLabel && <span class="cs-badge cs-badge-i2u">{contextLabel}</span>}
+          {node.maturity && <span class="cs-badge cs-badge-maturity">{node.maturity}</span>}
+        </div>
+      </div>
+
+      <!-- Problem framing -->
+      {(pfRequirements || pfConstraints || pfScenario) && (
+        <div class="section">
+          <div class="section-label">Problem framing</div>
+
+          {pfScenario && (
+            <div class="block">
+              <h3>Scenario</h3>
+              {/* SOURCE: iptf-map field — do not alter */}
+              <div class="prose" set:html={marked(pfScenario.content)} />
+            </div>
+          )}
+          {pfRequirements && (
+            <div class="block">
+              <h3>Requirements</h3>
+              {/* SOURCE: iptf-map field — do not alter */}
+              <div class="prose" set:html={marked(pfRequirements.content)} />
+            </div>
+          )}
+          {pfConstraints && (
+            <div class="block">
+              <h3>Constraints</h3>
+              {/* SOURCE: iptf-map field — do not alter */}
+              <div class="prose" set:html={marked(pfConstraints.content)} />
+            </div>
+          )}
+        </div>
+      )}
+
+      <!-- Approaches -->
+      {subApproaches.length > 0 && (
+        <div class="section">
+          <div class="section-label">Approaches</div>
+          <h2>{subApproaches.length} architectural option{subApproaches.length === 1 ? '' : 's'}</h2>
+          <div class="approach-stack">
+            {subApproaches.map(sub => {
+              const m = maturityColor(sub.yaml.maturity);
+              const crops = sub.yaml.crops || {};
+              return (
+                <div class="approach-block" id={`approach-${sub.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`}>
+                  <div class="approach-head">
+                    <h3>{sub.name}</h3>
+                    <div class="approach-badges">
+                      {sub.yaml.maturity && <span class="badge" style={`background:${m.bg}; color:${m.fg};`}>{sub.yaml.maturity}</span>}
+                      {sub.yaml.context && <span class="badge badge-context">{sub.yaml.context === 'both' ? 'I2I + I2U' : sub.yaml.context.toUpperCase()}</span>}
+                    </div>
+                  </div>
+                  {/* CROPS strip */}
+                  {(crops.cr || crops.o || crops.p || crops.s) && (
+                    <div class="approach-crops">
+                      {(['cr','o','p','s'] as const).map(k => {
+                        const v = (crops as any)[k];
+                        if (!v) return null;
+                        const c = cropsColor(v);
+                        return <span class="crops-pill" style={`background:${c}14; color:${c};`}>{k.toUpperCase()}: {v}</span>;
+                      })}
+                    </div>
+                  )}
+                  {/* Body — labelled blocks rendered verbatim */}
+                  {/* SOURCE: iptf-map sub-approach blocks — do not alter */}
+                  {sub.summary && <div class="approach-summary"><strong>Summary:</strong> {sub.summary}</div>}
+                  {sub.howItWorks && <div class="approach-text"><strong>How it works.</strong> <span set:html={marked.parseInline(sub.howItWorks)} /></div>}
+                  <div class="approach-grid">
+                    {sub.trustAssumptions && (
+                      <div class="approach-list">
+                        <h5>Trust assumptions</h5>
+                        <div class="prose" set:html={marked(sub.trustAssumptions)} />
+                      </div>
+                    )}
+                    {sub.threatModel && (
+                      <div class="approach-list">
+                        <h5>Threat model</h5>
+                        <div class="prose" set:html={marked(sub.threatModel)} />
+                      </div>
+                    )}
+                    {sub.worksBestWhen && (
+                      <div class="approach-list approach-list-good">
+                        <h5>Works best when</h5>
+                        <div class="prose" set:html={marked(sub.worksBestWhen)} />
+                      </div>
+                    )}
+                    {sub.avoidWhen && (
+                      <div class="approach-list approach-list-bad">
+                        <h5>Avoid when</h5>
+                        <div class="prose" set:html={marked(sub.avoidWhen)} />
+                      </div>
+                    )}
+                  </div>
+                  {sub.implementationNotes && (
+                    <div class="approach-text approach-impl"><strong>Implementation notes.</strong> <span set:html={marked.parseInline(sub.implementationNotes)} /></div>
+                  )}
+                  {sub.benchmarksContent && (
+                    <details class="collapsible">
+                      <summary>Benchmarks</summary>
+                      <div class="collapsible-content prose" set:html={marked(sub.benchmarksContent)} />
+                    </details>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <!-- Comparison -->
+      {comparison && (
+        <div class="section">
+          <div class="section-label">Comparison</div>
+          {/* SOURCE: iptf-map field — do not alter */}
+          <div class="prose table-wrap" set:html={marked(comparison.content)} />
+        </div>
+      )}
+
+      <!-- Persona perspectives -->
+      {personaList.length > 0 && (
+        <div class="section">
+          <div class="section-label">Persona perspectives</div>
+          <div class="persona-tabs" role="tablist">
+            {personaList.map((p, i) => (
+              <button
+                class={`persona-tab ${i === 0 ? 'active' : ''}`}
+                data-persona={p.key}
+                role="tab"
+                aria-selected={i === 0 ? 'true' : 'false'}
+              >{p.label}</button>
+            ))}
+          </div>
+          {personaList.map((p, i) => {
+            const c = personaColor(p.key);
+            return (
+              <div
+                class={`persona-panel ${i === 0 ? 'active' : ''}`}
+                data-persona={p.key}
+                style={`background:${c.bg}; border-color:${c.border};`}
+              >
+                {/* SOURCE: iptf-map field — do not alter */}
+                <div class="prose" set:html={marked(p.content)} />
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <!-- Recommendation -->
+      {recSubs.length > 0 && (
+        <div class="section">
+          <div class="section-label">Recommendation</div>
+          {recSubs.map(s => (
+            <div class="block">
+              <h3>{s.heading}</h3>
+              {/* SOURCE: iptf-map field — do not alter */}
+              <div class="prose" set:html={marked(s.content)} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      <!-- Open questions -->
+      {openQuestions && (
+        <div class="section">
+          <div class="section-label">Open questions</div>
+          {/* SOURCE: iptf-map field — do not alter */}
+          <div class="prose" set:html={marked(openQuestions.content)} />
+        </div>
+      )}
+
+      <!-- Example scenario (optional, when present as a separate ## section) -->
+      {exampleScenario && exampleScenario.key !== 'problem-framing' && (
+        <div class="section">
+          <div class="section-label">Example scenario</div>
+          {/* SOURCE: iptf-map field — do not alter */}
+          <div class="prose" set:html={marked(exampleScenario.content)} />
+        </div>
+      )}
+
+    </div>
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-sticky">
+
+        {/* Quick jump to sub-approaches */}
+        {subApproaches.length > 0 && (
+          <div class="sidebar-section">
+            <div class="sidebar-label">Approaches</div>
+            {subApproaches.map(sub => {
+              const id = sub.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+              return (
+                <a href={`#approach-${id}`} class="sidebar-link">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
+                  {sub.name}
+                </a>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Primary patterns */}
+        {primaryPatterns.length > 0 && (
+          <div class="sidebar-section">
+            <div class="sidebar-label">Primary patterns</div>
+            {primaryPatterns.map(p => (
+              <a href={`/patterns/${p.slug}`} class="pattern-card">
+                <span class="pattern-dot dot-core"></span>
+                <span class="pattern-name">{p.title}</span>
+              </a>
+            ))}
+          </div>
+        )}
+
+        {/* Supporting patterns */}
+        {supportingPatterns.length > 0 && (
+          <div class="sidebar-section">
+            <div class="sidebar-label">Supporting patterns</div>
+            {supportingPatterns.map(p => (
+              <a href={`/patterns/${p.slug}`} class="pattern-card">
+                <span class="pattern-dot dot-supporting"></span>
+                <span class="pattern-name">{p.title}</span>
+              </a>
+            ))}
+          </div>
+        )}
+
+        {/* IPTF PoCs */}
+        {node.iptf_pocs && Array.isArray(node.iptf_pocs.pocs) && node.iptf_pocs.pocs.length > 0 && (
+          <div class="sidebar-section">
+            <div class="sidebar-label">IPTF prototypes</div>
+            {node.iptf_pocs.pocs.map(poc => {
+              const m = maturityColor(poc.status);
+              return (
+                <div class="poc-row">
+                  <div class="poc-name">{poc.name}</div>
+                  {poc.sub_approach && <div class="poc-sub">For: {poc.sub_approach}</div>}
+                  {poc.status && <span class="badge" style={`background:${m.bg}; color:${m.fg}; font-size:0.6rem; margin-top:4px; display:inline-block;`}>{poc.status}</span>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Open-source implementations */}
+        {node.open_source_implementations && node.open_source_implementations.length > 0 && (
+          <div class="sidebar-section">
+            <div class="sidebar-label">Open-source implementations</div>
+            {node.open_source_implementations.map(impl => (
+              <a href={impl.url} target="_blank" rel="noopener noreferrer" class="oss-link">
+                <div class="oss-desc">{impl.description || impl.url}</div>
+                {impl.language && <div class="oss-lang">{impl.language}</div>}
+              </a>
+            ))}
+          </div>
+        )}
+
+        {/* Vendors mentioned */}
+        {Object.keys(vendorRoles).length > 0 && (
+          <div class="sidebar-section">
+            <div class="sidebar-label">Vendors</div>
+            {Object.values(vendorRoles).map(vr => (
+              <a class="vendor-card" href={`/vendors/${vr.node.slug}`}>
+                <div class="vendor-name">{vr.node.title}</div>
+                <div class="vendor-role">{vr.role}</div>
+              </a>
+            ))}
+          </div>
+        )}
+
+        {/* Related use cases */}
+        {relatedUseCases.length > 0 && (
+          <div class="sidebar-section">
+            <div class="sidebar-label">Related use cases</div>
+            {relatedUseCases.map(uc => (
+              <a href={`/use-cases/${uc.slug}`} class="sidebar-link">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
+                {uc.title}
+              </a>
+            ))}
+          </div>
+        )}
+
+      </div>
+    </aside>
+  </div>
+
+  {personaList.length > 0 && (
+    <script is:inline>
+      document.addEventListener('DOMContentLoaded', function() {
+        const tabs = document.querySelectorAll('.persona-tab');
+        const panels = document.querySelectorAll('.persona-panel');
+        tabs.forEach(function(tab) {
+          tab.addEventListener('click', function() {
+            const target = this.getAttribute('data-persona');
+            tabs.forEach(function(t) { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
+            this.classList.add('active');
+            this.setAttribute('aria-selected', 'true');
+            panels.forEach(function(p) {
+              p.classList.toggle('active', p.getAttribute('data-persona') === target);
+            });
+          });
+        });
+      });
+    </script>
+  )}
+
+  <style>
+    .page {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 5rem 2rem 4rem;
+      display: grid;
+      grid-template-columns: 1fr 300px;
+      gap: 4rem;
+    }
+    .main { min-width: 0; }
+    .sidebar { position: relative; }
+    .sidebar-sticky { position: sticky; top: 80px; }
+
+    .breadcrumb {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.75rem; color: #71717a;
+      margin-bottom: 2rem;
+    }
+    .breadcrumb a { color: #71717a; text-decoration: none; transition: color 0.15s; }
+    .breadcrumb a:hover { color: #a5b4fc; }
+    .sep { color: #3f3f46; }
+
+    .cs-header { margin-bottom: 3rem; }
+    .cs-use-case {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 0.7rem; font-weight: 600; color: #818cf8;
+      letter-spacing: 0.08em; text-transform: uppercase;
+      margin-bottom: 1rem;
+      text-decoration: none; transition: color 0.15s;
+    }
+    .cs-use-case:hover { color: #a5b4fc; }
+    .cs-title {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 2.5rem; font-weight: 400; color: white;
+      line-height: 1.15; letter-spacing: -0.025em;
+      margin-bottom: 1rem;
+    }
+    .cs-goal {
+      font-size: 1rem; color: #a1a1aa; line-height: 1.7;
+      max-width: 640px;
+    }
+    .cs-meta { display: flex; gap: 8px; margin-top: 1.25rem; flex-wrap: wrap; }
+    .cs-badge {
+      font-size: 0.65rem; font-weight: 600; padding: 3px 8px;
+      border-radius: 4px; letter-spacing: 0.02em;
+    }
+    .cs-badge-i2u { background: rgba(251,191,36,0.12); color: #fbbf24; }
+    .cs-badge-domain { background: rgba(129,140,248,0.12); color: #a5b4fc; }
+    .cs-badge-maturity { background: rgba(52,211,153,0.12); color: #34d399; }
+
+    .section { margin-bottom: 3rem; }
+    .section-label {
+      font-size: 0.6rem; font-weight: 700; color: #818cf8;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      margin-bottom: 0.5rem;
+    }
+    .section h2 {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 1.5rem; font-weight: 500; color: white;
+      letter-spacing: -0.02em; margin-bottom: 1rem;
+    }
+    .block { margin-bottom: 1.5rem; }
+    .block h3 {
+      font-size: 0.95rem; font-weight: 700; color: white;
+      margin-bottom: 0.5rem;
+    }
+
+    /* Approach blocks */
+    .approach-stack { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1rem; }
+    .approach-block {
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 1.5rem;
+      background: #18181b;
+    }
+    .approach-head {
+      display: flex; align-items: baseline; justify-content: space-between;
+      gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem;
+    }
+    .approach-head h3 {
+      font-family: 'Newsreader', Georgia, serif;
+      font-size: 1.3rem; font-weight: 500; color: white;
+      letter-spacing: -0.01em;
+    }
+    .approach-badges { display: flex; gap: 6px; flex-wrap: wrap; }
+    .badge {
+      font-size: 0.65rem; font-weight: 600;
+      padding: 3px 8px; border-radius: 4px;
+      letter-spacing: 0.02em;
+    }
+    .badge-context { background: rgba(129,140,248,0.08); color: #818cf8; }
+    .approach-crops { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 1rem; }
+    .crops-pill {
+      font-size: 0.6rem; font-weight: 700; letter-spacing: 0.04em;
+      padding: 2px 6px; border-radius: 3px;
+    }
+    .approach-summary {
+      font-size: 0.95rem; color: #d4d4d8; line-height: 1.6;
+      margin-bottom: 0.75rem;
+    }
+    .approach-summary strong { color: white; }
+    .approach-text {
+      font-size: 0.85rem; color: #a1a1aa; line-height: 1.65;
+      margin-bottom: 1rem;
+    }
+    .approach-text strong { color: #d4d4d8; }
+    .approach-impl {
+      padding-top: 0.75rem;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+    .approach-grid {
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 1rem; margin: 1rem 0;
+    }
+    .approach-list {
+      padding: 0.85rem 1rem;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.02);
+    }
+    .approach-list h5 {
+      font-size: 0.6rem; font-weight: 700;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: #71717a;
+      margin-bottom: 0.5rem;
+    }
+    .approach-list-good { border-color: rgba(52,211,153,0.15); background: rgba(52,211,153,0.04); }
+    .approach-list-good h5 { color: #34d399; }
+    .approach-list-bad { border-color: rgba(248,113,113,0.15); background: rgba(248,113,113,0.04); }
+    .approach-list-bad h5 { color: #f87171; }
+
+    /* Persona tabs */
+    .persona-tabs {
+      display: flex; gap: 2px;
+      background: #1c1c20;
+      border-radius: 10px;
+      padding: 3px;
+      margin-bottom: 1rem;
+    }
+    .persona-tab {
+      flex: 1;
+      padding: 0.65rem 1rem;
+      border-radius: 8px;
+      font-size: 0.8rem; font-weight: 600;
+      color: #71717a;
+      text-align: center;
+      cursor: pointer; border: none; background: none;
+      transition: all 0.15s;
+    }
+    .persona-tab:hover { color: #d4d4d8; }
+    .persona-tab.active {
+      background: #27272a;
+      color: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+    .persona-panel {
+      display: none;
+      padding: 1.25rem 1.5rem;
+      border-radius: 10px;
+      border: 1px solid;
+    }
+    .persona-panel.active { display: block; }
+
+    /* Collapsible (benchmarks) */
+    .collapsible {
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 8px;
+      margin-top: 1rem;
+      overflow: hidden;
+    }
+    .collapsible summary {
+      padding: 0.75rem 1rem;
+      font-size: 0.8rem; font-weight: 600;
+      color: #d4d4d8;
+      cursor: pointer; list-style: none;
+      display: flex; align-items: center; justify-content: space-between;
+      transition: background 0.15s;
+    }
+    .collapsible summary:hover { background: #18181b; }
+    .collapsible summary::after {
+      content: '+'; font-size: 1rem; color: #71717a;
+    }
+    .collapsible[open] summary::after { content: '−'; }
+    .collapsible-content {
+      padding: 0 1rem 1rem;
+      font-size: 0.8rem;
+    }
+
+    /* Table wrap (Comparison) */
+    .table-wrap {
+      overflow-x: auto;
+      margin-top: 0.75rem;
+    }
+
+    /* Sidebar */
+    .sidebar-section { margin-bottom: 2.5rem; }
+    .sidebar-label {
+      font-size: 0.6rem; font-weight: 700; color: #71717a;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      margin-bottom: 0.75rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .pattern-card {
+      display: flex; align-items: center; gap: 10px;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      text-decoration: none; transition: all 0.15s;
+    }
+    .pattern-card:last-child { border-bottom: none; }
+    .pattern-card:hover .pattern-name { color: #a5b4fc; }
+    .pattern-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+    .dot-core { background: #818cf8; }
+    .dot-supporting { background: #52525b; }
+    .pattern-name {
+      font-size: 0.8rem; font-weight: 500; color: #d4d4d8;
+      transition: color 0.15s;
+    }
+
+    .vendor-card {
+      display: block; padding: 0.6rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      text-decoration: none; transition: all 0.15s;
+    }
+    .vendor-card:last-child { border-bottom: none; }
+    .vendor-card:hover .vendor-name { color: #a5b4fc; }
+    .vendor-name { font-size: 0.8rem; font-weight: 600; color: #d4d4d8; transition: color 0.15s; }
+    .vendor-role { font-size: 0.7rem; color: #71717a; }
+
+    .sidebar-link {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 0.8rem; font-weight: 500; color: #a1a1aa;
+      text-decoration: none; padding: 0.4rem 0;
+      transition: color 0.15s;
+    }
+    .sidebar-link:hover { color: #a5b4fc; }
+    .sidebar-link svg { width: 12px; height: 12px; flex-shrink: 0; }
+
+    .poc-row {
+      padding: 0.6rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    .poc-row:last-child { border-bottom: none; }
+    .poc-name { font-size: 0.8rem; font-weight: 600; color: #d4d4d8; }
+    .poc-sub { font-size: 0.7rem; color: #71717a; margin-top: 2px; }
+
+    .oss-link {
+      display: block;
+      padding: 0.6rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+      text-decoration: none; transition: color 0.15s;
+    }
+    .oss-link:last-child { border-bottom: none; }
+    .oss-link:hover .oss-desc { color: #a5b4fc; }
+    .oss-desc { font-size: 0.78rem; color: #d4d4d8; line-height: 1.45; transition: color 0.15s; }
+    .oss-lang { font-size: 0.68rem; color: #71717a; margin-top: 2px; }
+
+    @media (max-width: 1024px) {
+      .page { grid-template-columns: 1fr; gap: 2rem; }
+      .sidebar-sticky { position: static; }
+      .approach-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .cs-title { font-size: 1.75rem; }
+      .page { padding: 4.5rem 1.5rem 3rem; }
+    }
+  </style>
+</Guide>

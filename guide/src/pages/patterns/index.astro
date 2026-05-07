@@ -1,0 +1,56 @@
+---
+import Guide from '../../layouts/Guide.astro';
+import { getNodesByType } from '../../lib/data';
+
+const patterns = getNodesByType('pattern').sort((a, b) => a.title.localeCompare(b.title));
+const base = import.meta.env.BASE_URL;
+
+const cropsColor = (val?: string) => {
+  if (!val) return '#52525b';
+  if (['high', 'yes', 'full'].includes(val)) return '#34d399';
+  if (['medium', 'partial'].includes(val)) return '#fbbf24';
+  return '#f87171';
+};
+
+// Count by layer for filter display
+const layers = ['L1', 'L2', 'offchain', 'hybrid'];
+---
+
+<Guide title="Patterns" description="Reusable technical primitives for institutional privacy" activeSection="patterns">
+  <div style="max-width:1200px; margin:0 auto; padding:6rem 2rem 4rem;">
+
+    <div style="margin-bottom:3rem;">
+      <div style="font-size:0.65rem; font-weight:700; color:#818cf8; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.5rem;">Patterns</div>
+      <h1 style="font-family:'Newsreader',Georgia,serif; font-size:2.5rem; font-weight:400; color:white; letter-spacing:-0.025em; line-height:1.15; margin-bottom:0.75rem;">Privacy primitives</h1>
+      <p style="font-size:1rem; color:#a1a1aa; line-height:1.7; max-width:640px;">{patterns.length} reusable technical primitives — the building blocks that compose into case studies. Each rated against CROPS (Censorship Resistance, Open Source, Privacy, Security).</p>
+    </div>
+
+    <!-- Card grid -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:1px; background:rgba(255,255,255,0.04); border-radius:10px; overflow:hidden;">
+      {patterns.map(p => {
+        const c = typeof p.crops_profile === 'object' ? p.crops_profile : null;
+        return (
+          <a href={`/patterns/${p.slug}`} style="background:#18181b; padding:1.5rem; text-decoration:none; color:inherit; display:flex; flex-direction:column; gap:0.75rem; transition:background 0.15s;" onmouseover="this.style.background='#1c1c20';" onmouseout="this.style.background='#18181b';">
+            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+              {p.maturity && <span style="font-size:0.6rem; font-weight:600; padding:2px 6px; border-radius:4px; background:rgba(251,191,36,0.12); color:#fbbf24;">{p.maturity}</span>}
+              {p.layer && <span style="font-size:0.6rem; font-weight:600; padding:2px 6px; border-radius:4px; background:rgba(255,255,255,0.06); color:#a1a1aa;">{p.layer}</span>}
+              {p.context && <span style="font-size:0.6rem; font-weight:600; padding:2px 6px; border-radius:4px; background:rgba(129,140,248,0.08); color:#818cf8;">{p.context === 'both' ? 'I2I + I2U' : p.context.toUpperCase()}</span>}
+              {p.kind === 'meta' && <span style="font-size:0.6rem; font-weight:600; padding:2px 6px; border-radius:4px; background:rgba(165,180,252,0.12); color:#a5b4fc;">meta</span>}
+            </div>
+            <h3 style="font-family:'Newsreader',Georgia,serif; font-size:1.1rem; font-weight:500; color:white; letter-spacing:-0.01em; line-height:1.25;">{p.title}</h3>
+            {p.summary && <p style="font-size:0.82rem; color:#71717a; line-height:1.55; flex:1;">{p.summary}</p>}
+            {c && (
+              <div style="display:flex; gap:4px; margin-top:auto; padding-top:0.5rem;">
+                <span style={`font-size:0.55rem; font-weight:700; letter-spacing:0.04em; padding:2px 5px; border-radius:3px; background:${cropsColor(c.cr)}14; color:${cropsColor(c.cr)};`}>CR: {c.cr}</span>
+                <span style={`font-size:0.55rem; font-weight:700; letter-spacing:0.04em; padding:2px 5px; border-radius:3px; background:${cropsColor(c.o)}14; color:${cropsColor(c.o)};`}>O: {c.o}</span>
+                <span style={`font-size:0.55rem; font-weight:700; letter-spacing:0.04em; padding:2px 5px; border-radius:3px; background:${cropsColor(c.p)}14; color:${cropsColor(c.p)};`}>P: {c.p}</span>
+                <span style={`font-size:0.55rem; font-weight:700; letter-spacing:0.04em; padding:2px 5px; border-radius:3px; background:${cropsColor(c.s)}14; color:${cropsColor(c.s)};`}>S: {c.s}</span>
+              </div>
+            )}
+          </a>
+        );
+      })}
+    </div>
+
+  </div>
+</Guide>

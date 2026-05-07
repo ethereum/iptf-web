@@ -1,0 +1,367 @@
+[
+  {
+    "term": "CROPS (Censorship Resistance, Open Source and Free, Privacy, Security)",
+    "definition": "Four non-negotiable properties for Ethereum defined by the Ethereum Foundation. The IPTF Map evaluates solutions against all four dimensions independently. See [CONTRIBUTING.md § CROPS Evaluation](CONTRIBUTING.md#crops-evaluation) for full scoring rubrics.",
+    "category": "IPTF Evaluation Frameworks"
+  },
+  {
+    "term": "I2I (Institution-to-Institution)",
+    "definition": "Interaction model where both counterparties are regulated entities (e.g., bank-to-bank settlement). Symmetric power dynamic; both parties have legal teams, vendor choice, and contractual recourse.",
+    "category": "IPTF Evaluation Frameworks"
+  },
+  {
+    "term": "I2U (Institution-to-End-User)",
+    "definition": "Interaction model where one counterparty is a regulated entity and the other is an individual (e.g., retail payment). Asymmetric power dynamic; CROPS must protect the user from the institution. Institutions should be transparent to regulators and end users; end users should have the right to protect their private lives.",
+    "category": "IPTF Evaluation Frameworks"
+  },
+  {
+    "term": "Commitment",
+    "definition": "Cryptographic value computed from hidden data (for example, amount and secrets). It lets others later verify that revealed data is consistent, without learning the data from the commitment itself.",
+    "category": "Core Privacy Concepts"
+  },
+  {
+    "term": "Note",
+    "definition": "Private record that represents ownership of some value plus the secrets needed to prove it. The note is usually stored off-chain or encrypted; on-chain you only see commitments, nullifiers and proofs.",
+    "category": "Core Privacy Concepts"
+  },
+  {
+    "term": "Nullifier",
+    "definition": "Unique value derived from a note’s secret and revealed when the note is spent. The system stores used nullifiers to prevent double-spending without exposing which note belonged to which party.",
+    "category": "Core Privacy Concepts"
+  },
+  {
+    "term": "Stealth Address",
+    "definition": "is an address generated per transaction so that multiple payments to the same party cannot be easily linked on-chain. The recipient publishes some public information once; senders use it to derive fresh, unlinkable addresses.",
+    "category": "Core Privacy Concepts"
+  },
+  {
+    "term": "View Key",
+    "definition": "is a cryptographic key that allows read-only access to encrypted state, like private balances or notes. It enables controlled visibility for auditors, regulators, or internal control functions.",
+    "category": "Core Privacy Concepts"
+  },
+  {
+    "term": "JoinSplit",
+    "definition": "Circuit pattern that consumes one or more input notes (revealed via nullifiers) and produces one or more output notes (as new commitments). Enables private transfers, splits, and merges of value.",
+    "category": "Core Privacy Concepts"
+  },
+  {
+    "term": "Memo",
+    "definition": "Encrypted payload attached to a private transaction containing information the recipient needs (e.g., note details, amount, blinding factor). Only the intended recipient can decrypt it using their encryption key.",
+    "category": "Core Privacy Concepts"
+  },
+  {
+    "term": "Data Availability (DA)",
+    "definition": "The guarantee that all transaction and state data needed to recompute and verify the system is actually published and retrievable. If DA fails, independent verifiers cannot reliably check state, even if proofs appear valid.",
+    "category": "Blockchain Architecture"
+  },
+  {
+    "term": "Data Availability Layer (DA Layer)",
+    "definition": "",
+    "category": "Blockchain Architecture"
+  },
+  {
+    "term": "Sequencer",
+    "definition": "Layer 2 operator that accepts transactions on a L2 network, orders them, and produces blocks or batches that are later finalized on Layer 1 (like Ethereum).",
+    "category": "Blockchain Architecture"
+  },
+  {
+    "term": "Prover",
+    "definition": "Entity that runs a specified computation on given inputs (public and private, like L2 state transistions, private notes,...) and outputs both the result and a cryptographic proof that it was computed correctly. Provers may see plaintext data, so who runs them and how they are operated is an explicit part of the trust and privacy model.",
+    "category": "Blockchain Architecture"
+  },
+  {
+    "term": "Verifier",
+    "definition": "Entity (often a smart contract) that checks proofs from provers and decides whether to accept the claimed result (for example, a new state root or settlement outcome).",
+    "category": "Blockchain Architecture"
+  },
+  {
+    "term": "Relayer",
+    "definition": "Third party that submits transactions on behalf of users to hide identity",
+    "category": "Blockchain Architecture"
+  },
+  {
+    "term": "Paymaster",
+    "definition": "ERC-4337 entity that defines how gas fees for user operations are paid or sponsored. It allows us to implement controlled gasless flows or internal fee routing.",
+    "category": "Blockchain Architecture"
+  },
+  {
+    "term": "Scaling Rollup",
+    "definition": "ZK rollup focused on throughput/cost; state public within L2 (ZKsync, Scroll)",
+    "category": "L2 Categories"
+  },
+  {
+    "term": "Privacy Rollup",
+    "definition": "ZK rollup designed for encrypted/private state (Aztec)",
+    "category": "L2 Categories"
+  },
+  {
+    "term": "Validium",
+    "definition": "Validity proofs on L1; data availability off-chain",
+    "category": "L2 Categories"
+  },
+  {
+    "term": "Volition",
+    "definition": "Hybrid model allowing per-transaction choice between on-chain and off-chain DA",
+    "category": "L2 Categories"
+  },
+  {
+    "term": "DvP (Delivery vs Payment)",
+    "definition": "Atomic settlement ensuring asset delivery only if payment occurs",
+    "category": "Institutional/TradFi Terms"
+  },
+  {
+    "term": "PvP (Payment vs Payment)",
+    "definition": "Atomic exchange of two payment obligations",
+    "category": "Institutional/TradFi Terms"
+  },
+  {
+    "term": "TCA (Transaction Cost Analysis)",
+    "definition": "Post-trade analysis of execution quality and slippage",
+    "category": "Institutional/TradFi Terms"
+  },
+  {
+    "term": "AoR (Audit on Request)",
+    "definition": "Selective disclosure mechanism generating compliance reports on-demand",
+    "category": "Institutional/TradFi Terms"
+  },
+  {
+    "term": "RFQ (Request for Quote)",
+    "definition": "OTC trading workflow where market makers provide quotes privately",
+    "category": "Institutional/TradFi Terms"
+  },
+  {
+    "term": "Best Execution",
+    "definition": "Obligation to obtain most favorable terms when executing client orders",
+    "category": "Institutional/TradFi Terms"
+  },
+  {
+    "term": "NAV (Net Asset Value)",
+    "definition": "Total value of a fund's assets minus liabilities. Per-share NAV = total NAV / shares outstanding.",
+    "category": "Institutional/TradFi Terms"
+  },
+  {
+    "term": "ERC-3643",
+    "definition": "Ethereum standard for permissioned tokenized securities with built-in compliance framework",
+    "category": "Standards & Protocols"
+  },
+  {
+    "term": "ERC-7573",
+    "definition": "Standard for conditional cross-chain settlement coordination",
+    "category": "Standards & Protocols"
+  },
+  {
+    "term": "EIP-6123",
+    "definition": "Ethereum standard for derivatives contracts with automated lifecycle management",
+    "category": "Standards & Protocols"
+  },
+  {
+    "term": "EIP-5564",
+    "definition": "Stealth address standard for unlinkable payments",
+    "category": "Standards & Protocols"
+  },
+  {
+    "term": "EIP-7805",
+    "definition": "Fork Choice Inclusion Lists (FOCIL) standard for censorship resistance through committee-enforced transaction inclusion",
+    "category": "Standards & Protocols"
+  },
+  {
+    "term": "EIP-7701",
+    "definition": "Native account abstraction standard enabling custom account validation logic, institutional key management, and ZK-based privacy systems",
+    "category": "Standards & Protocols"
+  },
+  {
+    "term": "ERC-7945",
+    "definition": "Standard for confidential token transfers using cryptographic commitments to hide balances and amounts",
+    "category": "Standards & Protocols"
+  },
+  {
+    "term": "ERC-8065",
+    "definition": "ZK token wrapper standard enabling privacy for existing ERC-20 tokens through shielded wrapping",
+    "category": "Standards & Protocols"
+  },
+  {
+    "term": "ISO 20022",
+    "definition": "International messaging standard for financial services communication",
+    "category": "Standards & Protocols"
+  },
+  {
+    "term": "ICMA BDT",
+    "definition": "International Capital Market Association Bond Data Taxonomy for standardized bond information",
+    "category": "Standards & Protocols"
+  },
+  {
+    "term": "FHE (Fully Homomorphic Encryption)",
+    "definition": "Cryptographic technique allowing computation on encrypted data",
+    "category": "Privacy Technologies"
+  },
+  {
+    "term": "Zero-knowledge Proof",
+    "definition": "A proof that reveals no more information than the validity of the statement it supports.",
+    "category": "Privacy Technologies"
+  },
+  {
+    "term": "SNARK/STARK",
+    "definition": "Zero-knowledge proof systems (Succinct Non-interactive Arguments of Knowledge/Scalable Transparent Arguments of Knowledge)",
+    "category": "Privacy Technologies"
+  },
+  {
+    "term": "Co-SNARK",
+    "definition": "Collaborative zero-knowledge proofs where multiple parties jointly prove properties",
+    "category": "Privacy Technologies"
+  },
+  {
+    "term": "Shielded Pool",
+    "definition": "Privacy mechanism using cryptographic commitments to hide transaction details",
+    "category": "Privacy Technologies"
+  },
+  {
+    "term": "Confidential Contract",
+    "definition": "Smart contract that operates on encrypted state while maintaining verifiability",
+    "category": "Privacy Technologies"
+  },
+  {
+    "term": "Circom/Groth16",
+    "definition": "Popular zero-knowledge proof system and domain-specific language",
+    "category": "Privacy Technologies"
+  },
+  {
+    "term": "PLONK",
+    "definition": "Zero-knowledge proof system with universal trusted setup",
+    "category": "Privacy Technologies"
+  },
+  {
+    "term": "TEE (Trusted Execution Environment)",
+    "definition": "Hardware-based secure computation environment",
+    "category": "Privacy Technologies"
+  },
+  {
+    "term": "MPC (Multi-Party Computation)",
+    "definition": "Cryptographic technique for joint computation without revealing inputs",
+    "category": "Privacy Technologies"
+  },
+  {
+    "term": "OPRF (Oblivious Pseudorandom Function)",
+    "definition": "Cryptographic protocol where a server evaluates a pseudorandom function on a client's input without learning the input, and the client learns the output without learning the server's key. Used for private set intersection, password-hardening, and privacy-preserving authentication.",
+    "category": "Privacy Technologies"
+  },
+  {
+    "term": "PSI (Private Set Intersection)",
+    "definition": "Cryptographic protocol that allows two parties to compute the intersection of their private sets without revealing elements outside the intersection. Variants include DH-based (commutative encryption via ECDH), OT/OPRF-based (oblivious transfer with cuckoo hashing), circuit-based (garbled circuits for arbitrary functions over matched elements), and FHE-based (homomorphic comparison).",
+    "category": "Privacy Technologies"
+  },
+  {
+    "term": "vOPRF (Verifiable OPRF)",
+    "definition": "Extension of OPRF where the server provides a proof that the output was computed correctly using a committed key, preventing malicious servers from returning arbitrary values. See [RFC 9497](https://www.rfc-editor.org/rfc/rfc9497.html) for the IETF standard.",
+    "category": "Privacy Technologies"
+  },
+  {
+    "term": "PCD (Proof-Carrying Data)",
+    "definition": "Data bundled with a cryptographic proof of its own correctness, enabling portable and composable verifiable credentials.",
+    "category": "Identity & Compliance"
+  },
+  {
+    "term": "Sybil Resistance",
+    "definition": "Preventing a single actor from creating multiple fake identities to gain disproportionate influence in systems that distribute value, votes, or access.",
+    "category": "Identity & Compliance"
+  },
+  {
+    "term": "DKIM (DomainKeys Identified Mail)",
+    "definition": "Email authentication standard where mail servers sign outgoing messages.",
+    "category": "Identity & Compliance"
+  },
+  {
+    "term": "ONCHAINID",
+    "definition": "Decentralized identity system used by ERC-3643 for KYC/eligibility verification",
+    "category": "Identity & Compliance"
+  },
+  {
+    "term": "KYC/AML",
+    "definition": "Know Your Customer/Anti-Money Laundering regulatory compliance requirements",
+    "category": "Identity & Compliance"
+  },
+  {
+    "term": "Attestations",
+    "definition": "Cryptographically signed claims about identities, credentials, or data that can be verified on-chain with minimal disclosure. See [Pattern: Attestation Verifiable On-Chain](patterns/pattern-verifiable-attestation.md) for implementation approaches including EAS, W3C Verifiable Credentials, and ONCHAINID.",
+    "category": "Identity & Compliance"
+  },
+  {
+    "term": "EAS (Ethereum Attestation Service)",
+    "definition": "One implementation of on-chain attestation protocol. See attestations pattern for holistic overview.",
+    "category": "Identity & Compliance"
+  },
+  {
+    "term": "Crypto-Registry",
+    "definition": "Regulatory registry for digital asset compliance (eWpG requirement)",
+    "category": "Identity & Compliance"
+  },
+  {
+    "term": "Merkle Tree",
+    "definition": "Cryptographic data structure for efficient membership proofs",
+    "category": "Identity & Compliance"
+  },
+  {
+    "term": "eWpG",
+    "definition": "German Electronic Securities Act regulating tokenized securities",
+    "category": "Regulatory Frameworks"
+  },
+  {
+    "term": "MiCA",
+    "definition": "EU Markets in Crypto-Assets regulation",
+    "category": "Regulatory Frameworks"
+  },
+  {
+    "term": "GENIUS Act",
+    "definition": "US legislative framework for digital asset regulation",
+    "category": "Regulatory Frameworks"
+  },
+  {
+    "term": "SEC Rule 2a-7",
+    "definition": "US Securities and Exchange Commission rule governing money market funds, specifying liquidity requirements, portfolio quality, maturity limits, and conditions for liquidity fees and redemption gates",
+    "category": "Regulatory Frameworks"
+  },
+  {
+    "term": "ESMA MMFR (Money Market Fund Regulation)",
+    "definition": "EU regulation establishing rules for money market funds including daily/weekly maturity limits, stress testing obligations, and reporting to national competent authorities",
+    "category": "Regulatory Frameworks"
+  },
+  {
+    "term": "CRQC (Cryptographically Relevant Quantum Computer)",
+    "definition": "Quantum computer capable of running Shor's algorithm at production key sizes, breaking ECDLP, RSA, and pairing-based assumptions.",
+    "category": "Post-Quantum Cryptography"
+  },
+  {
+    "term": "HNDL (Harvest Now, Decrypt Later)",
+    "definition": "Attack where an adversary records encrypted data today to decrypt once a CRQC is available. On-chain ciphertexts are immutably stored and capturable by anyone.",
+    "category": "Post-Quantum Cryptography"
+  },
+  {
+    "term": "ML-KEM",
+    "definition": "NIST PQ key encapsulation (FIPS 203, formerly Kyber). Lattice-based; replaces ECDH.",
+    "category": "Post-Quantum Cryptography"
+  },
+  {
+    "term": "ML-DSA",
+    "definition": "NIST PQ signature scheme (FIPS 204, formerly Dilithium). Lattice-based; replaces ECDSA/EdDSA.",
+    "category": "Post-Quantum Cryptography"
+  },
+  {
+    "term": "SLH-DSA",
+    "definition": "NIST hash-based PQ signature (FIPS 205, formerly SPHINCS+). Security relies only on hash function properties.",
+    "category": "Post-Quantum Cryptography"
+  },
+  {
+    "term": "Poseidon",
+    "definition": "Arithmetic-friendly hash function for efficient ZK circuit evaluation. No known practical quantum break beyond generic hash-model considerations (e.g., Grover-style security reduction).",
+    "category": "Post-Quantum Cryptography"
+  },
+  {
+    "term": "Oracle",
+    "definition": "External data provider for blockchain smart contracts",
+    "category": "Infrastructure"
+  },
+  {
+    "term": "Custodian",
+    "definition": "Financial institution responsible for safeguarding digital assets",
+    "category": "Infrastructure"
+  }
+]
