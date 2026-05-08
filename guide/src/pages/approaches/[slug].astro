@@ -342,8 +342,16 @@ const maturityClass = (m?: string) => {
         <div class="section">
           <div class="section-label">Comparison</div>
           <h2>Side-by-side</h2>
-          {/* SOURCE: iptf-map field — do not alter */}
-          <div class="prose table-wrap" set:html={marked(comparison.content)} />
+          {/* SOURCE: iptf-map field — rendered verbatim, except the CROPS row
+              is stripped because it's already shown as colored pills on the
+              architecture cards above. */}
+          <div
+            class="prose table-wrap"
+            set:html={String(marked(comparison.content)).replace(
+              /<tr>\s*<td><strong>CROPS<\/strong><\/td>[\s\S]*?<\/tr>/i,
+              ''
+            )}
+          />
         </div>
       )}
 

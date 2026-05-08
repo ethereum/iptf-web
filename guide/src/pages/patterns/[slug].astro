@@ -41,11 +41,11 @@ const cropsLabel: Record<string, string> = {
 };
 const cropsAbbr: Record<string, string> = { cr: 'CR', o: 'O', p: 'P', s: 'S' };
 
-const pqRiskColor = (risk?: string) => {
-  if (risk === 'high') return { bg: 'rgba(248,113,113,0.08)', fg: '#f87171', border: 'rgba(248,113,113,0.2)' };
-  if (risk === 'medium') return { bg: 'rgba(251,191,36,0.08)', fg: '#fbbf24', border: 'rgba(251,191,36,0.2)' };
-  return { bg: 'rgba(52,211,153,0.08)', fg: '#34d399', border: 'rgba(52,211,153,0.2)' };
-};
+const pqRiskColor = (_risk?: string) => ({
+  bg: 'rgba(255,255,255,0.02)',
+  fg: '#a1a1aa',
+  border: 'rgba(255,255,255,0.06)',
+});
 
 // Sub-pattern lookup for meta patterns
 const subPatternNodes = (node.sub_patterns || [])
@@ -73,7 +73,7 @@ const relGroups: Array<[RelKey, string, any[]]> = (
 }).filter(([, , targets]) => targets.length > 0);
 
 const S = {
-  page: 'max-width:1120px; margin:0 auto; padding:5rem 2rem 4rem; display:grid; grid-template-columns:1fr 280px; gap:4rem;',
+  page: '',
   breadcrumb: 'display:flex; align-items:center; gap:6px; font-size:0.75rem; color:#71717a; margin-bottom:2rem;',
   bcLink: 'color:#71717a; text-decoration:none;',
   bcSep: 'color:#3f3f46;',
@@ -91,7 +91,7 @@ const S = {
 ---
 
 <Guide title={node.title} description={node.summary} activeSection="patterns">
-  <div style={S.page}>
+  <div class="page">
 
     <!-- LEFT COLUMN -->
     <div style="min-width:0;">
@@ -139,16 +139,14 @@ const S = {
       {node.crops_context && (
         <div style="margin-bottom:2.5rem;">
           <div style={S.sectionLabel}>CROPS context</div>
-          <div style="border:1px solid rgba(255,255,255,0.06); border-radius:10px; overflow:hidden; margin-top:0.75rem;">
-            {(['cr','o','p','s'] as const).map((key, i, arr) => {
+          <div class="crops-context">
+            {(['cr','o','p','s'] as const).map((key) => {
               const text = (node.crops_context as any)?.[key];
               if (!text) return null;
-              const { fg } = cropsColorBg(cropsObj ? (cropsObj as any)[key] : undefined);
-              const isLast = i === arr.length - 1;
               return (
-                <div style={`display:grid; grid-template-columns:120px 1fr; ${isLast ? '' : 'border-bottom:1px solid rgba(255,255,255,0.04);'}`}>
-                  <div style={`padding:0.85rem 1rem; background:rgba(255,255,255,0.02); font-size:0.7rem; font-weight:700; letter-spacing:0.06em; color:${fg};`}>{cropsLabel[key]}</div>
-                  <div style="padding:0.85rem 1rem; font-size:0.82rem; color:#a1a1aa; line-height:1.6;" set:html={marked.parseInline(text)} />
+                <div class="crops-row">
+                  <div class="crops-row-label">{cropsLabel[key]}</div>
+                  <div class="crops-row-text" set:html={marked.parseInline(text)} />
                 </div>
               );
             })}
@@ -243,12 +241,20 @@ const S = {
         <div style="margin-bottom:2.5rem;">
           <div style={S.sectionLabel}>{protocol.heading}</div>
           <div>
-            {protocol.items.map((step, i) => (
-              <div style={S.step}>
-                <div style={S.stepNum}>{i + 1}</div>
-                <span style={S.stepText}>{step}</span>
-              </div>
-            ))}
+            {protocol.items.map((step, i) => {
+              const match = step.match(/^\[([^\]]+)\]\s*(.*)$/);
+              const role = match?.[1];
+              const text = match ? match[2] : step;
+              return (
+                <div class="protocol-step">
+                  <div class="protocol-step-num">{i + 1}</div>
+                  <div class="protocol-step-body">
+                    {role && <span class="protocol-step-role">{role}</span>}
+                    <span class="protocol-step-text">{text}</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
@@ -276,10 +282,7 @@ const S = {
         const c = pqRiskColor(node.post_quantum.risk);
         return (
           <div style={`margin-bottom:2.5rem; padding:1.25rem 1.5rem; border:1px solid ${c.border}; border-radius:12px; background:${c.bg};`}>
-            <div style="display:flex; align-items:center; gap:0.5rem; margin-bottom:0.75rem;">
-              <div style={`font-size:0.6rem; font-weight:700; color:${c.fg}; letter-spacing:0.12em; text-transform:uppercase;`}>Post-quantum</div>
-              {node.post_quantum.risk && <span style={`font-size:0.65rem; font-weight:600; padding:2px 8px; border-radius:4px; background:${c.bg}; color:${c.fg}; border:1px solid ${c.border};`}>{node.post_quantum.risk} risk</span>}
-            </div>
+            <div style={`font-size:0.6rem; font-weight:700; color:${c.fg}; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.75rem;`}>Post-quantum</div>
             {node.post_quantum.vector && <div style="font-size:0.85rem; color:#d4d4d8; line-height:1.6; margin-bottom:0.5rem;"><strong style="color:white;">Vector:</strong> <span set:html={marked.parseInline(node.post_quantum.vector)} /></div>}
             {node.post_quantum.mitigation && <div style="font-size:0.85rem; color:#a1a1aa; line-height:1.6;"><strong style="color:#d4d4d8;">Mitigation:</strong> <span set:html={marked.parseInline(node.post_quantum.mitigation)} /></div>}
           </div>
@@ -385,4 +388,115 @@ const S = {
     </aside>
 
   </div>
+
+  <style>
+    .page {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 5rem 2rem 4rem;
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 4rem;
+    }
+    .protocol-step {
+      display: flex;
+      gap: 1rem;
+      align-items: baseline;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid rgba(255,255,255,0.03);
+    }
+    .protocol-step:last-child { border-bottom: none; }
+    .protocol-step-num {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: #818cf8;
+      background: rgba(129,140,248,0.1);
+      width: 24px; height: 24px;
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .protocol-step-body {
+      flex: 1;
+      min-width: 0;
+      display: grid;
+      grid-template-columns: 120px 1fr;
+      column-gap: 0.75rem;
+      align-items: baseline;
+    }
+    .protocol-step-role {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #d4d4d8;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 2px 7px;
+      border-radius: 4px;
+      white-space: nowrap;
+      justify-self: start;
+    }
+    .protocol-step-text {
+      font-size: 0.85rem;
+      color: #a1a1aa;
+      line-height: 1.5;
+      min-width: 0;
+    }
+    .protocol-step-body:not(:has(.protocol-step-role)) .protocol-step-text {
+      grid-column: 1 / -1;
+    }
+    @media (max-width: 640px) {
+      .protocol-step-body {
+        grid-template-columns: 1fr;
+        row-gap: 0.4rem;
+      }
+    }
+    .crops-context {
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 0.75rem;
+    }
+    .crops-row {
+      display: grid;
+      grid-template-columns: 160px 1fr;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .crops-row:last-child { border-bottom: none; }
+    .crops-row-label {
+      padding: 0.85rem 1rem;
+      background: rgba(255,255,255,0.02);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: #a1a1aa;
+    }
+    .crops-row-text {
+      padding: 0.85rem 1rem;
+      font-size: 0.82rem;
+      color: #a1a1aa;
+      line-height: 1.6;
+      min-width: 0;
+    }
+    @media (max-width: 1024px) {
+      .page {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        padding: 4.5rem 1.5rem 3rem;
+      }
+    }
+    @media (max-width: 720px) {
+      .crops-row {
+        grid-template-columns: 1fr;
+      }
+      .crops-row-label {
+        padding: 0.6rem 1rem 0.25rem;
+        background: transparent;
+      }
+      .crops-row-text {
+        padding: 0 1rem 0.85rem;
+      }
+    }
+  </style>
 </Guide>
