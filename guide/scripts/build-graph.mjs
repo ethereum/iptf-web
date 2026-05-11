@@ -24,11 +24,20 @@ const __dirname = dirname(__filename);
 const CONTENT_SUBMODULE = join(__dirname, '..', '..', 'content');
 const candidates = [
   process.env.IPTF_MAP_PATH,
-  existsSync(join(CONTENT_SUBMODULE, 'patterns')) ? CONTENT_SUBMODULE : null,
+  CONTENT_SUBMODULE,
   join(__dirname, '..', '..', '..', '..', 'iptf-map'),
   join(process.env.HOME || '', 'IPTF', 'iptf-map'),
 ].filter(Boolean);
-const REPO_ROOT = candidates.find(p => existsSync(join(p, 'patterns'))) || CONTENT_SUBMODULE;
+const REPO_ROOT = candidates.find(p => existsSync(join(p, 'patterns')));
+if (!REPO_ROOT) {
+  throw new Error(
+    `No iptf-map content directory found. Tried:\n` +
+    candidates.map(c => `  - ${c}`).join('\n') +
+    `\n\nIf you cloned without submodules, run:\n` +
+    `  git submodule update --init --recursive\n` +
+    `(or set IPTF_MAP_PATH to a local iptf-map checkout).`
+  );
+}
 const OUTPUT_DIR = join(__dirname, '..', 'src', 'data');
 const OUTPUT_PATH = join(OUTPUT_DIR, 'graph.json');
 const GLOSSARY_OUTPUT_PATH = join(OUTPUT_DIR, 'glossary.json');
@@ -411,6 +420,14 @@ const isMain = process.argv[1] && __filename === process.argv[1];
 if (isMain) {
   console.log(`Using content from: ${REPO_ROOT}`);
   const graph = buildGraph();
+  if (graph.meta.node_count === 0) {
+    throw new Error(
+      `Graph built 0 nodes from ${REPO_ROOT}.\n` +
+      `The directory exists but contains no markdown content.\n` +
+      `The iptf-map submodule may be empty/uninitialized — run:\n` +
+      `  git submodule update --init --recursive`
+    );
+  }
   mkdirSync(OUTPUT_DIR, { recursive: true });
   writeFileSync(OUTPUT_PATH, JSON.stringify(graph, null, 2));
   console.log(`Graph built: ${graph.meta.node_count} nodes, ${graph.meta.edge_count} edges`);
