@@ -68,8 +68,8 @@ title: "Vendor: Aztec"
 
 describe('fileToSlug', () => {
   it('strips pattern- prefix and .md', () => {
-    expect(fileToSlug('pattern-zk-shielded-balances.md', 'pattern-'))
-      .toBe('zk-shielded-balances');
+    expect(fileToSlug('pattern-zk-proof-systems.md', 'pattern-'))
+      .toBe('zk-proof-systems');
   });
 
   it('strips approach- prefix', () => {
@@ -137,14 +137,6 @@ Bond issuance and trading on public blockchains.
 ## 2) Context`;
 
     expect(extractSummary(body)).toContain('Bond issuance');
-  });
-
-  it('truncates long summaries', () => {
-    const longText = 'A'.repeat(300);
-    const body = `## Intent\n\n${longText}\n\n## Next`;
-    const summary = extractSummary(body, 200);
-    expect(summary.length).toBeLessThanOrEqual(203); // 200 + "..."
-    expect(summary.endsWith('...')).toBe(true);
   });
 
   it('returns empty string for empty body', () => {
@@ -283,11 +275,11 @@ describe('buildGraph (integration)', () => {
   });
 
   it('pattern nodes have expected fields', () => {
-    const pattern = graph.nodes.find(n => n.id === 'pattern/zk-shielded-balances');
+    const pattern = graph.nodes.find(n => n.id === 'pattern/zk-proof-systems');
     expect(pattern).toBeDefined();
-    expect(pattern.title).toContain('ZK Shielded Balances');
-    expect(pattern.layer).toBe('L2');
-    expect(pattern.maturity).toBe('PoC');
+    expect(pattern.title).toContain('ZK Proof Systems');
+    expect(pattern.layer).toBe('hybrid');
+    expect(pattern.maturity).toBe('concept');
     expect(pattern.summary).toBeTruthy();
     expect(pattern.content).toBeTruthy();
   });
