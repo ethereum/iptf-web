@@ -2,7 +2,7 @@
 import Guide from '../../layouts/Guide.astro';
 import { getNodesByType, getNodeBySlug, getRelated, getEdgesFrom } from '../../lib/data';
 import { parseSections, getSection } from '../../lib/parse-sections';
-import { marked } from 'marked';
+import { renderMarkdown, renderMarkdownInline } from '../../lib/render';
 
 export function getStaticPaths() {
   const patterns = getNodesByType('pattern');
@@ -15,7 +15,7 @@ if (!node) return Astro.redirect('/guide');
 
 const related = getRelated(node.id);
 
-// SOURCE: iptf-map field — do not alter. Body is rendered through marked() verbatim.
+// SOURCE: iptf-map field — do not alter. Body is rendered through renderMarkdown() verbatim.
 const sections = parseSections(node.content);
 const intent = getSection(sections, 'intent');
 const components = getSection(sections, 'components') || getSection(sections, 'ingredients');
@@ -146,7 +146,7 @@ const S = {
               return (
                 <div class="crops-row">
                   <div class="crops-row-label">{cropsLabel[key]}</div>
-                  <div class="crops-row-text" set:html={marked.parseInline(text)} />
+                  <div class="crops-row-text" set:html={renderMarkdownInline(text)} />
                 </div>
               );
             })}
@@ -205,7 +205,7 @@ const S = {
         <div style="margin-bottom:2.5rem;">
           <div style={S.sectionLabel}>Intent</div>
           {/* SOURCE: iptf-map field — do not alter */}
-          <div set:html={marked(intent.content)} class="prose" />
+          <div set:html={renderMarkdown(intent.content)} class="prose" />
         </div>
       )}
 
@@ -232,7 +232,7 @@ const S = {
         <div style="margin-bottom:2.5rem;">
           <div style={S.sectionLabel}>{components.heading}</div>
           {/* SOURCE: iptf-map field — do not alter */}
-          <div set:html={marked(components.content)} class="prose" />
+          <div set:html={renderMarkdown(components.content)} class="prose" />
         </div>
       )}
 
@@ -264,7 +264,7 @@ const S = {
         <div style="margin-bottom:2.5rem;">
           <div style={S.sectionLabel}>{guarantees.heading}</div>
           {/* SOURCE: iptf-map field — do not alter */}
-          <div set:html={marked(guarantees.content)} class="prose" />
+          <div set:html={renderMarkdown(guarantees.content)} class="prose" />
         </div>
       )}
 
@@ -273,7 +273,7 @@ const S = {
         <div style="margin-bottom:2.5rem;">
           <div style={S.sectionLabel}>Trade-offs</div>
           {/* SOURCE: iptf-map field — do not alter */}
-          <div set:html={marked(tradeoffs.content)} class="prose" />
+          <div set:html={renderMarkdown(tradeoffs.content)} class="prose" />
         </div>
       )}
 
@@ -283,8 +283,8 @@ const S = {
         return (
           <div style={`margin-bottom:2.5rem; padding:1.25rem 1.5rem; border:1px solid ${c.border}; border-radius:12px; background:${c.bg};`}>
             <div style={`font-size:0.6rem; font-weight:700; color:${c.fg}; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.75rem;`}>Post-quantum</div>
-            {node.post_quantum.vector && <div style="font-size:0.85rem; color:#d4d4d8; line-height:1.6; margin-bottom:0.5rem;"><strong style="color:white;">Vector:</strong> <span set:html={marked.parseInline(node.post_quantum.vector)} /></div>}
-            {node.post_quantum.mitigation && <div style="font-size:0.85rem; color:#a1a1aa; line-height:1.6;"><strong style="color:#d4d4d8;">Mitigation:</strong> <span set:html={marked.parseInline(node.post_quantum.mitigation)} /></div>}
+            {node.post_quantum.vector && <div style="font-size:0.85rem; color:#d4d4d8; line-height:1.6; margin-bottom:0.5rem;"><strong style="color:white;">Vector:</strong> <span set:html={renderMarkdownInline(node.post_quantum.vector)} /></div>}
+            {node.post_quantum.mitigation && <div style="font-size:0.85rem; color:#a1a1aa; line-height:1.6;"><strong style="color:#d4d4d8;">Mitigation:</strong> <span set:html={renderMarkdownInline(node.post_quantum.mitigation)} /></div>}
           </div>
         );
       })()}
@@ -294,7 +294,7 @@ const S = {
         <div style="margin-bottom:2.5rem;">
           <div style={S.sectionLabel}>Example</div>
           {/* SOURCE: iptf-map field — do not alter */}
-          <div set:html={marked(example.content)} class="prose" />
+          <div set:html={renderMarkdown(example.content)} class="prose" />
         </div>
       )}
 

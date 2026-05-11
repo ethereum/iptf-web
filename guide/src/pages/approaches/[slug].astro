@@ -2,7 +2,7 @@
 import Guide from '../../layouts/Guide.astro';
 import { getNodesByType, getNodeBySlug } from '../../lib/data';
 import { parseSections, getSection, parseSubSections, extractLabelledBlock, extractYamlBlock } from '../../lib/parse-sections';
-import { marked } from 'marked';
+import { renderMarkdown } from '../../lib/render';
 import yaml from 'js-yaml';
 
 export function getStaticPaths() {
@@ -14,7 +14,7 @@ const { slug } = Astro.params;
 const node = getNodeBySlug('approach', slug!);
 if (!node) return Astro.redirect('/guide');
 
-// SOURCE: iptf-map field — do not alter. Body is rendered through marked() verbatim.
+// SOURCE: iptf-map field — do not alter. Body is rendered through renderMarkdown() verbatim.
 const sections = parseSections(node.content);
 const problemFraming = getSection(sections, 'problem-framing') || getSection(sections, 'problem');
 const approachesSec = getSection(sections, 'approaches');
@@ -200,7 +200,7 @@ const maturityClass = (m?: string) => {
               data-persona={p.key}
             >
               {/* SOURCE: iptf-map field — do not alter */}
-              <div class="prose" set:html={marked(p.content)} />
+              <div class="prose" set:html={renderMarkdown(p.content)} />
             </div>
           ))}
         </div>
@@ -214,21 +214,21 @@ const maturityClass = (m?: string) => {
             <Fragment>
               <h2>Scenario</h2>
               {/* SOURCE: iptf-map field — do not alter */}
-              <div class="prose" set:html={marked(pfScenario.content)} />
+              <div class="prose" set:html={renderMarkdown(pfScenario.content)} />
             </Fragment>
           )}
           {pfRequirements && (
             <Fragment>
               <h2>Requirements</h2>
               {/* SOURCE: iptf-map field — do not alter */}
-              <div class="prose" set:html={marked(pfRequirements.content)} />
+              <div class="prose" set:html={renderMarkdown(pfRequirements.content)} />
             </Fragment>
           )}
           {pfConstraints && (
             <Fragment>
               <h2>Constraints</h2>
               {/* SOURCE: iptf-map field — do not alter */}
-              <div class="prose" set:html={marked(pfConstraints.content)} />
+              <div class="prose" set:html={renderMarkdown(pfConstraints.content)} />
             </Fragment>
           )}
         </div>
@@ -268,7 +268,7 @@ const maturityClass = (m?: string) => {
             <div class="recommended">
               <h4>Recommended</h4>
               {/* SOURCE: iptf-map field — do not alter */}
-              <div class="prose" set:html={marked(recDefault.content)} />
+              <div class="prose" set:html={renderMarkdown(recDefault.content)} />
             </div>
           )}
         </div>
@@ -290,45 +290,45 @@ const maturityClass = (m?: string) => {
                   <div class="block">
                     <h5>How it works</h5>
                     {/* SOURCE: iptf-map sub-approach body — do not alter */}
-                    <div class="prose" set:html={marked(sub.howItWorks)} />
+                    <div class="prose" set:html={renderMarkdown(sub.howItWorks)} />
                   </div>
                 )}
                 <div class="block-grid">
                   {sub.trustAssumptions && (
                     <div class="block">
                       <h5>Trust assumptions</h5>
-                      <div class="prose" set:html={marked(sub.trustAssumptions)} />
+                      <div class="prose" set:html={renderMarkdown(sub.trustAssumptions)} />
                     </div>
                   )}
                   {sub.threatModel && (
                     <div class="block">
                       <h5>Threat model</h5>
-                      <div class="prose" set:html={marked(sub.threatModel)} />
+                      <div class="prose" set:html={renderMarkdown(sub.threatModel)} />
                     </div>
                   )}
                   {sub.worksBestWhen && (
                     <div class="block block-good">
                       <h5>Works best when</h5>
-                      <div class="prose" set:html={marked(sub.worksBestWhen)} />
+                      <div class="prose" set:html={renderMarkdown(sub.worksBestWhen)} />
                     </div>
                   )}
                   {sub.avoidWhen && (
                     <div class="block block-bad">
                       <h5>Avoid when</h5>
-                      <div class="prose" set:html={marked(sub.avoidWhen)} />
+                      <div class="prose" set:html={renderMarkdown(sub.avoidWhen)} />
                     </div>
                   )}
                 </div>
                 {sub.implementationNotes && (
                   <div class="block">
                     <h5>Implementation notes</h5>
-                    <div class="prose" set:html={marked(sub.implementationNotes)} />
+                    <div class="prose" set:html={renderMarkdown(sub.implementationNotes)} />
                   </div>
                 )}
                 {sub.benchmarksContent && (
                   <div class="block">
                     <h5>Benchmarks</h5>
-                    <div class="prose table-wrap" set:html={marked(sub.benchmarksContent)} />
+                    <div class="prose table-wrap" set:html={renderMarkdown(sub.benchmarksContent)} />
                   </div>
                 )}
               </div>
@@ -347,7 +347,7 @@ const maturityClass = (m?: string) => {
               architecture cards above. */}
           <div
             class="prose table-wrap"
-            set:html={String(marked(comparison.content)).replace(
+            set:html={String(renderMarkdown(comparison.content)).replace(
               /<tr>\s*<td><strong>CROPS<\/strong><\/td>[\s\S]*?<\/tr>/i,
               ''
             )}
@@ -363,14 +363,14 @@ const maturityClass = (m?: string) => {
             <Fragment>
               <h2>Decision factors</h2>
               {/* SOURCE: iptf-map field — do not alter */}
-              <div class="prose" set:html={marked(recDecision.content)} />
+              <div class="prose" set:html={renderMarkdown(recDecision.content)} />
             </Fragment>
           )}
           {recHybrid && (
             <Fragment>
               <h2>Hybrid composition</h2>
               {/* SOURCE: iptf-map field — do not alter */}
-              <div class="prose" set:html={marked(recHybrid.content)} />
+              <div class="prose" set:html={renderMarkdown(recHybrid.content)} />
             </Fragment>
           )}
         </div>
@@ -382,7 +382,7 @@ const maturityClass = (m?: string) => {
           <summary><span class="coll-summary-name">Open questions</span></summary>
           <div class="collapsible-content">
             {/* SOURCE: iptf-map field — do not alter */}
-            <div class="prose" set:html={marked(openQuestions.content)} />
+            <div class="prose" set:html={renderMarkdown(openQuestions.content)} />
           </div>
         </details>
       )}
@@ -392,7 +392,7 @@ const maturityClass = (m?: string) => {
         <div class="section" style="margin-top:2rem;">
           <div class="section-label">Example</div>
           {/* SOURCE: iptf-map field — do not alter */}
-          <div class="prose" set:html={marked(exampleScenario.content)} />
+          <div class="prose" set:html={renderMarkdown(exampleScenario.content)} />
         </div>
       )}
 

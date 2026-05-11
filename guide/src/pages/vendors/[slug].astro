@@ -1,7 +1,7 @@
 ---
 import Guide from '../../layouts/Guide.astro';
 import { getNodesByType, getNodeBySlug, getRelated } from '../../lib/data';
-import { marked } from 'marked';
+import { renderMarkdown } from '../../lib/render';
 
 export function getStaticPaths() {
   const vendors = getNodesByType('vendor');
@@ -72,7 +72,7 @@ const S = {
       <!-- Full content -->
       <div style="margin-bottom:2.5rem;">
         {/* SOURCE: iptf-map field — do not alter. Vendor body is rendered verbatim. */}
-        <div set:html={marked(node.content)} class="prose" />
+        <div set:html={renderMarkdown(node.content)} class="prose" />
       </div>
 
     </div>

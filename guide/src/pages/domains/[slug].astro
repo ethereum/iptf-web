@@ -2,7 +2,7 @@
 import Guide from '../../layouts/Guide.astro';
 import { getNodesByType, getNodeBySlug, getRelated, getNodeById, getApproachesForDomain } from '../../lib/data';
 import { parseSections, getSection } from '../../lib/parse-sections';
-import { marked } from 'marked';
+import { renderMarkdown } from '../../lib/render';
 
 export function getStaticPaths() {
   const domains = getNodesByType('domain');
@@ -202,7 +202,7 @@ const S = {
             <div style="margin-bottom:2.5rem;">
               <div style={S.sLabel}>{s.heading}</div>
               {/* SOURCE: iptf-map field — do not alter. Domain section bodies are rendered verbatim. */}
-              <div set:html={marked(s.content)} class="prose" />
+              <div set:html={renderMarkdown(s.content)} class="prose" />
             </div>
           ))
         }

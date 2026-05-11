@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import type { GraphData, GraphNode } from '../lib/graph-types';
 import { getNodeColor, TYPE_LABELS } from '../lib/graph-layout';
-import { marked } from 'marked';
+import { renderMarkdown } from '../lib/render';
 
 interface Props {
   node: GraphNode;
@@ -41,7 +41,7 @@ export function DetailPanel({ node, graph, onClose, onSelectNode }: Props) {
     // Render just the first few sections, not the entire content
     const sections = node.content.split(/\n(?=## )/);
     const limited = sections.slice(0, 4).join('\n');
-    return marked.parse(limited) as string;
+    return renderMarkdown(limited);
   }, [node.content]);
 
   const badges = [
