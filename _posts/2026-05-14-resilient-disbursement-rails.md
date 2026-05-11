@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Resilient Disbursement Rails"
-description: "Aid disbursement on Ethereum that survives partner compromise and off-ramp deanonymization."
+description: "Aid payments on Ethereum that protect recipients even when local partners are compromised, or when recipients cash out into local currency."
 date: 2026-05-14 10:00:00 +0100
 author: "Aaryamann"
 image: /assets/images/2026-05-14-resilient-disbursement-rails/hero.png
@@ -15,7 +15,7 @@ tags:
   - proof-of-concept
 ---
 
-*This is the second post in our three-part resilience series, after [Resilient Plural Identity](/resilient-plural-identity/). Where the identity post asked who can prove they belong, this one asks how funds reach them when every off-ramp is a deanonymizer and every implementing partner is one subpoena away from being the adversary's database.*
+*This is the second post in our three-part resilience series, after [Resilient Plural Identity](/resilient-plural-identity/). The identity post asked how a person can keep proving who they are when the authority that vouched for them disappears or turns hostile. This one asks how money can reach that person when the local partner handing out the funds can be forced to share its records, and when the exchange where they cash out into local currency records their identity.*
 
 Disbursement is the act of getting money from an institution to a recipient. For a foundation paying grantees, a multinational paying contractors, or an aid donor reaching beneficiaries in a hostile jurisdiction, the same question keeps coming back: who can see who got paid, and what happens when that information becomes a target?
 
