@@ -43,24 +43,8 @@ const rows = approaches.map(a => {
   </div>
 
   <style is:global>
-    .idx-page {
-      max-width: 1200px; margin: 0 auto;
-      padding: 6rem 2rem 4rem;
-    }
-    .idx-header { margin-bottom: 3rem; }
-    .idx-label {
-      font-size: 0.65rem; font-weight: 700; color: #818cf8;
-      letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 0.5rem;
-    }
-    .idx-title {
-      font-family: 'Newsreader', Georgia, serif;
-      font-size: 2.5rem; font-weight: 400; color: white;
-      letter-spacing: -0.025em; line-height: 1.15; margin-bottom: 0.75rem;
-    }
-    .idx-desc {
-      font-size: 1rem; color: #a1a1aa; line-height: 1.7; max-width: 640px;
-    }
-
+    /* .idx-page / .idx-header / .idx-label / .idx-title / .idx-desc
+       live in src/styles/global.css so every index page shares them. */
     .cs-row {
       display: grid;
       grid-template-columns: 48px 1fr;
@@ -95,8 +79,6 @@ const rows = approaches.map(a => {
     }
 
     @media (max-width: 640px) {
-      .idx-page { padding: 5rem 1.25rem 3rem; }
-      .idx-title { font-size: 1.75rem; }
       .cs-row {
         grid-template-columns: 1fr;
         gap: 0.4rem;

@@ -109,6 +109,18 @@ const jsonLd = {
     font-size: 1rem;
     line-height: 1.75;
   }
+  /* Post diagrams are typically authored as transparent PNGs against a light
+     page background. On this site's dark theme they'd render black-on-black,
+     so a warm off-white shows through transparent areas. Opaque images
+     (heroes, photos) cover the background so this is a no-op for them. */
+  .post-body img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 1.75rem auto;
+    border-radius: 8px;
+    background: #f4f1ea;
+  }
   @media (max-width: 640px) {
     .post { padding: 5rem 1.25rem 4rem; }
     .post-title { font-size: 1.85rem; }

@@ -154,3 +154,47 @@ body::before {
   color: theme(colors.zinc.400);
   border-bottom: 1px solid rgb(255 255 255 / 0.03);
 }
+
+/* ────────────────────────────────────────────────────────────────────────────
+   Shared index-page chrome
+   Used by every /<section>/index.astro to keep header/title/desc consistent.
+   ──────────────────────────────────────────────────────────────────────────── */
+.idx-page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 6rem 2rem 4rem;
+}
+.idx-header {
+  margin-bottom: 3rem;
+}
+.idx-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #818cf8;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-bottom: 0.5rem;
+}
+.idx-title {
+  font-family: 'Newsreader', Georgia, serif;
+  font-size: 2.5rem;
+  font-weight: 400;
+  color: white;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+  margin-bottom: 0.75rem;
+}
+.idx-desc {
+  font-size: 1rem;
+  color: #a1a1aa;
+  line-height: 1.7;
+  max-width: 640px;
+}
+@media (max-width: 640px) {
+  .idx-page {
+    padding: 5rem 1.25rem 3rem;
+  }
+  .idx-title {
+    font-size: 1.75rem;
+  }
+}
