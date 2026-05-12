@@ -133,6 +133,46 @@ body::before {
   color: theme(colors.zinc.300);
 }
 
+.prose pre {
+  background: var(--color-dark-2);
+  border: 1px solid rgb(255 255 255 / 0.06);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  margin: 1.25rem 0;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.55;
+  color: theme(colors.zinc.300);
+
+  /* Restrained scrollbar — visible only when content overflows. */
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.12) transparent;
+}
+.prose pre::-webkit-scrollbar { height: 6px; }
+.prose pre::-webkit-scrollbar-track { background: transparent; }
+.prose pre::-webkit-scrollbar-thumb {
+  background: rgb(255 255 255 / 0.1);
+  border-radius: 3px;
+}
+.prose pre::-webkit-scrollbar-thumb:hover { background: rgb(255 255 255 / 0.18); }
+
+.prose pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+  color: inherit;
+  white-space: pre;
+}
+
+/* Shiki adds its own theme background+colors via inline styles; let those win
+   over our defaults but keep our padding/border/radius around the pre. */
+.prose pre.shiki {
+  background: #121212 !important;
+}
+.prose pre.shiki code { color: inherit; }
+
 .prose table {
   width: 100%;
   border-collapse: collapse;
