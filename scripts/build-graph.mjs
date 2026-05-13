@@ -99,24 +99,40 @@ export function fileToNodeId(dirType, filename, prefix) {
   return `${dirType}/${fileToSlug(filename, prefix)}`;
 }
 
-/** First paragraph from ## Intent (patterns) or first paragraph after ## section (others). Verbatim. */
+/** Strip inline markdown formatting so summary fields render as plain text
+ *  wherever they're displayed (vendor list, OG description, etc.). Body
+ *  content elsewhere keeps its markdown — only summaries are flattened. */
+function stripInlineMarkdown(text) {
+  return text
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1") // images → alt text
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // links → label
+    .replace(/`([^`]+)`/g, "$1") // code spans
+    .replace(/\*\*([^*]+)\*\*/g, "$1") // bold
+    .replace(/__([^_]+)__/g, "$1") // bold (alt)
+    .replace(/\*([^*]+)\*/g, "$1") // italic
+    .replace(/_([^_]+)_/g, "$1") // italic (alt)
+    .replace(/~~([^~]+)~~/g, "$1"); // strikethrough
+}
+
+/** First paragraph from ## Intent (patterns) or first paragraph after ## section (others). */
 export function extractSummary(body, type) {
   const intentMatch = body.match(/## Intent\s*\n+([\s\S]*?)(?=\n## |\n$)/);
-  if (intentMatch) return firstParagraph(intentMatch[1]);
+  if (intentMatch) return stripInlineMarkdown(firstParagraph(intentMatch[1]));
 
   const tldrMatch = body.match(/## TLDR\s*\n+([\s\S]*?)(?=\n## |\n$)/);
-  if (tldrMatch) return firstParagraph(tldrMatch[1]).replace(/^-\s*/, "");
+  if (tldrMatch)
+    return stripInlineMarkdown(firstParagraph(tldrMatch[1]).replace(/^-\s*/, ""));
 
   const whatMatch = body.match(/## What it is\s*\n+([\s\S]*?)(?=\n## |\n$)/);
-  if (whatMatch) return firstParagraph(whatMatch[1]);
+  if (whatMatch) return stripInlineMarkdown(firstParagraph(whatMatch[1]));
 
   const ucMatch = body.match(/## 1\) Use Case\s*\n+([\s\S]*?)(?=\n## |\n$)/);
-  if (ucMatch) return firstParagraph(ucMatch[1]);
+  if (ucMatch) return stripInlineMarkdown(firstParagraph(ucMatch[1]));
 
   const scenarioMatch = body.match(
     /### Scenario\s*\n+([\s\S]*?)(?=\n###|\n## |\n$)/,
   );
-  if (scenarioMatch) return firstParagraph(scenarioMatch[1]);
+  if (scenarioMatch) return stripInlineMarkdown(firstParagraph(scenarioMatch[1]));
 
   for (const line of body.split("\n")) {
     const t = line.trim();
@@ -127,7 +143,7 @@ export function extractSummary(body, type) {
       !t.startsWith("|") &&
       !t.startsWith("*")
     ) {
-      return t;
+      return stripInlineMarkdown(t);
     }
   }
   return "";

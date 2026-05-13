@@ -1,4 +1,5 @@
 ---
+import Guide from '../layouts/Guide.astro';
 import { getNodesByType, getApproachesForDomain } from '../lib/data';
 import { getRecentPosts, formatPostDate } from '../lib/posts';
 
@@ -25,27 +26,9 @@ function contextBadge(ctx?: string) {
 }
 ---
 
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>IPTF — Institutional Privacy on Ethereum</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&display=swap" rel="stylesheet">
-</head>
-<body>
-
-  <!-- NAV -->
-  <header class="nav">
-    <div class="nav-inner">
-      <a href="/" class="nav-brand"><div class="nav-mark"></div> IPTF</a>
-      <div class="nav-links">
-        <a href="/about">About</a>
-        <a href="/blog">Blog</a>
-      </div>
-    </div>
-  </header>
+<Guide
+  title="IPTF — Institutional Privacy on Ethereum"
+  description="From requirements to deployable privacy solutions for institutions on Ethereum.">
 
   <!-- HERO -->
   <section class="hero">
@@ -88,36 +71,6 @@ function contextBadge(ctx?: string) {
         <div class="pillar">
           <h3>Coordinate the ecosystem</h3>
           <p>Workshops with vendors and institutions. Neutral vendor assessments. Connecting the people building privacy tools with the people who need them.</p>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- TESTIMONIALS -->
-  <section class="testimonials">
-    <div class="test-inner">
-      <div class="test-label">What institutions tell us</div>
-      <div class="test-grid">
-        <div class="test-card">
-          <p class="test-quote">"We spent six months evaluating privacy solutions before finding IPTF. Their map saved us from three vendor pitches that didn't match our compliance requirements."</p>
-          <div class="test-attr">
-            <div class="test-avatar">HD</div>
-            <div><div class="test-name">Head of Digital Assets</div><div class="test-role">European Asset Manager</div></div>
-          </div>
-        </div>
-        <div class="test-card">
-          <p class="test-quote">"The CROPS framework gave our risk team a common language to evaluate privacy architectures. We use it in every infrastructure decision now."</p>
-          <div class="test-attr">
-            <div class="test-avatar">RA</div>
-            <div><div class="test-name">Risk Analyst</div><div class="test-role">Global Custodian</div></div>
-          </div>
-        </div>
-        <div class="test-card">
-          <p class="test-quote">"Most privacy research is either too academic or too marketing. IPTF is the only resource that tells us what actually works and what doesn't."</p>
-          <div class="test-attr">
-            <div class="test-avatar">CT</div>
-            <div><div class="test-name">CTO</div><div class="test-role">Digital Securities Platform</div></div>
-          </div>
         </div>
       </div>
     </div>
@@ -206,12 +159,12 @@ function contextBadge(ctx?: string) {
         <div class="eval-grid">
           <div class="eval-card">
             <h3>CROPS Framework</h3>
-            <p>Every pattern and vendor rated on four dimensions.</p>
+            <p>Every pattern and vendor rated on Censorship Resistance, Open Source, Privacy, and Security.</p>
             <div class="crops-bar">
-              <div class="crop crop-g"><div class="crop-l">CR</div><div class="crop-v">High</div></div>
-              <div class="crop crop-a"><div class="crop-l">OS</div><div class="crop-v">Partial</div></div>
-              <div class="crop crop-g"><div class="crop-l">P</div><div class="crop-v">Full</div></div>
-              <div class="crop crop-a"><div class="crop-l">S</div><div class="crop-v">Medium</div></div>
+              <div class="crop crop-g" title="Censorship Resistance"><div class="crop-l">CR</div><div class="crop-v">High</div></div>
+              <div class="crop crop-a" title="Open Source and Free"><div class="crop-l">OS</div><div class="crop-v">Partial</div></div>
+              <div class="crop crop-g" title="Privacy"><div class="crop-l">P</div><div class="crop-v">Full</div></div>
+              <div class="crop crop-a" title="Security"><div class="crop-l">S</div><div class="crop-v">Medium</div></div>
             </div>
           </div>
           <div class="eval-div"></div>
@@ -219,8 +172,8 @@ function contextBadge(ctx?: string) {
             <h3>I2I vs I2U Context</h3>
             <p>Privacy requirements differ by power dynamics.</p>
             <div class="ctx-pair">
-              <div class="ctx-box ctx-i"><strong>I2I</strong><small>Symmetric trust between institutions</small></div>
-              <div class="ctx-box ctx-u"><strong>I2U</strong><small>Asymmetric. CROPS protects the user</small></div>
+              <div class="ctx-box ctx-i"><strong>I2I</strong><small>Institution-to-Institution. Symmetric trust between counterparties.</small></div>
+              <div class="ctx-box ctx-u"><strong>I2U</strong><small>Institution-to-End-User. Asymmetric; CROPS protects the user.</small></div>
             </div>
           </div>
         </div>
@@ -261,20 +214,6 @@ function contextBadge(ctx?: string) {
     )}
   </div>
 
-  <!-- FOOTER -->
-  <footer class="footer">
-    <div class="footer-inner">
-      <div class="footer-left"><div class="footer-mark"></div> IPTF &middot; Ethereum Foundation &middot; 2026</div>
-      <div class="footer-links">
-        <a href="/about">About</a>
-        <a href="/explore/galaxy">Explorer</a>
-        <a href="https://github.com/ethereum/iptf-map">GitHub</a>
-        <a href="/blog">Blog</a>
-        <a href="mailto:iptf@ethereum.org">Contact</a>
-      </div>
-    </div>
-  </footer>
-
   <script is:inline>
     (function() {
       const el = document.querySelector('.cycle');
@@ -293,8 +232,7 @@ function contextBadge(ctx?: string) {
     })();
   </script>
 
-</body>
-</html>
+</Guide>
 
 <style is:global>
   :root {
@@ -331,48 +269,6 @@ function contextBadge(ctx?: string) {
     color: var(--white);
     overflow-x: hidden;
   }
-
-  /* Grain */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: 9999;
-    pointer-events: none;
-    opacity: 0.03;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-repeat: repeat;
-    background-size: 200px;
-  }
-
-  /* -- NAV -- */
-  .nav {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-    background: rgba(8,8,10,0.75);
-    backdrop-filter: blur(24px) saturate(180%);
-    -webkit-backdrop-filter: blur(24px) saturate(180%);
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-  }
-  .nav-inner {
-    max-width: 1120px; margin: 0 auto; padding: 0 2rem;
-    height: 56px; display: flex; align-items: center; justify-content: space-between;
-  }
-  .nav-brand {
-    display: flex; align-items: center; gap: 10px;
-    text-decoration: none; color: var(--white);
-    font-weight: 700; font-size: 0.85rem; letter-spacing: 0.1em;
-  }
-  .nav-mark {
-    width: 18px; height: 18px;
-    background: linear-gradient(135deg, var(--indigo), var(--indigo-deep));
-    transform: rotate(45deg); border-radius: 3px;
-  }
-  .nav-links { display: flex; align-items: center; gap: 1.75rem; }
-  .nav-links a {
-    text-decoration: none; color: var(--gray-500);
-    font-size: 0.8rem; font-weight: 500; transition: color 0.15s;
-  }
-  .nav-links a:hover { color: var(--white); }
 
   /* -- HERO -- */
   .hero {
@@ -532,40 +428,6 @@ function contextBadge(ctx?: string) {
   .pillar p {
     font-size: 0.85rem; color: var(--gray-500); line-height: 1.6;
   }
-
-  /* -- TESTIMONIALS -- */
-  .testimonials {
-    padding: 5rem 2rem;
-    border-top: 1px solid rgba(255,255,255,0.04);
-  }
-  .test-inner { max-width: 1120px; margin: 0 auto; }
-  .test-label {
-    font-size: 0.65rem; font-weight: 600; color: var(--gray-600);
-    letter-spacing: 0.12em; text-transform: uppercase;
-    text-align: center; margin-bottom: 3rem;
-  }
-  .test-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem; }
-  .test-card {
-    padding: 1.75rem;
-    border: 1px solid rgba(255,255,255,0.06);
-    border-radius: 12px;
-    background: rgba(255,255,255,0.02);
-  }
-  .test-quote {
-    font-family: 'Newsreader', Georgia, serif;
-    font-size: 1rem; font-style: italic;
-    color: var(--gray-300); line-height: 1.6;
-    margin-bottom: 1.25rem;
-  }
-  .test-attr { display: flex; align-items: center; gap: 10px; }
-  .test-avatar {
-    width: 32px; height: 32px; border-radius: 50%;
-    background: var(--dark-3);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.7rem; font-weight: 700; color: var(--gray-500);
-  }
-  .test-name { font-size: 0.8rem; font-weight: 600; color: var(--gray-300); }
-  .test-role { font-size: 0.75rem; color: var(--gray-600); }
 
   /* -- BRIDGE -- */
   .bridge { display: none; }
@@ -786,35 +648,10 @@ function contextBadge(ctx?: string) {
   .ctx-u strong { color: #fbbf24; }
   .ctx-box small { font-size: 0.72rem; color: var(--gray-400); line-height: 1.3; }
 
-  /* -- FOOTER -- */
-  .footer {
-    padding: 2.5rem 2rem; background: var(--black);
-    border-top: 1px solid rgba(255,255,255,0.05);
-  }
-  .footer-inner {
-    max-width: 1120px; margin: 0 auto;
-    display: flex; align-items: center; justify-content: space-between;
-  }
-  .footer-left {
-    display: flex; align-items: center; gap: 8px;
-    font-size: 0.75rem; color: var(--gray-600);
-  }
-  .footer-mark {
-    width: 12px; height: 12px; background: var(--dark-4);
-    transform: rotate(45deg); border-radius: 2px;
-  }
-  .footer-links { display: flex; gap: 1.5rem; }
-  .footer-links a {
-    font-size: 0.75rem; color: var(--gray-600);
-    text-decoration: none; transition: color 0.15s;
-  }
-  .footer-links a:hover { color: var(--gray-400); }
-
   /* -- RESPONSIVE -- */
   @media (max-width: 1024px) {
     .pos-line-h { width: 40px; margin: 0 0.5rem; }
     .pos-pillars { grid-template-columns: 1fr; gap: 1.5rem; }
-    .test-grid { grid-template-columns: 1fr; gap: 1rem; }
     .dom-grid { grid-template-columns: repeat(2, 1fr); }
   }
   @media (max-width: 640px) {
