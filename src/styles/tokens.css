@@ -1,0 +1,134 @@
+/*
+ * IPTF design tokens — single source of truth.
+ * Every CSS custom property used by the visual system lives here.
+ * No other stylesheet is allowed to declare :root vars.
+ * Naming convention: semantic (purpose), not positional (--color-text-2 etc).
+ */
+
+:root {
+  /* brand */
+  --color-primary:         #1a365d;
+  --color-primary-light:   #2c5282;
+
+  /* Interactive blue. Single source of truth — every interactive
+     element (button, link, hover border, action icon) idles on
+     --color-cta and resolves to --color-cta-hover (navy primary)
+     on hover. --color-on-cta is the text/ink rendered on top of
+     any blue/navy interactive surface, locked white so on-blue
+     contrast can never drift back to blue-on-blue. */
+  --color-cta:             #2257e9;
+  --color-cta-hover:       #1a365d;
+
+  --color-on-cta:          #ffffff;
+  --color-on-primary:      #ffffff;
+
+  /* Subtle CTA-blue tints — used as background washes for hover
+     states, accent panels, and pills that need a brand tone without
+     full saturation. Three steps so the appropriate weight can be
+     picked per context (8% / 12% for backgrounds, 25% for borders). */
+  --color-cta-tint:         rgba(34, 87, 233, 0.08);
+  --color-cta-tint-strong:  rgba(34, 87, 233, 0.12);
+  --color-cta-border:       rgba(34, 87, 233, 0.25);
+
+  /* text */
+  --color-text:            #1a202c;
+  --color-text-secondary:  #4a5568;
+  --color-text-muted:      #718096;
+  --color-text-faint:      #a0aec0;
+
+  /* surfaces */
+  --color-bg:              #ffffff;
+  --color-bg-subtle:       #f7fafc;
+  --color-bg-muted:        #edf2f7;
+
+  /* lines and borders */
+  --color-border:          #e2e8f0;
+  --color-border-strong:   #cbd5e0;
+
+  /* Quality / tone palette — emerald / amber / slate "traffic light"
+     applied wherever the UI signals a quality level (CROPS axes,
+     maturity, status, case-study availability). The *-strong variants
+     are the darker text colours used on top of *-tint backgrounds so
+     foreground contrast remains WCAG-safe. */
+  --color-success:              #10b981;
+  --color-success-strong:       #047857;
+  --color-success-tint:         rgba(16, 185, 129, 0.14);
+  --color-success-tint-strong:  rgba(16, 185, 129, 0.18);
+
+  --color-warning:              #f59e0b;
+  --color-warning-strong:       #92400e;
+  --color-warning-tint:         rgba(245, 158, 11, 0.18);
+  --color-warning-tint-strong:  rgba(245, 158, 11, 0.20);
+
+  --color-neutral:              #94a3b8;
+  --color-neutral-strong:       #475569;
+  --color-neutral-tint:         rgba(148, 163, 184, 0.28);
+
+  --color-danger:               #b91c1c;
+  --color-danger-tint:          rgba(220, 38, 38, 0.07);
+  --color-danger-tint-strong:   rgba(220, 38, 38, 0.22);
+
+  /* Context coloring — applied to the two threat-model contexts the
+     IPTF body distinguishes throughout the guide:
+       --color-i2i  institution-to-institution (indigo)
+       --color-i2u  institution-to-user (teal)
+     Picked to be visually distinct from the brand blue and from each
+     other while staying within an enterprise-safe palette. */
+  --color-i2i:                  #4f46e5;
+  --color-i2i-tint:             rgba(99, 102, 241, 0.10);
+  --color-i2u:                  #0d9488;
+  --color-i2u-tint:             rgba(20, 184, 166, 0.10);
+
+  /* Violet — third step of the EntryFacts neutral-palette rotation.
+     Not a traffic-light tone; purely a visual variant so consecutive
+     neutral fact-blocks read as distinct cards. */
+  --color-violet:               #6d28d9;
+  --color-violet-tint:          rgba(139, 92, 246, 0.06);
+  --color-violet-tint-strong:   rgba(139, 92, 246, 0.2);
+
+  /* Path-card surface — neutral light gray distinct from the blue-tinted
+     --color-bg-subtle / --color-bg-muted. Used by the reading-path cards
+     on the homepage. */
+  --color-bg-card:              #f4f5f6;
+
+  /* CROPS pie palette — saturated traffic-light specifically scoped
+     to the pie + tooltip pill + crops-context-table. Deliberately
+     brighter than the design-system success/warning/danger so the
+     pie reads as an at-a-glance signal panel. Strong variants are
+     the darker text colour for tooltip pills on the tinted background. */
+  --color-crops-full:           #50e35f;
+  --color-crops-full-tint:      rgba(80, 227, 95, 0.18);
+  --color-crops-full-strong:    #15803d;
+  --color-crops-med:            #ffc107;
+  --color-crops-med-tint:       rgba(255, 193, 7, 0.22);
+  --color-crops-med-strong:     #92400e;
+  --color-crops-low:            #f94a24;
+  --color-crops-low-tint:       rgba(249, 74, 36, 0.18);
+  --color-crops-low-strong:     #b91c1c;
+
+  /* type */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'Monaco', monospace;
+
+  /* depth — 4 tiers, mapped from prototype --shadow-1..4 */
+  --shadow-sm:  0 1px 2px 0 rgba(13, 20, 36, 0.04);
+  --shadow-md:  0 1px 3px 0 rgba(13, 20, 36, 0.06), 0 1px 2px -1px rgba(13, 20, 36, 0.04);
+  --shadow-lg:  0 4px 12px -2px rgba(13, 20, 36, 0.08), 0 2px 4px -2px rgba(13, 20, 36, 0.04);
+  --shadow-xl:  0 12px 32px -8px rgba(13, 20, 36, 0.12), 0 4px 8px -4px rgba(13, 20, 36, 0.06);
+
+  /* radii — 4 tiers, mapped from prototype --r-1..4 */
+  --radius-sm:  4px;
+  --radius-md:  8px;
+  --radius-lg:  12px;
+  --radius-xl:  16px;
+
+  /* layout */
+  --container-max:  1200px;
+  --container-pad:  clamp(1.25rem, 3vw, 2rem);
+
+  /* motion */
+  --easing-soft:    cubic-bezier(0.4, 0, 0.2, 1);
+  --duration-fast:  120ms;
+  --duration-base:  180ms;
+  --duration-slow:  280ms;
+}

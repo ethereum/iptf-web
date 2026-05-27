@@ -1,0 +1,119 @@
+---
+import { getCollection } from 'astro:content';
+import ListPageLayout from '../../layouts/ListPageLayout.astro';
+import { stripTypePrefix } from '../../lib/slugify';
+import { bodyExcerpt } from '../../lib/excerpt';
+
+const items = (await getCollection('rfps')).slice().sort((a, b) => {
+  const ta = (a.data.tier ?? 99) as number;
+  const tb = (b.data.tier ?? 99) as number;
+  if (ta !== tb) return ta - tb;
+  return stripTypePrefix(a.data.title).localeCompare(stripTypePrefix(b.data.title));
+});
+---
+
+<ListPageLayout
+  title="Open RFPs"
+  pageTitle="Open RFPs"
+  description="Open RFPs"
+  current="/rfps/"
+>
+  <div class="container">
+    <div class="rfp-grid">
+      {items.map((r) => {
+        const title = stripTypePrefix(r.data.title);
+        const gloss = bodyExcerpt(r.body, 'Problem') ?? bodyExcerpt(r.body);
+        return (
+          <a class="rfp-card" href={`/rfps/${r.id}/`}>
+            <div class="rfp-head">
+              <h3>{title}</h3>
+              <div class="rfp-meta">
+                {r.data.tier ? <span class={`badge tier-${r.data.tier}`}>Tier {r.data.tier}</span> : null}
+                {r.data.category ? <span class="badge category">{r.data.category}</span> : null}
+                {r.data.status ? <span class="badge status">{r.data.status}</span> : null}
+              </div>
+            </div>
+            {gloss && <p>{gloss}</p>}
+          </a>
+        );
+      })}
+    </div>
+  </div>
+</ListPageLayout>
+
+<style>
+  .rfp-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-top: 2.5rem;
+  }
+  .rfp-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    padding: 1.5rem 1.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg);
+    box-shadow: var(--shadow-sm);
+    text-decoration: none;
+    color: var(--color-text);
+    transition: transform var(--duration-base) var(--easing-soft),
+                box-shadow var(--duration-base) var(--easing-soft),
+                border-color var(--duration-base) var(--easing-soft);
+  }
+  .rfp-card:hover {
+    border-color: var(--color-cta);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+  .rfp-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .rfp-head h3 {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: 1.2rem;
+    letter-spacing: -0.018em;
+    line-height: 1.25;
+    color: var(--color-primary);
+    margin: 0;
+  }
+  .rfp-meta { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+  .badge {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.18rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+    background: rgba(255, 255, 255, 0.5);
+  }
+  .badge.tier-1 { background: var(--color-cta-tint-strong); color: var(--color-cta); border-color: var(--color-cta-border); }
+  .rfp-card p {
+    font-size: 14.5px;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+    margin: 0;
+  }
+  .rfp-link {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-cta);
+    margin-top: 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .rfp-link .arr { transition: transform var(--duration-fast) var(--easing-soft); }
+  .rfp-card:hover .rfp-link .arr { transform: translateX(3px); }
+</style>

@@ -1,13 +1,83 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import { Galaxy } from '../../components/Galaxy';
+/*
+ * /explore/galaxy/ — full-viewport d3 force graph of all 135 nodes.
+ * React island, light theme. Uses our NavBar but the canvas spans
+ * full width below it.
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHeader from '../../components/PageHeader.astro';
+import { Galaxy } from '../../components/explore/Galaxy';
 import graphData from '../../data/graph.json';
+
+const description =
+  'Force-directed map of every entry on the site. Drag, zoom, click to drill into any node: patterns, approaches, vendors, use cases, jurisdictions.';
 ---
-<Layout title="IPTF Privacy Map - Galaxy View">
-  <Galaxy client:load graph={graphData} />
-  <script define:vars={{ nodeCount: graphData.meta.node_count, edgeCount: graphData.meta.edge_count }}>
-    document.getElementById('nav-galaxy')?.classList.add('active');
-    const stats = document.getElementById('nav-stats');
-    if (stats) stats.textContent = `${nodeCount} nodes · ${edgeCount} edges`;
-  </script>
-</Layout>
+
+<BaseLayout
+  title="Galaxy view"
+  description={description}
+  current="/explore/"
+>
+  <PageHeader
+    breadcrumbs={[
+      { label: 'Home', href: '/' },
+      { label: 'Explore', href: '/explore/browse/' },
+      { label: 'Galaxy' },
+    ]}
+    title="Galaxy view"
+    lede={description}
+    pills={[
+      { label: `${graphData.meta.node_count} nodes`, emphasis: false },
+      { label: `${graphData.meta.edge_count} edges` },
+    ]}
+  />
+
+  <div class="explore-nav">
+    <div class="container">
+      <a href="/explore/galaxy/" class="explore-tab active">Galaxy</a>
+      <a href="/explore/tree/" class="explore-tab">Tree</a>
+      <a href="/explore/browse/" class="explore-tab">Browse</a>
+    </div>
+  </div>
+
+  <section class="explore-canvas">
+    <Galaxy client:only="react" graph={graphData} />
+  </section>
+</BaseLayout>
+
+<style>
+  .explore-nav {
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg);
+  }
+  .explore-nav .container {
+    display: flex;
+    gap: 0.25rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0;
+  }
+  .explore-tab {
+    padding: 0.7rem 1rem;
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    transition: color var(--duration-fast) var(--easing-soft),
+      border-color var(--duration-fast) var(--easing-soft);
+  }
+  .explore-tab:hover {
+    color: var(--color-primary);
+  }
+  .explore-tab.active {
+    color: var(--color-cta);
+    border-bottom-color: var(--color-cta);
+  }
+  .explore-canvas {
+    position: relative;
+    height: calc(100vh - 240px);
+    min-height: 600px;
+    background: var(--color-bg-subtle);
+  }
+</style>

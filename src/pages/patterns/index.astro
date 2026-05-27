@@ -1,56 +1,134 @@
 ---
-import Guide from '../../layouts/Guide.astro';
-import { getNodesByType } from '../../lib/data';
+import { getCollection } from 'astro:content';
+import ListPageLayout from '../../layouts/ListPageLayout.astro';
+import AnchorNav from '../../components/AnchorNav.astro';
+import SectionHeading from '../../components/SectionHeading.astro';
+import PatternCard from '../../components/PatternCard.astro';
+import { stripTypePrefix } from '../../lib/slugify';
+import { ICON_LAYER } from '../../lib/icons';
 
-const patterns = getNodesByType('pattern').sort((a, b) => a.title.localeCompare(b.title));
-const base = import.meta.env.BASE_URL;
+const items = await getCollection('patterns');
 
-const cropsColor = (val?: string) => {
-  if (!val) return '#52525b';
-  if (['high', 'yes', 'full'].includes(val)) return '#34d399';
-  if (['medium', 'partial'].includes(val)) return '#fbbf24';
-  return '#f87171';
-};
+/*
+ * Layer buckets are derived from each pattern's `layer:` frontmatter
+ * field. "Other" is the catch-all for patterns whose layer key isn't
+ * one of L1/L2/hybrid — off-chain / network / cryptographic primitives.
+ */
+const BUCKETS = [
+  {
+    key: 'L1',
+    label: 'L1',
+    primer:
+      'Privacy primitives that ship inside Ethereum mainnet itself. Protocol-level features and L1 smart-contract patterns institutions can rely on without leaving the base layer.',
+  },
+  {
+    key: 'L2',
+    label: 'L2',
+    primer:
+      'Patterns implemented at the rollup layer, where private execution and shielded state live off-chain but settle to Ethereum. Where most institutional-grade confidentiality is actually deployable today.',
+  },
+  {
+    key: 'hybrid',
+    label: 'Hybrid',
+    primer:
+      'Architectures that span L1 and L2. Bridges, escape hatches, dual-execution modes, and shared-state primitives that compose protocols across boundaries. The bulk of the catalog lives here because most institutional flows need both layers.',
+  },
+  {
+    key: 'unknown',
+    label: 'Other',
+    primer:
+      'Off-chain and transport-layer building blocks. Cryptographic primitives, network anonymity, and key-management patterns that aren\'t tied to a specific Ethereum layer but are required to make on-chain privacy actually private.',
+  },
+] as const;
 
-// Count by layer for filter display
-const layers = ['L1', 'L2', 'offchain', 'hybrid'];
+const grouped = new Map<string, typeof items>();
+for (const b of BUCKETS) grouped.set(b.key, []);
+for (const it of items) {
+  const layer = (it.data.layer ?? 'unknown').toString().toLowerCase();
+  const key = layer === 'l1' ? 'L1' : layer === 'l2' ? 'L2' : layer === 'hybrid' ? 'hybrid' : 'unknown';
+  grouped.get(key)!.push(it);
+}
+
+const orderedBuckets = BUCKETS.filter((b) => grouped.get(b.key)!.length > 0);
+
+function anchor(key: string): string {
+  return key.toLowerCase();
+}
+
+/*
+ * Sort rank for maturity values. Production-ready patterns surface first,
+ * then testnet / pilot / prototype, then concept / research, then unknown.
+ * Mirrors the tone classification used by PatternCard's maturity chip.
+ */
+function maturityRank(m?: string): number {
+  if (!m) return 3;
+  const v = m.toLowerCase();
+  if (v.includes('production')) return 0;
+  if (v.includes('testnet') || v.includes('pilot') || v.includes('prototyp')) return 1;
+  if (v.includes('concept') || v.includes('research') || v.includes('document')) return 2;
+  return 3;
+}
+
+const tabs = orderedBuckets.map((b) => ({
+  href: `#${anchor(b.key)}`,
+  label: b.label,
+  count: grouped.get(b.key)!.length,
+  iconSvg: ICON_LAYER[b.key],
+}));
+
 ---
 
-<Guide title="Patterns" description="Reusable technical primitives for institutional privacy" activeSection="patterns">
-  <div style="max-width:1200px; margin:0 auto; padding:6rem 2rem 4rem;">
+<ListPageLayout
+  title="Building blocks"
+  pageTitle="Building blocks"
+  description="Building blocks"
+  current="/patterns/"
+>
+  <Fragment slot="anchor-nav">
+    <AnchorNav tabs={tabs} ariaLabel="Layer navigation" />
+  </Fragment>
 
-    <div style="margin-bottom:3rem;">
-      <div style="font-size:0.65rem; font-weight:700; color:#818cf8; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.5rem;">Patterns</div>
-      <h1 style="font-family:'Newsreader',Georgia,serif; font-size:2.5rem; font-weight:400; color:white; letter-spacing:-0.025em; line-height:1.15; margin-bottom:0.75rem;">Privacy primitives</h1>
-      <p style="font-size:1rem; color:#a1a1aa; line-height:1.7; max-width:640px;">{patterns.length} reusable technical primitives — the building blocks that compose into case studies. Each rated against CROPS (Censorship Resistance, Open Source, Privacy, Security).</p>
-    </div>
-
-    <!-- Card grid -->
-    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:1px; background:rgba(255,255,255,0.04); border-radius:10px; overflow:hidden;">
-      {patterns.map(p => {
-        const c = typeof p.crops_profile === 'object' ? p.crops_profile : null;
-        return (
-          <a href={`/patterns/${p.slug}`} style="background:#18181b; padding:1.5rem; text-decoration:none; color:inherit; display:flex; flex-direction:column; gap:0.75rem; transition:background 0.15s;" onmouseover="this.style.background='#1c1c20';" onmouseout="this.style.background='#18181b';">
-            <div style="display:flex; gap:6px; flex-wrap:wrap;">
-              {p.maturity && <span style="font-size:0.6rem; font-weight:600; padding:2px 6px; border-radius:4px; background:rgba(251,191,36,0.12); color:#fbbf24;">{p.maturity}</span>}
-              {p.layer && <span style="font-size:0.6rem; font-weight:600; padding:2px 6px; border-radius:4px; background:rgba(255,255,255,0.06); color:#a1a1aa;">{p.layer}</span>}
-              {p.context && <span style="font-size:0.6rem; font-weight:600; padding:2px 6px; border-radius:4px; background:rgba(129,140,248,0.08); color:#818cf8;">{p.context === 'both' ? 'I2I + I2U' : p.context.toUpperCase()}</span>}
-              {p.kind === 'meta' && <span style="font-size:0.6rem; font-weight:600; padding:2px 6px; border-radius:4px; background:rgba(165,180,252,0.12); color:#a5b4fc;">meta</span>}
-            </div>
-            <h3 style="font-family:'Newsreader',Georgia,serif; font-size:1.1rem; font-weight:500; color:white; letter-spacing:-0.01em; line-height:1.25;">{p.title}</h3>
-            {p.summary && <p style="font-size:0.82rem; color:#71717a; line-height:1.55; flex:1;">{p.summary}</p>}
-            {c && (
-              <div style="display:flex; gap:4px; margin-top:auto; padding-top:0.5rem;">
-                <span style={`font-size:0.55rem; font-weight:700; letter-spacing:0.04em; padding:2px 5px; border-radius:3px; background:${cropsColor(c.cr)}14; color:${cropsColor(c.cr)};`}>CR: {c.cr}</span>
-                <span style={`font-size:0.55rem; font-weight:700; letter-spacing:0.04em; padding:2px 5px; border-radius:3px; background:${cropsColor(c.o)}14; color:${cropsColor(c.o)};`}>O: {c.o}</span>
-                <span style={`font-size:0.55rem; font-weight:700; letter-spacing:0.04em; padding:2px 5px; border-radius:3px; background:${cropsColor(c.p)}14; color:${cropsColor(c.p)};`}>P: {c.p}</span>
-                <span style={`font-size:0.55rem; font-weight:700; letter-spacing:0.04em; padding:2px 5px; border-radius:3px; background:${cropsColor(c.s)}14; color:${cropsColor(c.s)};`}>S: {c.s}</span>
-              </div>
-            )}
-          </a>
-        );
-      })}
-    </div>
-
+  <div class="container">
+    {orderedBuckets.map((bucket) => (
+      <section class="bucket-section">
+        <SectionHeading
+          id={anchor(bucket.key)}
+          title={bucket.label}
+          iconSvg={ICON_LAYER[bucket.key]}
+          primer={bucket.primer}
+        />
+        <div class="pt-grid">
+          {grouped.get(bucket.key)!
+            .slice()
+            .sort((a, b) => {
+              const r = maturityRank(a.data.maturity) - maturityRank(b.data.maturity);
+              if (r !== 0) return r;
+              return stripTypePrefix(a.data.title).localeCompare(stripTypePrefix(b.data.title));
+            })
+            .map((p) => (
+              <PatternCard
+                href={`/patterns/${p.id}/`}
+                title={p.data.title}
+                privacyGoal={p.data.privacy_goal}
+                maturity={p.data.maturity}
+                cropsProfile={p.data.crops_profile}
+              />
+            ))}
+        </div>
+      </section>
+    ))}
   </div>
-</Guide>
+</ListPageLayout>
+
+<style>
+  .bucket-section { margin-bottom: 4rem; }
+  .bucket-section:last-of-type { margin-bottom: 1rem; }
+  .pt-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.85rem;
+  }
+  @media (max-width: 1000px) {
+    .pt-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>

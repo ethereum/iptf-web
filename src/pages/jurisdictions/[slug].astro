@@ -1,102 +1,144 @@
 ---
-import Guide from '../../layouts/Guide.astro';
-import { getNodesByType, getNodeBySlug, getRelated } from '../../lib/data';
+import { getCollection } from 'astro:content';
+import DetailPageLayout from '../../layouts/DetailPageLayout.astro';
+import RailConnections from '../../components/RailConnections.astro';
+import ArticleFooter from '../../components/ArticleFooter.astro';
+import EntryFacts from '../../components/EntryFacts.astro';
+import { regionBucket, stripTypePrefix } from '../../lib/slugify';
+import { bodyExcerpt, popSection } from '../../lib/excerpt';
+import { extractRelated, getReferencedBy } from '../../lib/related';
 import { renderMarkdown } from '../../lib/render';
 
-export function getStaticPaths() {
-  const jurisdictions = getNodesByType('jurisdiction');
-  return jurisdictions.map(j => ({ params: { slug: j.slug } }));
+export async function getStaticPaths() {
+  const entries = await getCollection('jurisdictions');
+  return entries.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry },
+  }));
 }
 
-const { slug } = Astro.params;
-const node = getNodeBySlug('jurisdiction', slug!);
-if (!node) return Astro.redirect('/guide');
+const { entry } = Astro.props;
+const title = stripTypePrefix(entry.data.title);
 
-const related = getRelated(node.id);
-const base = import.meta.env.BASE_URL;
+// Pop `## At a Glance` out — full text becomes the lede; body
+// renders without it to avoid the duplication-with-truncation seen
+// before this pass.
+const { content: atGlance, bodyWithout } = popSection(entry.body, 'At a Glance');
+const lede = atGlance || bodyExcerpt(entry.body);
+const bodyHtml = renderMarkdown(atGlance ? bodyWithout : entry.body);
 
-// Extract key regulations from the content frontmatter-style data
-// The graph node may carry these as part of the parsed data
-const keyRegulations: string[] = (node as any)['key-regulations'] || (node as any).key_regulations || [];
 
-const S = {
-  page: 'max-width:860px; margin:0 auto; padding:5rem 2rem 4rem;',
-  breadcrumb: 'display:flex; align-items:center; gap:6px; font-size:0.75rem; color:#71717a; margin-bottom:2rem;',
-  bcLink: 'color:#71717a; text-decoration:none;',
-  bcSep: 'color:#3f3f46;',
-  badge: (bg: string, fg: string) => `font-size:0.65rem; font-weight:600; padding:3px 8px; border-radius:4px; background:${bg}; color:${fg};`,
-  title: "font-family:'Newsreader',Georgia,serif; font-size:2.25rem; font-weight:400; color:white; line-height:1.15; letter-spacing:-0.025em; margin-bottom:1rem;",
-  glance: 'font-size:0.95rem; color:#a1a1aa; line-height:1.7; max-width:720px;',
-  keyReg: 'font-size:0.7rem; font-weight:600; padding:4px 10px; border-radius:6px; background:#1c1c20; color:#a1a1aa; border:1px solid rgba(255,255,255,0.06);',
-  sectionLabel: 'font-size:0.6rem; font-weight:700; color:#818cf8; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.5rem;',
+const scopeEntities = (entry.data.scope?.entities as string[] | undefined) ?? [];
+const scopeActivities = (entry.data.scope?.activities as string[] | undefined) ?? [];
+const keyRegs = (entry.data['key-regulations'] as string[] | undefined) ?? [];
+
+const factSections = [
+  ...(keyRegs.length > 0 ? [{ heading: 'Key regulations', items: keyRegs }] : []),
+  ...(scopeEntities.length > 0 ? [{ heading: 'Entities', items: scopeEntities }] : []),
+  ...(scopeActivities.length > 0 ? [{ heading: 'Activities', items: scopeActivities }] : []),
+];
+
+const related = await extractRelated(entry.body, 'jurisdictions', entry.id, entry.data);
+const referencedBy = await getReferencedBy('jurisdictions', entry.id);
+
+const region = regionBucket(entry.data.region);
+const sibling = {
+  href: '/jurisdictions/',
+  label: region === 'Multi-jurisdiction' ? 'Other multi-jurisdictional frameworks' : `More jurisdictions in ${region}`,
 };
+
+// Quick-nav: other jurisdictions in the same region bucket.
+// Excludes the current page, sorts by display title.
+const allJurisdictions = await getCollection('jurisdictions');
+const sameRegion = allJurisdictions
+  .filter((j) => j.id !== entry.id && regionBucket(j.data.region) === region)
+  .map((j) => ({
+    id: j.id,
+    title: stripTypePrefix(j.data.title),
+  }))
+  .sort((a, b) => a.title.localeCompare(b.title));
+
+const regionLabel =
+  region === 'Multi-jurisdiction' ? 'Other multi-jurisdictional' : `Also in ${region}`;
 ---
 
-<Guide title={node.title} description={node.summary} activeSection="jurisdictions">
-  <div style={S.page}>
+<DetailPageLayout
+  title={`${title} · Jurisdiction`}
+  pageTitle={title}
+  description={lede}
+  current="/jurisdictions/"
+  breadcrumbs={[
+    { label: 'Home', href: '/' },
+    { label: 'Jurisdictions', href: '/jurisdictions/' },
+    { label: title },
+  ]}
+  lede={lede}
+>
+  <EntryFacts sections={factSections} />
 
-    <!-- Breadcrumb -->
-    <nav style={S.breadcrumb}>
-      <a href={`/`} style={S.bcLink}>Guide</a>
-      <span style={S.bcSep}>/</span>
-      <a href={`/jurisdictions`} style={S.bcLink}>Jurisdictions</a>
-      <span style={S.bcSep}>/</span>
-      <span>{node.title}</span>
-    </nav>
+  <div class="prose" set:html={bodyHtml} />
 
-    <!-- Header -->
-    <div style="margin-bottom:2.5rem;">
-      <div style="display:flex; gap:6px; margin-bottom:1rem;">
-        {node.region && <span style={S.badge('rgba(129,140,248,0.12)', '#a5b4fc')}>{node.region}</span>}
-      </div>
-      <h1 style={S.title}>{node.title}</h1>
-      {node.summary && <p style={S.glance}>{node.summary}</p>}
-    </div>
+  <Fragment slot="after-content">
+    <ArticleFooter related={related} sibling={sibling} />
+  </Fragment>
 
-    <!-- Key regulations pills -->
-    {keyRegulations.length > 0 && (
-      <div style="display:flex; flex-wrap:wrap; gap:6px; margin:1.5rem 0 2.5rem;">
-        {keyRegulations.map((reg: string) => (
-          <span style={S.keyReg}>{reg}</span>
-        ))}
-      </div>
-    )}
+  <Fragment slot="rail">
+    <aside class="jurisdiction-rail">
+      {sameRegion.length > 0 && (
+        <section class="rail-static">
+          <div class="rail-label-static">{regionLabel}</div>
+          <ul class="rail-quick-list">
+            {sameRegion.map((j) => (
+              <li>
+                <a href={`/jurisdictions/${j.id}/`}>{j.title}</a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
-    <!-- Full content -->
-    <div style="margin-bottom:2.5rem;">
-      {/* SOURCE: iptf-map field — do not alter. Jurisdiction body is rendered verbatim. */}
-      <div set:html={renderMarkdown(node.content)} class="prose" />
-    </div>
+      <RailConnections referencedBy={referencedBy} />
+    </aside>
+  </Fragment>
+</DetailPageLayout>
 
-    <!-- Related patterns -->
-    {related.patterns.length > 0 && (
-      <div style="margin-bottom:2.5rem;">
-        <div style={S.sectionLabel}>Related patterns</div>
-        <div style="display:flex; flex-direction:column; gap:4px; margin-top:0.75rem;">
-          {related.patterns.map(p => (
-            <a href={`/patterns/${p.slug}`} style="display:flex; align-items:center; gap:6px; font-size:0.8rem; font-weight:500; color:#a1a1aa; text-decoration:none; padding:0.4rem 0;">
-              <svg style="width:12px; height:12px; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-              {p.title}
-            </a>
-          ))}
-        </div>
-      </div>
-    )}
-
-    <!-- Related approaches -->
-    {related.approaches.length > 0 && (
-      <div style="margin-bottom:2.5rem;">
-        <div style={S.sectionLabel}>Related case studies</div>
-        <div style="display:flex; flex-direction:column; gap:4px; margin-top:0.75rem;">
-          {related.approaches.map(a => (
-            <a href={`/approaches/${a.slug}`} style="display:flex; align-items:center; gap:6px; font-size:0.8rem; font-weight:500; color:#a1a1aa; text-decoration:none; padding:0.4rem 0;">
-              <svg style="width:12px; height:12px; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-              {a.title}
-            </a>
-          ))}
-        </div>
-      </div>
-    )}
-
-  </div>
-</Guide>
+<style>
+  .jurisdiction-rail {
+    font-family: var(--font-sans);
+  }
+  .rail-static {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .rail-label-static {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 0.55rem;
+  }
+  .rail-quick-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .rail-quick-list li { list-style: none; }
+  .rail-quick-list a {
+    display: block;
+    padding: 0.2rem 0;
+    text-decoration: none;
+    color: var(--color-primary);
+    font-size: 0.88rem;
+    font-weight: 500;
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .rail-quick-list a:hover {
+    color: var(--color-cta);
+  }
+</style>

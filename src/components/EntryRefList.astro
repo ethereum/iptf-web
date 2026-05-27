@@ -1,0 +1,119 @@
+---
+/**
+ * Renders a heading + linked list of resolved entry references.
+ *
+ * Used wherever a detail page surfaces a structured cross-reference
+ * field from frontmatter (approaches → primary_patterns, related_use_cases;
+ * patterns → related_patterns.composes_with; etc.).
+ *
+ * Items are pre-resolved {label, href} pairs — slug → title resolution
+ * happens upstream via `resolveSlugs()` so the component stays presentational.
+ */
+
+interface Item {
+  label: string;
+  href: string;
+  sublabel?: string;
+}
+
+interface Props {
+  heading: string;
+  items: Item[];
+  /** Smaller, secondary section presentation (used for supporting_patterns). */
+  variant?: 'primary' | 'secondary';
+  /** Optional brief paragraph rendered between heading and list. */
+  blurb?: string;
+}
+
+const { heading, items, variant = 'primary', blurb } = Astro.props;
+if (items.length === 0) return null;
+---
+
+<section class:list={['ref-list', `variant-${variant}`]}>
+  <h3>{heading}</h3>
+  {blurb && <p class="blurb">{blurb}</p>}
+  <ul>
+    {items.map((it) => (
+      <li>
+        <a href={it.href}>
+          <span class="label">{it.label}</span>
+          {it.sublabel && <span class="sublabel">{it.sublabel}</span>}
+          <span class="arr">→</span>
+        </a>
+      </li>
+    ))}
+  </ul>
+</section>
+
+<style>
+  .ref-list {
+    margin: 2rem 0;
+  }
+  .ref-list h3 {
+    font-family: var(--font-sans);
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.018em;
+    color: var(--color-primary);
+    margin-bottom: 0.85rem;
+  }
+  .ref-list.variant-secondary h3 {
+    font-size: 1rem;
+    color: var(--color-text-secondary);
+  }
+  .blurb {
+    font-size: 13.5px;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+    margin: -0.4rem 0 0.85rem;
+  }
+  .ref-list ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+    border-top: 1px solid var(--color-border);
+  }
+  @media (max-width: 720px) { .ref-list ul { grid-template-columns: 1fr; } }
+  .ref-list li { border-bottom: 1px solid var(--color-border); }
+  .ref-list a {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: baseline;
+    gap: 0.6rem;
+    padding: 0.65rem 0.4rem;
+    text-decoration: none;
+    color: var(--color-text);
+    transition: background var(--duration-fast) var(--easing-soft);
+  }
+  .ref-list a:hover {
+    background: var(--color-bg-subtle);
+  }
+  .label {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 14.5px;
+    color: var(--color-primary);
+    line-height: 1.35;
+  }
+  .ref-list a:hover .label { color: var(--color-cta); }
+  .sublabel {
+    grid-column: 1 / -1;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+    margin-top: 0.15rem;
+  }
+  .arr {
+    color: var(--color-text-muted);
+    font-weight: 600;
+    transition: transform var(--duration-fast) var(--easing-soft),
+                color var(--duration-fast) var(--easing-soft);
+  }
+  .ref-list a:hover .arr {
+    color: var(--color-cta);
+    transform: translateX(3px);
+  }
+</style>

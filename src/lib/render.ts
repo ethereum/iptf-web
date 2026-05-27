@@ -38,6 +38,24 @@ const CONTENT_DIRS = [
 
 const graph = graphData as GraphData;
 const nodeIds = new Set(graph.nodes.map(n => n.id));
+const nodeTitles = new Map(graph.nodes.map(n => [n.id, n.title]));
+
+// Strip the "Pattern: " / "Approach: " / etc. type prefix from a node title
+// for display contexts where the type is already implied by the surrounding
+// section. Mirrors stripTypePrefix() in src/lib/slugify.ts; duplicated here
+// because render.ts must stay browser-safe (used by the React island in
+// DetailPanel.tsx).
+function stripTypePrefix(title: string): string {
+  return title.replace(/^(?:Pattern|Vendor|Domain|Jurisdiction|RFP|Approach):\s*/i, '');
+}
+
+// True when the visible label is itself a `.md` filename — the upstream
+// iptf-map authoring anti-pattern where contributors paste GitHub-style
+// relative links and let the filename serve as the label. Same detection
+// used by the Astro remark plugin (src/plugins/remark-rewrite-links.ts).
+function isFilenameLabel(label: string): boolean {
+  return /^(?:\.\.\/[^/]+\/)?[^./]+\.md$/.test(label.trim());
+}
 
 // Dedup unresolved-link warnings across the build.
 const warnedHrefs = new Set<string>();
@@ -50,6 +68,7 @@ function fileToSlug(filename: string, prefix: string): string {
 interface ResolvedLink {
   route: string;     // e.g. '/patterns/foo'
   exists: boolean;   // true if the resolved node ID is in the current graph
+  nodeId: string;    // graph node id, used to look up the real title
 }
 
 /**
@@ -83,9 +102,14 @@ function resolveMdHref(href: string): ResolvedLink | null {
 
     const slug = fileToSlug(filename, cfg.prefix);
     const id = `${cfg.type}/${slug}`;
+    // Astro content-collection routes use the raw filename as entry.id
+    // (e.g. `pattern-shielding`), so the URL keeps the prefix. The graph
+    // node id keeps the historical stripped form for the exists check.
+    const routeSlug = filename.replace(/\.md$/, '');
     candidates.push({
-      route: `${cfg.route}/${slug}${suffix}`,
+      route: `${cfg.route}/${routeSlug}/${suffix}`,
       exists: nodeIds.has(id),
+      nodeId: id,
     });
   }
   if (candidates.length === 0) return null;
@@ -118,9 +142,10 @@ function escapeAttr(s: string): string {
 marked.use({
   renderer: {
     link(this: any, { href, title, tokens }: Tokens.Link): string {
-      const innerHtml: string = this?.parser
+      const rawLabel: string = tokens.map((t: any) => t.raw ?? '').join('');
+      let innerHtml: string = this?.parser
         ? this.parser.parseInline(tokens)
-        : tokens.map((t: any) => t.raw ?? '').join('');
+        : rawLabel;
 
       let finalHref = href;
 
@@ -129,6 +154,14 @@ marked.use({
           const resolved = resolveMdHref(href);
           if (resolved) {
             finalHref = resolved.route;
+            // Swap the filename-as-label anti-pattern (e.g. `pattern-shielding.md`)
+            // for the target's real title from graph.json. Authored labels like
+            // `[Noir](../patterns/pattern-noir-private-contracts.md)` are left
+            // untouched because they don't look like filenames.
+            if (resolved.exists && isFilenameLabel(rawLabel)) {
+              const t = nodeTitles.get(resolved.nodeId);
+              if (t) innerHtml = escapeAttr(stripTypePrefix(t));
+            }
             if (!resolved.exists && !warnedHrefs.has(href)) {
               warnedHrefs.add(href);
               console.warn(`[render] unresolved iptf-map link: ${href} → ${resolved.route} (node not in graph)`);
@@ -146,12 +179,45 @@ marked.use({
   },
 });
 
+/*
+ * Protocol-level tag converter. Pattern source files use a square-
+ * bracket leading marker on `## Protocol` numbered-list items to
+ * indicate where each step runs:
+ *
+ *   1. [user]      Deposit assets...
+ *   2. [contract]  Store the commitment...
+ *   3. [relayer]   Submit the shielded transaction...
+ *
+ * Out of the box `marked` renders the bracket text inline as plain
+ * prose. We post-process the rendered HTML so each leading [tag]
+ * becomes a styled chip — matches the upstream iptf-web treatment.
+ *
+ * Only the FIRST bracket-pair of any <li> is converted, and only
+ * when it sits flush against the opening tag (whitespace optional);
+ * this avoids mangling brackets that appear mid-sentence in body
+ * prose elsewhere on the page.
+ */
+function tagifyProtocolSteps(html: string): string {
+  return html.replace(
+    /<li>(\s*)\[([a-z][a-z0-9 -]*)\]\s*/gi,
+    (_, lead, tag) => {
+      const label = tag.trim();
+      // Slugify so the class matches CSS modifier rules in globals.css
+      // (.protocol-tag--user, .protocol-tag--mix-node, etc.). Spaces
+      // collapse to single dashes so a `[mix node]` tag still maps.
+      const slug = label.toLowerCase().replace(/\s+/g, '-');
+      return `<li>${lead}<span class="protocol-tag protocol-tag--${slug}">${label}</span> `;
+    },
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API
 // ─────────────────────────────────────────────────────────────────────────────
 
 export function renderMarkdown(md: string): string {
-  return marked.parse(md) as string;
+  const raw = marked.parse(md) as string;
+  return tagifyProtocolSteps(raw);
 }
 
 export function renderMarkdownInline(md: string): string {

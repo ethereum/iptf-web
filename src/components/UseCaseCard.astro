@@ -1,0 +1,92 @@
+---
+interface Props {
+  href: string;
+  title: string;
+  gloss?: string;
+  status?: string;
+}
+
+const { href, title, gloss, status } = Astro.props;
+const hasCaseStudy = status?.toLowerCase() === 'published';
+---
+
+<a class="uc-card card-base" href={href}>
+  <h3>{title}</h3>
+  {hasCaseStudy && (
+    <div class="meta">
+      <span class="chip chip--success">approach available</span>
+    </div>
+  )}
+  {gloss && <p class="gloss">{gloss}</p>}
+  <span class="uc-card-link">Read use case <span class="arr">→</span></span>
+</a>
+
+<style>
+  /* card-base carries border / radius / bg / shadow / hover lift /
+     transition. Below is use-case-specific only. */
+  .uc-card {
+    padding: 1.25rem 1.4rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    position: relative;
+    overflow: hidden;
+    min-height: 100%;
+  }
+  .uc-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 3px;
+    width: 0;
+    background: var(--color-cta);
+    transition: width var(--duration-slow) var(--easing-soft);
+  }
+  .uc-card:hover::after { width: 100%; }
+
+  .uc-card h3 {
+    font-family: var(--font-sans);
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.018em;
+    line-height: 1.2;
+    color: var(--color-primary);
+    min-width: 0;
+  }
+
+  /* Chip row mirrors ApproachCard / PatternCard: separate row under
+     the body, font-mono small chips. */
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem 0.4rem;
+    margin-top: 0.1rem;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+  }
+
+  .gloss {
+    font-size: 13.5px;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+  }
+
+  .uc-card-link {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--color-cta);
+    margin-top: auto;
+    padding-top: 0.7rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .uc-card-link .arr { transition: transform var(--duration-fast) var(--easing-soft); }
+  .uc-card:hover .uc-card-link .arr { transform: translateX(3px); }
+
+</style>

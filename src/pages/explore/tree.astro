@@ -1,13 +1,78 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import { TreeView } from '../../components/TreeView';
+/*
+ * /explore/tree/ — three-column hierarchy:
+ *   Use cases → Approaches → Building blocks
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHeader from '../../components/PageHeader.astro';
+import { TreeView } from '../../components/explore/TreeView';
 import graphData from '../../data/graph.json';
+
+const description =
+  'Trace how use cases lead into approaches, which compose building-block patterns. Hover any node to see its connections; click to drill in.';
 ---
-<Layout title="IPTF Privacy Map - Tree View">
-  <TreeView client:load graph={graphData} />
-  <script define:vars={{ nodeCount: graphData.meta.node_count, edgeCount: graphData.meta.edge_count }}>
-    document.getElementById('nav-tree')?.classList.add('active');
-    const stats = document.getElementById('nav-stats');
-    if (stats) stats.textContent = `${nodeCount} nodes · ${edgeCount} edges`;
-  </script>
-</Layout>
+
+<BaseLayout
+  title="Tree view"
+  description={description}
+  current="/explore/"
+>
+  <PageHeader
+    breadcrumbs={[
+      { label: 'Home', href: '/' },
+      { label: 'Explore', href: '/explore/browse/' },
+      { label: 'Tree' },
+    ]}
+    title="Hierarchy view"
+    lede={description}
+  />
+
+  <div class="explore-nav">
+    <div class="container">
+      <a href="/explore/galaxy/" class="explore-tab">Galaxy</a>
+      <a href="/explore/tree/" class="explore-tab active">Tree</a>
+      <a href="/explore/browse/" class="explore-tab">Browse</a>
+    </div>
+  </div>
+
+  <section class="explore-canvas">
+    <TreeView client:only="react" graph={graphData} />
+  </section>
+</BaseLayout>
+
+<style>
+  .explore-nav {
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg);
+  }
+  .explore-nav .container {
+    display: flex;
+    gap: 0.25rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0;
+  }
+  .explore-tab {
+    padding: 0.7rem 1rem;
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    transition: color var(--duration-fast) var(--easing-soft),
+      border-color var(--duration-fast) var(--easing-soft);
+  }
+  .explore-tab:hover {
+    color: var(--color-primary);
+  }
+  .explore-tab.active {
+    color: var(--color-cta);
+    border-bottom-color: var(--color-cta);
+  }
+  .explore-canvas {
+    position: relative;
+    height: calc(100vh - 220px);
+    min-height: 600px;
+    background: var(--color-bg-subtle);
+  }
+</style>

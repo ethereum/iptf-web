@@ -1,0 +1,211 @@
+---
+/*
+ * Per-axis CROPS context table — ports the iptf-web crops-context
+ * block (per handoff, locked 2026-05-19). Sits alongside our CropsPie
+ * pizza chart: pizza for scanning, table for reading.
+ *
+ * One row per non-empty axis (CR / OS / P / S). The value pill mirrors
+ * the pizza color tones (success / warning / neutral) so the two
+ * renderings cross-reference visually.
+ */
+import { inlineMd } from '../lib/inlineMarkdown';
+
+interface AxisContext {
+  cr?: string;
+  o?: string;
+  os?: string;
+  p?: string;
+  privacy?: string;
+  s?: string;
+  security?: string;
+  [key: string]: unknown;
+}
+
+interface AxisProfile {
+  cr?: string;
+  o?: string;
+  os?: string;
+  p?: string;
+  privacy?: string;
+  s?: string;
+  security?: string;
+  [key: string]: unknown;
+}
+
+interface Props {
+  /** crops_context map keyed by axis short codes (cr / o / p / s). */
+  context?: AxisContext | null;
+  /** crops_profile map — used to render the rating pill per row. */
+  profile?: AxisProfile | null;
+}
+
+const { context, profile } = Astro.props;
+
+type Tone = 'full' | 'med' | 'low' | 'none';
+function tone(v?: string): Tone {
+  if (!v) return 'none';
+  const k = v.toLowerCase();
+  if (k === 'full' || k === 'yes' || k === 'high') return 'full';
+  if (k === 'medium' || k === 'partial') return 'med';
+  if (k === 'low' || k === 'no') return 'low';
+  return 'none';
+}
+
+const axes = [
+  {
+    code: 'CR',
+    name: 'Censorship-resistance',
+    blurb: context?.cr,
+    value: profile?.cr,
+  },
+  {
+    code: 'OS',
+    name: 'Open source',
+    blurb: (context?.os as string | undefined) ?? context?.o,
+    value: (profile?.os as string | undefined) ?? profile?.o,
+  },
+  {
+    code: 'P',
+    name: 'Privacy',
+    blurb: (context?.privacy as string | undefined) ?? context?.p,
+    value: (profile?.privacy as string | undefined) ?? profile?.p,
+  },
+  {
+    code: 'S',
+    name: 'Security',
+    blurb: (context?.security as string | undefined) ?? context?.s,
+    value: (profile?.security as string | undefined) ?? profile?.s,
+  },
+];
+
+const rows = axes.filter((a) => a.blurb && a.blurb.trim().length > 0);
+
+const hasAny = rows.length > 0;
+---
+
+{hasAny && (
+  <section class="crops-context">
+    <h4>CROPS — per-axis reasoning</h4>
+    <div class="crops-context-table" role="table" aria-label="CROPS evaluation by axis">
+      {rows.map((axis) => (
+        <div class="crops-row" role="row">
+          <div class="crops-row-label" role="cell">
+            <span class="crops-row-code">{axis.code}</span>
+            <span class="crops-row-name">{axis.name}</span>
+            {axis.value && (
+              <span class={`crops-row-pill tone-${tone(axis.value)}`}>{axis.value}</span>
+            )}
+          </div>
+          <div class="crops-row-text" role="cell" set:html={inlineMd(axis.blurb!)} />
+        </div>
+      ))}
+    </div>
+  </section>
+)}
+
+<style>
+  .crops-context {
+    margin: 1.5rem 0 2rem;
+  }
+  .crops-context h4 {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    margin: 0 0 0.85rem;
+  }
+  .crops-context-table {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--color-bg);
+  }
+  .crops-row {
+    display: grid;
+    grid-template-columns: minmax(180px, 220px) 1fr;
+    gap: 1.25rem;
+    padding: 0.95rem 1.2rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .crops-row:last-child { border-bottom: none; }
+
+  .crops-row-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .crops-row-code {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+  .crops-row-name {
+    font-family: var(--font-sans);
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.01em;
+  }
+  .crops-row-pill {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: 999px;
+  }
+  /* CROPS-specific palette — defined in tokens.css. Bright green /
+     amber / red traffic light so the row pills read the same across
+     pie slices, tooltip pills, and context-table rows. tone-none
+     buckets to the same `low` colour since missing data signals fail
+     per Yanis's call. */
+  .crops-row-pill.tone-full {
+    background: var(--color-crops-full-tint);
+    color: var(--color-crops-full-strong);
+  }
+  .crops-row-pill.tone-med {
+    background: var(--color-crops-med-tint);
+    color: var(--color-crops-med-strong);
+  }
+  .crops-row-pill.tone-low,
+  .crops-row-pill.tone-none {
+    background: var(--color-crops-low-tint);
+    color: var(--color-crops-low-strong);
+  }
+
+  .crops-row-text {
+    font-size: 0.92rem;
+    line-height: 1.65;
+    color: var(--color-text);
+  }
+  .crops-row-text :global(a) {
+    color: var(--color-cta);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+  }
+  .crops-row-text :global(a:hover) {
+    border-bottom-color: currentColor;
+  }
+  .crops-row-text :global(code) {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--color-bg-subtle);
+    padding: 0.05em 0.4em;
+    border-radius: var(--radius-sm);
+    color: var(--color-primary);
+  }
+
+  @media (max-width: 640px) {
+    .crops-row {
+      grid-template-columns: 1fr;
+      gap: 0.5rem;
+    }
+  }
+</style>

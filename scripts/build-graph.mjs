@@ -27,6 +27,7 @@ const __dirname = dirname(__filename);
 // Config
 // ---------------------------------------------------------------------------
 
+// Our submodule path is `content/` (upstream `iptf-web` uses `content/`).
 const CONTENT_SUBMODULE = join(__dirname, "..", "content");
 const candidates = [process.env.IPTF_MAP_PATH, CONTENT_SUBMODULE].filter(
   Boolean,

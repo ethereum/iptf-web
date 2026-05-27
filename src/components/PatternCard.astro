@@ -1,0 +1,156 @@
+---
+import CropsPie from './CropsPie.astro';
+import { stripTypePrefix } from '../lib/slugify';
+
+interface Props {
+  href: string;
+  title: string;
+  privacyGoal?: string;
+  layer?: string;
+  maturity?: string;
+  cropsProfile?: {
+    cr?: string;
+    os?: string; o?: string;
+    privacy?: string; p?: string;
+    security?: string; s?: string;
+  } | null;
+}
+
+const { href, title, privacyGoal, layer, maturity, cropsProfile } = Astro.props;
+
+// Map a maturity value to a tone class so the chip colour communicates
+// readiness at a glance.
+function maturityTone(m?: string): 'strong' | 'mid' | 'soft' | 'plain' {
+  if (!m) return 'plain';
+  const v = m.toLowerCase();
+  if (v.includes('production')) return 'strong';
+  if (v.includes('prototyp') || v.includes('testnet') || v.includes('pilot')) return 'mid';
+  if (v.includes('document') || v.includes('research') || v.includes('concept')) return 'soft';
+  return 'plain';
+}
+const mtone = maturityTone(maturity);
+---
+
+<a class="pt-card card-base" href={href}>
+  <div class="body">
+    <h3>{stripTypePrefix(title)}</h3>
+    <div class="meta">
+      {layer && <span class="chip chip--layer">{layer}</span>}
+      {maturity && <span class:list={['chip', 'chip--maturity', `tone-${mtone}`]}>{maturity}</span>}
+    </div>
+    {privacyGoal && <p class="goal">{privacyGoal}</p>}
+  </div>
+  {cropsProfile && (
+    <div class="aside">
+      <CropsPie profile={cropsProfile} size={72} />
+    </div>
+  )}
+</a>
+
+<style>
+  /* Card-base from globals.css handles border / radius / bg / shadow /
+     hover lift + transition. Component-scoped rules below only carry
+     the bits that are pattern-specific (2-col grid with pie aside,
+     padding tuned to the chip-row + title density). */
+  .pt-card {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 1.25rem;
+    padding: 1.25rem 1.25rem 1.15rem;
+    position: relative;
+  }
+  .pt-card:hover {
+    box-shadow: var(--shadow-lg);
+  }
+  /* Elevate the parent card while its pie tooltip is open. The pie
+     itself sets z-index: 5, but `.card-base:hover` in globals.css
+     applies `transform: translateY(-2px)` which creates a new stacking
+     context — so the pie's z:5 is trapped INSIDE the card's stacking
+     context and sibling cards (separate stacking contexts in source
+     order) can paint over the tooltip. Lifting the parent card to
+     z:10 raises its whole stacking context above neighbours. Below
+     NavBar (z:50) and NavOverlay (z:100), so chrome stays reachable. */
+  .pt-card:has(.crops-pie:hover),
+  .pt-card:has(.crops-pie[data-active-axis]) {
+    z-index: 10;
+  }
+
+  @media (max-width: 720px) {
+    .pt-card { grid-template-columns: 1fr; }
+  }
+  /* card-base handles the touch-device hover override */
+  .body { display: flex; flex-direction: column; gap: 0.5rem; min-width: 0; }
+  .body h3 {
+    font-family: var(--font-sans);
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    line-height: 1.3;
+    letter-spacing: -0.012em;
+    min-width: 0;
+  }
+  .goal {
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--color-text-secondary);
+  }
+
+  /* Tags row — three chips with no redundant labels. Layer reads as
+     a flat code chip (L1 / L2 / hybrid). Maturity gets a coloured
+     tint that mirrors the CROPS traffic-light palette. Status is the
+     subtlest, since it's editorial state ("ready", "draft") rather
+     than technology readiness. */
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem 0.4rem;
+    margin-top: 0.35rem;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+  }
+  .chip {
+    padding: 0.18rem 0.5rem;
+    border-radius: var(--radius-sm);
+    text-transform: lowercase;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  .chip--layer {
+    background: var(--color-bg-subtle);
+    color: var(--color-primary);
+    border: 1px solid var(--color-border);
+    text-transform: none;
+  }
+  .chip--maturity { text-transform: lowercase; }
+  .chip--maturity.tone-strong {
+    background: var(--color-success-tint);
+    color: var(--color-success-strong);
+  }
+  .chip--maturity.tone-mid {
+    background: var(--color-warning-tint);
+    color: var(--color-warning-strong);
+  }
+  .chip--maturity.tone-soft {
+    background: var(--color-bg-muted);
+    color: var(--color-text-muted);
+  }
+  .chip--maturity.tone-plain {
+    background: var(--color-bg-muted);
+    color: var(--color-text-secondary);
+  }
+  /* Pie sits naked on the right side of the card, centred vertically.
+     On narrow widths the card collapses to single-column so the pie
+     drops below the body — align it to the left there so it doesn't
+     float to the right corner of the row. */
+  .aside {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  @media (max-width: 720px) {
+    .aside { justify-content: flex-start; }
+  }
+
+</style>

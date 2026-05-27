@@ -1,0 +1,782 @@
+---
+/*
+ * Design system reference — an at-a-glance map of every visual primitive
+ * the site already ships: tokens (color / type / spacing / radius / shadow),
+ * buttons, cards, chips, prose, table styles, motion. Read directly from
+ * the live token + global CSS so this page can never drift from production.
+ *
+ * Nothing here introduces new design — it documents what's there.
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHeader from '../components/PageHeader.astro';
+
+interface Swatch { name: string; cssVar: string; hex: string; note?: string }
+
+const brandColors: Swatch[] = [
+  { name: 'Primary',       cssVar: '--color-primary',       hex: '#1a365d', note: 'Headlines, strong text' },
+  { name: 'Primary light', cssVar: '--color-primary-light', hex: '#2c5282', note: 'Subheadings' },
+  { name: 'CTA',           cssVar: '--color-cta',           hex: '#2257e9', note: 'Interactive blue — every link / button / hover idles here' },
+  { name: 'CTA hover',     cssVar: '--color-cta-hover',     hex: '#1a365d', note: 'Resolves to navy primary on hover' },
+  { name: 'On CTA',        cssVar: '--color-on-cta',        hex: '#ffffff', note: 'Locked white — text on blue surfaces' },
+  { name: 'On primary',    cssVar: '--color-on-primary',    hex: '#ffffff', note: 'Ink on navy surfaces (footer links, jurisdiction card active state)' },
+];
+
+const ctaTints: Swatch[] = [
+  { name: 'CTA tint',        cssVar: '--color-cta-tint',        hex: 'rgba(34,87,233,0.08)', note: 'Pill background' },
+  { name: 'CTA tint strong', cssVar: '--color-cta-tint-strong', hex: 'rgba(34,87,233,0.12)', note: 'Hover wash' },
+  { name: 'CTA border',      cssVar: '--color-cta-border',      hex: 'rgba(34,87,233,0.25)', note: 'Soft blue border' },
+];
+
+const textColors: Swatch[] = [
+  { name: 'Text',           cssVar: '--color-text',           hex: '#1a202c' },
+  { name: 'Text secondary', cssVar: '--color-text-secondary', hex: '#4a5568' },
+  { name: 'Text muted',     cssVar: '--color-text-muted',     hex: '#718096' },
+  { name: 'Text faint',     cssVar: '--color-text-faint',     hex: '#a0aec0' },
+];
+
+const surfaces: Swatch[] = [
+  { name: 'Bg',          cssVar: '--color-bg',          hex: '#ffffff' },
+  { name: 'Bg subtle',   cssVar: '--color-bg-subtle',   hex: '#f7fafc' },
+  { name: 'Bg muted',    cssVar: '--color-bg-muted',    hex: '#edf2f7' },
+  { name: 'Bg card',     cssVar: '--color-bg-card',     hex: '#f4f5f6', note: 'Neutral light gray for path-card surface (homepage)' },
+  { name: 'Border',      cssVar: '--color-border',      hex: '#e2e8f0' },
+  { name: 'Border strong', cssVar: '--color-border-strong', hex: '#cbd5e0' },
+];
+
+const tonal: Swatch[] = [
+  { name: 'Success',        cssVar: '--color-success',        hex: '#10b981' },
+  { name: 'Success strong', cssVar: '--color-success-strong', hex: '#047857' },
+  { name: 'Warning',        cssVar: '--color-warning',        hex: '#f59e0b' },
+  { name: 'Warning strong', cssVar: '--color-warning-strong', hex: '#92400e' },
+  { name: 'Danger',         cssVar: '--color-danger',         hex: '#b91c1c', note: 'EntryFacts "Avoid when" criteria' },
+  { name: 'Neutral',        cssVar: '--color-neutral',        hex: '#94a3b8' },
+  { name: 'Neutral strong', cssVar: '--color-neutral-strong', hex: '#475569' },
+  { name: 'Violet',         cssVar: '--color-violet',         hex: '#6d28d9', note: 'Third step of the EntryFacts neutral rotation' },
+];
+
+const contextColors: Swatch[] = [
+  { name: 'I2I',      cssVar: '--color-i2i',      hex: '#4f46e5', note: 'Institution-to-institution context (indigo)' },
+  { name: 'I2I tint', cssVar: '--color-i2i-tint', hex: 'rgba(99, 102, 241, 0.10)' },
+  { name: 'I2U',      cssVar: '--color-i2u',      hex: '#0d9488', note: 'Institution-to-user context (teal)' },
+  { name: 'I2U tint', cssVar: '--color-i2u-tint', hex: 'rgba(20, 184, 166, 0.10)' },
+];
+
+interface TypeRow { label: string; sample: string; family: 'sans' | 'mono'; size: string; weight: string; usage: string }
+const typeRows: TypeRow[] = [
+  { label: 'Page H1',     sample: 'Institutional Privacy Task Force',          family: 'sans', size: 'clamp(2.25rem, 4.4vw, 3.05rem)', weight: '700', usage: 'PageHeader title' },
+  { label: 'Section H2',  sample: 'Every entry began as a conversation',       family: 'sans', size: 'clamp(2.15rem, 3.8vw, 2.85rem)', weight: '700', usage: '.section-head h2' },
+  { label: 'Prose H2',    sample: 'Components',                                family: 'sans', size: '1.5rem',  weight: '700', usage: '.prose h2 (in-body section break)' },
+  { label: 'Prose H3',    sample: 'Threat model',                              family: 'sans', size: '1.2rem',  weight: '600', usage: '.prose h3' },
+  { label: 'Prose H4',    sample: 'Sub-section',                               family: 'sans', size: '1.05rem', weight: '600', usage: '.prose h4' },
+  { label: 'Lede',        sample: 'A working knowledge base for institutions arriving at Ethereum with privacy requirements.', family: 'sans', size: '1.0625rem', weight: '400', usage: 'PageHeader lede + section meta' },
+  { label: 'Body',        sample: 'Privacy on Ethereum means controlling what information is visible and to whom.', family: 'sans', size: '1rem', weight: '400', usage: 'body + .prose p' },
+  { label: 'Small',       sample: 'Reviewed weekly · Last edit 2026-05-21',    family: 'mono', size: '11.5px',  weight: '400', usage: 'meta-row, breadcrumb' },
+  { label: 'Eyebrow',     sample: 'PRIVACY BASICS',                            family: 'mono', size: '11px',    weight: '600', usage: '.section-tag (uppercase, 0.16em tracking)' },
+];
+
+const radii = [
+  { name: '--radius-sm', value: '4px' },
+  { name: '--radius-md', value: '8px' },
+  { name: '--radius-lg', value: '12px' },
+  { name: '--radius-xl', value: '16px' },
+];
+const shadows = [
+  { name: '--shadow-sm', usage: 'cards at rest' },
+  { name: '--shadow-md', usage: 'card hover' },
+  { name: '--shadow-lg', usage: 'modal / hover lift' },
+  { name: '--shadow-xl', usage: 'overlays' },
+];
+const durations = [
+  { name: '--duration-fast', value: '120ms', usage: 'hover state' },
+  { name: '--duration-base', value: '180ms', usage: 'transition default' },
+  { name: '--duration-slow', value: '280ms', usage: 'page reveal' },
+];
+---
+
+<BaseLayout
+  title="Design system"
+  description="Tokens and components used across the IPTF guide."
+  current="/design/"
+>
+  <PageHeader
+    breadcrumbs={[{ label: 'Home', href: '/' }, { label: 'Design system' }]}
+    title="Design system"
+    lede="One page mapping every visual primitive the site ships — tokens, type, components. Read directly from the live CSS so it can't drift from production."
+  />
+
+  <section class="ds">
+    <div class="container">
+      <nav class="ds-toc" aria-label="On this page">
+        <a href="#colors">Colors</a>
+        <a href="#typography">Typography</a>
+        <a href="#spacing">Spacing & Radius</a>
+        <a href="#shadows">Shadows</a>
+        <a href="#buttons">Buttons</a>
+        <a href="#cards">Cards</a>
+        <a href="#chips">Badges & Pills</a>
+        <a href="#callouts">Callouts</a>
+        <a href="#code">Code</a>
+        <a href="#table">Table</a>
+        <a href="#prose">Prose</a>
+        <a href="#motion">Motion</a>
+      </nav>
+
+      <!-- COLORS -->
+      <article id="colors" class="ds-section">
+        <h2 class="ds-section-title">Colors</h2>
+        <p class="ds-section-desc">Semantic, not positional. Single CTA blue idles every interactive element; tonal palette is a three-step traffic light for status / quality signalling.</p>
+
+        <h3 class="ds-subsection">Brand</h3>
+        <div class="ds-swatches">
+          {brandColors.map((s) => (
+            <div class="ds-swatch">
+              <div class="ds-swatch-color" style={`background:var(${s.cssVar})`}></div>
+              <div class="ds-swatch-info">
+                <div class="ds-swatch-name">{s.name}</div>
+                <code class="ds-swatch-hex">{s.cssVar}</code>
+                <code class="ds-swatch-hex">{s.hex}</code>
+                {s.note && <div class="ds-swatch-note">{s.note}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <h3 class="ds-subsection">CTA tints</h3>
+        <div class="ds-swatches">
+          {ctaTints.map((s) => (
+            <div class="ds-swatch">
+              <div class="ds-swatch-color tints" style={`background:var(${s.cssVar})`}></div>
+              <div class="ds-swatch-info">
+                <div class="ds-swatch-name">{s.name}</div>
+                <code class="ds-swatch-hex">{s.cssVar}</code>
+                <code class="ds-swatch-hex">{s.hex}</code>
+                {s.note && <div class="ds-swatch-note">{s.note}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <h3 class="ds-subsection">Text</h3>
+        <div class="ds-swatches">
+          {textColors.map((s) => (
+            <div class="ds-swatch">
+              <div class="ds-swatch-color" style={`background:var(${s.cssVar})`}></div>
+              <div class="ds-swatch-info">
+                <div class="ds-swatch-name">{s.name}</div>
+                <code class="ds-swatch-hex">{s.cssVar}</code>
+                <code class="ds-swatch-hex">{s.hex}</code>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <h3 class="ds-subsection">Surfaces & borders</h3>
+        <div class="ds-swatches">
+          {surfaces.map((s) => (
+            <div class="ds-swatch">
+              <div class="ds-swatch-color bordered" style={`background:var(${s.cssVar})`}></div>
+              <div class="ds-swatch-info">
+                <div class="ds-swatch-name">{s.name}</div>
+                <code class="ds-swatch-hex">{s.cssVar}</code>
+                <code class="ds-swatch-hex">{s.hex}</code>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <h3 class="ds-subsection">Tonal (success / warning / danger / neutral / violet)</h3>
+        <div class="ds-swatches">
+          {tonal.map((s) => (
+            <div class="ds-swatch">
+              <div class="ds-swatch-color" style={`background:var(${s.cssVar})`}></div>
+              <div class="ds-swatch-info">
+                <div class="ds-swatch-name">{s.name}</div>
+                <code class="ds-swatch-hex">{s.cssVar}</code>
+                <code class="ds-swatch-hex">{s.hex}</code>
+                {s.note && <div class="ds-swatch-note">{s.note}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <h3 class="ds-subsection">Context coloring (I2I / I2U)</h3>
+        <div class="ds-swatches">
+          {contextColors.map((s) => (
+            <div class="ds-swatch">
+              <div class={`ds-swatch-color ${s.cssVar.endsWith('-tint') ? 'tints' : ''}`} style={`background:var(${s.cssVar})`}></div>
+              <div class="ds-swatch-info">
+                <div class="ds-swatch-name">{s.name}</div>
+                <code class="ds-swatch-hex">{s.cssVar}</code>
+                <code class="ds-swatch-hex">{s.hex}</code>
+                {s.note && <div class="ds-swatch-note">{s.note}</div>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </article>
+
+      <!-- TYPOGRAPHY -->
+      <article id="typography" class="ds-section">
+        <h2 class="ds-section-title">Typography</h2>
+        <p class="ds-section-desc">Inter for sans, JetBrains Mono for code and small meta. Weights 400 / 500 / 600 / 700 / 800.</p>
+        <div class="ds-type">
+          {typeRows.map((r) => (
+            <div class="ds-type-row">
+              <div class="ds-type-meta">
+                <div class="ds-type-label">{r.label}</div>
+                <div class="ds-type-meta-line">
+                  <code>{r.family === 'mono' ? 'mono' : 'sans'}</code>
+                  <code>{r.size}</code>
+                  <code>w{r.weight}</code>
+                </div>
+                <div class="ds-type-usage">{r.usage}</div>
+              </div>
+              <div class={`ds-type-sample ${r.label.toLowerCase().replace(/\s+/g, '-')}`}>{r.sample}</div>
+            </div>
+          ))}
+        </div>
+      </article>
+
+      <!-- SPACING & RADIUS -->
+      <article id="spacing" class="ds-section">
+        <h2 class="ds-section-title">Spacing & Radius</h2>
+        <p class="ds-section-desc">Four radius tiers. Container max 1200px with fluid horizontal padding clamping 1.25rem–2rem.</p>
+        <div class="ds-radius-grid">
+          {radii.map((r) => (
+            <div class="ds-radius">
+              <div class="ds-radius-box" style={`border-radius:var(${r.name})`}></div>
+              <code>{r.name}</code>
+              <div class="ds-radius-value">{r.value}</div>
+            </div>
+          ))}
+        </div>
+      </article>
+
+      <!-- SHADOWS -->
+      <article id="shadows" class="ds-section">
+        <h2 class="ds-section-title">Shadows</h2>
+        <p class="ds-section-desc">Four tiers mapped from prototype --shadow-1..4. Rest / hover / lift / overlay.</p>
+        <div class="ds-shadow-grid">
+          {shadows.map((s) => (
+            <div class="ds-shadow">
+              <div class="ds-shadow-box" style={`box-shadow:var(${s.name})`}></div>
+              <code>{s.name}</code>
+              <div class="ds-shadow-usage">{s.usage}</div>
+            </div>
+          ))}
+        </div>
+      </article>
+
+      <!-- BUTTONS -->
+      <article id="buttons" class="ds-section">
+        <h2 class="ds-section-title">Buttons</h2>
+        <p class="ds-section-desc">Two variants: primary (filled CTA blue) and ghost (CTA outline). Optional <code>.lg</code> bumps padding and font.</p>
+        <div class="ds-preview">
+          <a class="btn primary" href="#">Primary<span class="arr">→</span></a>
+          <a class="btn ghost" href="#">Ghost<span class="arr">→</span></a>
+          <a class="btn primary lg" href="#">Primary lg<span class="arr">→</span></a>
+          <a class="btn ghost lg" href="#">Ghost lg<span class="arr">→</span></a>
+        </div>
+      </article>
+
+      <!-- CARDS -->
+      <article id="cards" class="ds-section">
+        <h2 class="ds-section-title">Cards</h2>
+        <p class="ds-section-desc">A single <code>.card-base</code> recipe (subtle border + shadow, lifts and gains CTA-blue border on hover). Listing cards across the site compose on top of this.</p>
+        <div class="ds-card-grid">
+          <a class="card-base ds-card-sample" href="#">
+            <div class="ds-card-eyebrow">Pattern</div>
+            <h4>Shielded ERC-20 transfers</h4>
+            <p>Hide amounts and counterparties for compliant institutional transfers.</p>
+            <div class="ds-card-meta">
+              <span class="chip chip--neutral">L2</span>
+              <span class="chip chip--success">production</span>
+            </div>
+          </a>
+          <a class="card-base ds-card-sample" href="#">
+            <div class="ds-card-eyebrow">Vendor</div>
+            <h4>Aztec</h4>
+            <p>Privacy-native rollup with Noir DSL and client-side proving.</p>
+            <div class="ds-card-meta">
+              <span class="chip chip--neutral">L2</span>
+              <span class="chip chip--warning">beta</span>
+            </div>
+          </a>
+        </div>
+      </article>
+
+      <!-- CHIPS / BADGES -->
+      <article id="chips" class="ds-section">
+        <h2 class="ds-section-title">Badges & Pills</h2>
+        <p class="ds-section-desc">A single <code>.chip</code> vocabulary with five tone modifiers — neutral, success, warning, muted, cta. Used wherever metadata sits inline on a card or row.</p>
+        <div class="ds-preview chip-row">
+          <span class="chip chip--neutral">neutral</span>
+          <span class="chip chip--success">production</span>
+          <span class="chip chip--warning">beta</span>
+          <span class="chip chip--muted">draft</span>
+          <span class="chip chip--cta">cta</span>
+        </div>
+      </article>
+
+      <!-- CALLOUTS -->
+      <article id="callouts" class="ds-section">
+        <h2 class="ds-section-title">Callouts</h2>
+        <p class="ds-section-desc">Tinted-background callouts mirror the tonal palette. Use sparingly — most signalling lives in chips on cards.</p>
+        <div class="ds-callouts">
+          <div class="ds-callout ds-callout--cta">
+            <strong>Note.</strong> CTA-tint background is reserved for blue brand callouts and pill backgrounds — not for arbitrary highlights.
+          </div>
+          <div class="ds-callout ds-callout--success">
+            <strong>Production.</strong> This component composes with the chip vocabulary above; success tone signals shipped state.
+          </div>
+          <div class="ds-callout ds-callout--warning">
+            <strong>Beta.</strong> Warning tone signals draft or pre-production. Pair with a chip on the row, not just the callout.
+          </div>
+        </div>
+      </article>
+
+      <!-- CODE -->
+      <article id="code" class="ds-section">
+        <h2 class="ds-section-title">Code</h2>
+        <p class="ds-section-desc">JetBrains Mono. Inline code gets a subtle muted background and border; block code uses subtle bg with no border colour shift.</p>
+        <div class="ds-preview ds-code-preview">
+          <p>Inline references look like <code>--color-cta</code> or <code>renderMarkdown(body)</code>.</p>
+          <pre><code>{`// src/lib/render.ts
+marked.use({
+  renderer: {
+    link({ href, tokens }) {
+      // ...
+    },
+  },
+});`}</code></pre>
+        </div>
+      </article>
+
+      <!-- TABLE -->
+      <article id="table" class="ds-section">
+        <h2 class="ds-section-title">Table</h2>
+        <p class="ds-section-desc">Used inside prose for comparison rows. Header cells take a subtle background; row borders use the standard border colour.</p>
+        <div class="prose ds-prose-preview">
+          <table>
+            <thead>
+              <tr><th>Pattern</th><th>Layer</th><th>Maturity</th><th>Privacy</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Shielded ERC-20</td><td>L2</td><td>production</td><td>amounts + counterparties</td></tr>
+              <tr><td>Noir private contracts</td><td>L2</td><td>beta</td><td>private fns, public state</td></tr>
+              <tr><td>Viewing keys</td><td>L1 / L2</td><td>production</td><td>selective disclosure</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </article>
+
+      <!-- PROSE -->
+      <article id="prose" class="ds-section">
+        <h2 class="ds-section-title">Prose</h2>
+        <p class="ds-section-desc">Markdown bodies render inside <code>.prose</code>. Constrained to ~70ch, with hairline section breaks above every H2 (suppressed when the first child of prose is itself an H2, on domain pages).</p>
+        <div class="prose ds-prose-preview">
+          <p>Privacy on Ethereum means controlling what information is visible and to whom. The spectrum ranges from <strong>anonymity</strong> to <strong>full confidentiality</strong>.</p>
+          <h2>Components</h2>
+          <p>Most institutional solutions sit between those poles, using selective disclosure to reveal specific data to <a href="#">authorized parties</a>.</p>
+          <ul>
+            <li>Shielded pool contracts store commitments and a nullifier set.</li>
+            <li>Hash-based commitments hide note contents.</li>
+          </ul>
+          <blockquote>The question is not whether Ethereum is private, but which privacy architecture fits your requirements.</blockquote>
+        </div>
+      </article>
+
+      <!-- MOTION -->
+      <article id="motion" class="ds-section">
+        <h2 class="ds-section-title">Motion</h2>
+        <p class="ds-section-desc">One easing curve, three durations. Anything visual that transitions uses <code>cubic-bezier(0.4, 0, 0.2, 1)</code> — never bouncy easings. Respects <code>prefers-reduced-motion</code>.</p>
+        <div class="ds-motion">
+          {durations.map((d) => (
+            <div class="ds-motion-row">
+              <div class={`ds-motion-dot ${d.name.replace('--duration-', 'd-')}`}></div>
+              <code>{d.name}</code>
+              <span class="ds-motion-value">{d.value}</span>
+              <span class="ds-motion-usage">{d.usage}</span>
+            </div>
+          ))}
+        </div>
+      </article>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .ds {
+    padding: 3rem 0 6rem;
+  }
+
+  /* TOC */
+  .ds-toc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem 0.6rem;
+    margin: 0 0 4rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .ds-toc a {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-secondary);
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--color-border);
+    background: var(--color-bg);
+    transition: color var(--duration-fast) var(--easing-soft),
+                border-color var(--duration-fast) var(--easing-soft),
+                background var(--duration-fast) var(--easing-soft);
+  }
+  .ds-toc a:hover {
+    color: var(--color-cta);
+    border-color: var(--color-cta-border);
+    background: var(--color-cta-tint);
+  }
+
+  .ds-section {
+    margin: 0 0 5rem;
+    scroll-margin-top: 80px;
+  }
+  .ds-section-title {
+    font-family: var(--font-sans);
+    font-size: 1.85rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin: 0 0 0.65rem;
+  }
+  .ds-section-desc {
+    color: var(--color-text-secondary);
+    font-size: 1rem;
+    line-height: 1.65;
+    max-width: 70ch;
+    margin: 0 0 2rem;
+  }
+  .ds-section-desc :global(code) { font-family: var(--font-mono); font-size: 0.875em; background: var(--color-bg-muted); color: var(--color-primary); padding: 0.08em 0.35em; border-radius: var(--radius-sm); border: 1px solid var(--color-border); }
+  .ds-subsection {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    margin: 2.5rem 0 1rem;
+  }
+
+  /* Color swatches */
+  .ds-swatches {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
+  }
+  .ds-swatch {
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    overflow: hidden;
+  }
+  .ds-swatch-color {
+    height: 80px;
+    width: 100%;
+  }
+  .ds-swatch-color.bordered { border-bottom: 1px solid var(--color-border); }
+  .ds-swatch-color.tints {
+    background-image:
+      linear-gradient(45deg, var(--color-bg-muted) 25%, transparent 25%),
+      linear-gradient(-45deg, var(--color-bg-muted) 25%, transparent 25%);
+    background-size: 12px 12px;
+  }
+  .ds-swatch-info {
+    padding: 0.65rem 0.85rem 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .ds-swatch-name {
+    font-family: var(--font-sans);
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--color-primary);
+  }
+  .ds-swatch-hex {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--color-text-secondary);
+  }
+  .ds-swatch-note {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+    margin-top: 0.2rem;
+  }
+
+  /* Typography table */
+  .ds-type {
+    display: flex;
+    flex-direction: column;
+  }
+  .ds-type-row {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 2rem;
+    padding: 1.5rem 0;
+    border-top: 1px solid var(--color-border);
+    align-items: baseline;
+  }
+  .ds-type-row:last-child { border-bottom: 1px solid var(--color-border); }
+  .ds-type-label {
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-primary);
+  }
+  .ds-type-meta-line {
+    margin-top: 0.3rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .ds-type-meta-line code {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--color-text-secondary);
+    background: var(--color-bg-muted);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 0.1rem 0.4rem;
+  }
+  .ds-type-usage {
+    margin-top: 0.4rem;
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+  }
+  .ds-type-sample {
+    color: var(--color-text);
+    line-height: 1.4;
+    min-width: 0;
+  }
+  .ds-type-sample.page-h1   { font-family: var(--font-sans); font-size: clamp(2.25rem, 4.4vw, 3.05rem); font-weight: 700; color: var(--color-primary); letter-spacing: -0.028em; line-height: 1.08; }
+  .ds-type-sample.section-h2 { font-family: var(--font-sans); font-size: clamp(2.15rem, 3.8vw, 2.85rem); font-weight: 700; color: var(--color-primary); letter-spacing: -0.025em; line-height: 1.14; }
+  .ds-type-sample.prose-h2  { font-family: var(--font-sans); font-size: 1.5rem; font-weight: 700; color: var(--color-primary); letter-spacing: -0.018em; }
+  .ds-type-sample.prose-h3  { font-family: var(--font-sans); font-size: 1.2rem; font-weight: 600; color: var(--color-primary); letter-spacing: -0.015em; }
+  .ds-type-sample.prose-h4  { font-family: var(--font-sans); font-size: 1.05rem; font-weight: 600; color: var(--color-primary-light); }
+  .ds-type-sample.lede      { font-family: var(--font-sans); font-size: 1.0625rem; color: var(--color-text-secondary); line-height: 1.65; }
+  .ds-type-sample.body      { font-family: var(--font-sans); font-size: 1rem; color: var(--color-text); line-height: 1.65; }
+  .ds-type-sample.small     { font-family: var(--font-mono); font-size: 11.5px; color: var(--color-text-muted); letter-spacing: 0.04em; }
+  .ds-type-sample.eyebrow   { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: var(--color-cta); letter-spacing: 0.16em; text-transform: uppercase; }
+
+  /* Radius */
+  .ds-radius-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 1rem;
+  }
+  .ds-radius {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1.5rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg);
+  }
+  .ds-radius-box {
+    width: 64px;
+    height: 64px;
+    background: var(--color-cta);
+  }
+  .ds-radius code {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+  }
+  .ds-radius-value {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+  }
+
+  /* Shadows */
+  .ds-shadow-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1.5rem;
+  }
+  .ds-shadow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 2.5rem 1rem 1.25rem;
+  }
+  .ds-shadow-box {
+    width: 100%;
+    height: 80px;
+    background: var(--color-bg);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--color-border);
+  }
+  .ds-shadow code { font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-text-secondary); }
+  .ds-shadow-usage { font-size: 0.75rem; color: var(--color-text-muted); }
+
+  /* Generic preview block */
+  .ds-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.85rem;
+    padding: 2rem;
+    background: var(--color-bg-subtle);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+  .ds-preview.chip-row { gap: 0.5rem; align-items: center; }
+
+  /* Cards */
+  .ds-card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  .ds-card-sample {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 1.4rem 1.5rem;
+  }
+  .ds-card-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--color-cta);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .ds-card-sample h4 {
+    font-family: var(--font-sans);
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    margin: 0;
+  }
+  .ds-card-sample p {
+    font-size: 0.92rem;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+    margin: 0;
+  }
+  .ds-card-meta {
+    display: flex;
+    gap: 0.4rem;
+    margin-top: 0.3rem;
+  }
+
+  /* Callouts */
+  .ds-callouts {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+  }
+  .ds-callout {
+    padding: 1rem 1.15rem;
+    border-radius: var(--radius-md);
+    font-size: 0.95rem;
+    line-height: 1.55;
+    border: 1px solid transparent;
+  }
+  .ds-callout strong { font-weight: 700; margin-right: 0.25rem; }
+  .ds-callout--cta {
+    background: var(--color-cta-tint);
+    border-color: var(--color-cta-border);
+    color: var(--color-primary);
+  }
+  .ds-callout--cta strong { color: var(--color-cta); }
+  .ds-callout--success {
+    background: var(--color-success-tint);
+    border-color: var(--color-success-tint-strong);
+    color: var(--color-success-strong);
+  }
+  .ds-callout--warning {
+    background: var(--color-warning-tint);
+    border-color: var(--color-warning-tint-strong);
+    color: var(--color-warning-strong);
+  }
+
+  /* Code */
+  .ds-code-preview p { margin-bottom: 1rem; color: var(--color-text); }
+  .ds-code-preview code {
+    font-family: var(--font-mono);
+    font-size: 0.85em;
+    background: var(--color-bg-muted);
+    color: var(--color-primary);
+    padding: 0.15em 0.4em;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--color-border);
+  }
+  .ds-code-preview pre {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    line-height: 1.55;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1.1rem 1.25rem;
+    overflow-x: auto;
+    margin: 0;
+  }
+  .ds-code-preview pre code { background: transparent; border: 0; padding: 0; color: inherit; }
+
+  /* Prose / table preview — drop the bg + border on .ds-preview so the
+     prose styles can speak for themselves on a white surface. */
+  .ds-prose-preview {
+    padding: 1.5rem 0 0;
+  }
+
+  /* Motion */
+  .ds-motion {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+  .ds-motion-row {
+    display: grid;
+    grid-template-columns: 22px 180px 80px 1fr;
+    gap: 1rem;
+    align-items: center;
+    padding: 0.6rem 1rem;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+  .ds-motion-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--color-cta);
+    transition: transform var(--easing-soft);
+  }
+  .ds-motion-row:hover .ds-motion-dot { transform: translateX(10px); }
+  .ds-motion-dot.d-fast { transition-duration: 120ms; }
+  .ds-motion-dot.d-base { transition-duration: 180ms; }
+  .ds-motion-dot.d-slow { transition-duration: 280ms; }
+  .ds-motion-row code { font-family: var(--font-mono); font-size: 0.78rem; color: var(--color-primary); }
+  .ds-motion-value { font-family: var(--font-mono); font-size: 0.75rem; color: var(--color-text-secondary); }
+  .ds-motion-usage { font-size: 0.85rem; color: var(--color-text-muted); }
+
+  @media (max-width: 720px) {
+    .ds-type-row { grid-template-columns: 1fr; gap: 0.85rem; }
+    .ds-motion-row { grid-template-columns: 22px 1fr; row-gap: 0.3rem; }
+    .ds-motion-row code { grid-column: 2; }
+    .ds-motion-value, .ds-motion-usage { grid-column: 2; }
+  }
+</style>

@@ -1,105 +1,66 @@
 ---
-import Guide from '../../layouts/Guide.astro';
-import { getNodesByType, getNodeBySlug, getRelated } from '../../lib/data';
+import { getCollection } from 'astro:content';
+import DetailPageLayout from '../../layouts/DetailPageLayout.astro';
+import RailConnections from '../../components/RailConnections.astro';
+import ArticleFooter from '../../components/ArticleFooter.astro';
+import { buildDomainIndex } from '../../lib/domain';
+import { bodyExcerpt, popSection } from '../../lib/excerpt';
+import { extractRelated, getReferencedBy } from '../../lib/related';
 import { renderMarkdown } from '../../lib/render';
 
-export function getStaticPaths() {
-  const useCases = getNodesByType('use-case');
-  return useCases.map(uc => ({ params: { slug: uc.slug } }));
+export async function getStaticPaths() {
+  const entries = await getCollection('useCases');
+  return entries.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry },
+  }));
 }
 
-const { slug } = Astro.params;
-const node = getNodeBySlug('use-case', slug!);
-if (!node) return Astro.redirect('/guide');
+const { entry } = Astro.props;
 
-const related = getRelated(node.id);
-const primaryDomain = (node as any).primary_domain;
-const secondaryDomain = (node as any).secondary_domain;
+// Pop the `## 1) Use Case` section out — full paragraph becomes the
+// lede, body renders without it so the same prose doesn't appear twice.
+//
+// Upstream use-case markdown numbers its H2 headings (## 1) Use Case,
+// ## 2) Additional Business Context, ## 3) Actors, ...). With section 1
+// lifted to the hero, the rendered body would otherwise start at
+// "2) Additional Business Context" — strip the numeric prefix from
+// every remaining H2 so the body reads as a clean unnumbered outline.
+const { content: useCaseContent, bodyWithout } = popSection(entry.body, '1) Use Case');
+const cleanedBody = (useCaseContent ? bodyWithout : entry.body).replace(
+  /^(##\s+)\d+\)\s+/gm,
+  '$1',
+);
+const lede = useCaseContent || bodyExcerpt(entry.body);
+const bodyHtml = renderMarkdown(cleanedBody);
 
-const S = {
-  page: 'max-width:860px; margin:0 auto; padding:5rem 2rem 4rem;',
-  breadcrumb: 'display:flex; align-items:center; gap:6px; font-size:0.75rem; color:#71717a; margin-bottom:2rem;',
-  bcLink: 'color:#71717a; text-decoration:none;',
-  bcSep: 'color:#3f3f46;',
-  badge: (bg: string, fg: string) => `font-size:0.65rem; font-weight:600; padding:3px 8px; border-radius:4px; background:${bg}; color:${fg};`,
-  title: "font-family:'Newsreader',Georgia,serif; font-size:2.25rem; font-weight:400; color:white; line-height:1.15; letter-spacing:-0.025em; margin-bottom:1rem;",
-  glance: 'font-size:0.95rem; color:#a1a1aa; line-height:1.7; max-width:720px;',
-  sectionLabel: 'font-size:0.6rem; font-weight:700; color:#818cf8; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.5rem;',
-};
+const domainIndex = buildDomainIndex(await getCollection('domains'));
+const domain = domainIndex.resolve(entry.data.primary_domain) ?? entry.data.primary_domain ?? null;
+
+const related = await extractRelated(entry.body, 'useCases', entry.id, entry.data);
+const referencedBy = await getReferencedBy('useCases', entry.id);
+const sibling = domain ? { href: '/use-cases/', label: `More use cases in ${domain}` } : null;
 ---
 
-<Guide title={node.title} description={node.summary} activeSection="use-cases">
-  <div style={S.page}>
+<DetailPageLayout
+  title={entry.data.title}
+  pageTitle={entry.data.title}
+  description={lede}
+  current="/use-cases/"
+  breadcrumbs={[
+    { label: 'Home', href: '/' },
+    { label: 'Use cases', href: '/use-cases/' },
+    { label: entry.data.title },
+  ]}
+  lede={lede}
+>
+  <div class="prose" set:html={bodyHtml} />
 
-    <!-- Breadcrumb -->
-    <nav style={S.breadcrumb}>
-      <a href={`/`} style={S.bcLink}>Guide</a>
-      <span style={S.bcSep}>/</span>
-      <a href={`/use-cases`} style={S.bcLink}>Use Cases</a>
-      <span style={S.bcSep}>/</span>
-      <span>{node.title}</span>
-    </nav>
+  <Fragment slot="after-content">
+    <ArticleFooter related={related} sibling={sibling} />
+  </Fragment>
 
-    <!-- Header -->
-    <div style="margin-bottom:2.5rem;">
-      <div style="display:flex; gap:6px; margin-bottom:1rem; flex-wrap:wrap;">
-        {primaryDomain && <span style={S.badge('rgba(129,140,248,0.12)', '#a5b4fc')}>{primaryDomain}</span>}
-        {secondaryDomain && <span style={S.badge('rgba(255,255,255,0.06)', '#a1a1aa')}>{secondaryDomain}</span>}
-      </div>
-      <h1 style={S.title}>{node.title}</h1>
-      {node.summary && <p style={S.glance}>{node.summary}</p>}
-    </div>
-
-    <!-- Full content -->
-    <div style="margin-bottom:2.5rem;">
-      {/* SOURCE: iptf-map field — do not alter. Use-case body is rendered verbatim. */}
-      <div set:html={renderMarkdown(node.content)} class="prose" />
-    </div>
-
-    <!-- Related case studies -->
-    {related.approaches.length > 0 && (
-      <div style="margin-bottom:2.5rem;">
-        <div style={S.sectionLabel}>Case studies addressing this</div>
-        <div style="display:flex; flex-direction:column; gap:4px; margin-top:0.75rem;">
-          {related.approaches.map(a => (
-            <a href={`/approaches/${a.slug}`} style="display:flex; align-items:center; gap:6px; font-size:0.85rem; font-weight:500; color:#d4d4d8; text-decoration:none; padding:0.5rem 0; border-bottom:1px solid rgba(255,255,255,0.04);">
-              <svg style="width:12px; height:12px; flex-shrink:0; color:#818cf8;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
-              {a.title}
-            </a>
-          ))}
-        </div>
-      </div>
-    )}
-
-    <!-- Related patterns -->
-    {related.patterns.length > 0 && (
-      <div style="margin-bottom:2.5rem;">
-        <div style={S.sectionLabel}>Building blocks</div>
-        <div style="display:flex; flex-direction:column; gap:4px; margin-top:0.75rem;">
-          {related.patterns.map(p => (
-            <a href={`/patterns/${p.slug}`} style="display:flex; align-items:center; gap:6px; font-size:0.8rem; font-weight:500; color:#a1a1aa; text-decoration:none; padding:0.4rem 0;">
-              <svg style="width:12px; height:12px; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-              {p.title}
-            </a>
-          ))}
-        </div>
-      </div>
-    )}
-
-    <!-- Regulated by (jurisdictions) -->
-    {related.jurisdictions.length > 0 && (
-      <div style="margin-bottom:2.5rem;">
-        <div style={S.sectionLabel}>Regulated by</div>
-        <div style="display:flex; flex-direction:column; gap:4px; margin-top:0.75rem;">
-          {related.jurisdictions.map(j => (
-            <a href={`/jurisdictions/${j.slug}`} style="display:flex; align-items:center; gap:6px; font-size:0.8rem; font-weight:500; color:#a1a1aa; text-decoration:none; padding:0.4rem 0;">
-              <svg style="width:12px; height:12px; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-              {j.title}
-            </a>
-          ))}
-        </div>
-      </div>
-    )}
-
-  </div>
-</Guide>
+  <Fragment slot="rail">
+    <RailConnections referencedBy={referencedBy} />
+  </Fragment>
+</DetailPageLayout>

@@ -1,90 +1,117 @@
 ---
-import Guide from '../../layouts/Guide.astro';
-import { getNodesByType } from '../../lib/data';
+import { getCollection } from 'astro:content';
+import ListPageLayout from '../../layouts/ListPageLayout.astro';
+import AnchorNav from '../../components/AnchorNav.astro';
+import SectionHeading from '../../components/SectionHeading.astro';
+import UseCaseCard from '../../components/UseCaseCard.astro';
+import { buildDomainIndex, type Domain } from '../../lib/domain';
+import { domainIcon } from '../../lib/icons';
+import { bodyExcerpt, bodyBulletList } from '../../lib/excerpt';
+import { inlineMd } from '../../lib/inlineMarkdown';
 
-// SOURCE: iptf-map field — title and summary render verbatim.
-const useCases = getNodesByType('use-case')
-  .slice()
-  .sort((a, b) => a.title.localeCompare(b.title));
+/*
+ * Use-case status convention (upstream):
+ *   - `status: stub`  → no case study written yet
+ *   - absent / other  → case study exists for this use case
+ * The "case study available" chip on each card derives from this rule.
+ * Previously this was a hardcoded USE_CASE_STATUS map in copy.ts that
+ * drifted from frontmatter — now read straight from entry.data.
+ */
+function hasCaseStudy(status?: string): boolean {
+  return !status || status.toLowerCase() !== 'stub';
+}
+
+const useCases = await getCollection('useCases');
+
+// Domains are data-driven from the `domains` collection — adding or
+// removing a domain upstream is reflected here with no code change.
+const domains = await getCollection('domains');
+const domainIndex = buildDomainIndex(domains);
+
+const grouped = new Map<Domain, typeof useCases>();
+for (const name of domainIndex.names) grouped.set(name, [] as unknown as typeof useCases);
+for (const uc of useCases) {
+  const name = domainIndex.resolve(uc.data.primary_domain);
+  if (name) grouped.get(name)!.push(uc);
+}
+const orderedDomains: Domain[] = domainIndex.names.filter((d) => grouped.get(d)!.length > 0);
+
+// Per-domain primer is the domain's frontmatter `description` (a curated
+// one-liner, iptf-map PR #173). Falls back to the first ## TLDR bullet
+// where no description exists yet. Links to the domain detail page.
+function domainPrimer(d: Domain): { html: string; href: string } | undefined {
+  const entry = domainIndex.entryFor(d) as
+    | { id: string; data: { description?: string }; body?: string }
+    | undefined;
+  if (!entry) return undefined;
+  const text = entry.data.description?.trim() || bodyBulletList(entry.body, 'TLDR')[0];
+  if (!text) return undefined;
+  return { html: `<p>${inlineMd(text)}</p>`, href: `/domains/${entry.id}/` };
+}
+
+function anchor(domain: string): string {
+  return domain.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+const tabs = orderedDomains.map((d) => ({
+  href: `#${anchor(d)}`,
+  label: d,
+  count: grouped.get(d)!.length,
+  iconSvg: domainIcon(domainIndex.idFor(d)),
+}));
+
 ---
 
-<Guide title="Use Cases" description="Institutional privacy problems that map to architectures and patterns" activeSection="use-cases">
-  <div class="idx-page">
+<ListPageLayout
+  title="Use cases"
+  pageTitle="Use cases"
+  description="Use cases"
+  current="/use-cases/"
+>
+  <Fragment slot="anchor-nav">
+    <AnchorNav tabs={tabs} ariaLabel="Domain navigation" />
+  </Fragment>
 
-    <div class="idx-header">
-      <div class="idx-label">Use Cases</div>
-      <h1 class="idx-title">Privacy problems institutions need to solve</h1>
-      <p class="idx-desc">{useCases.length} use cases. Each describes the business context, actors, problems, and links to the case studies and patterns that address them.</p>
-    </div>
-
-    <div class="uc-list">
-      {useCases.map((row, i) => {
-        const idx = String(i + 1).padStart(2, '0');
-        const isLast = i === useCases.length - 1;
-        return (
-          <a href={`/use-cases/${row.slug}`} class={`uc-row ${isLast ? 'last' : ''}`}>
-            <span class="uc-idx">{idx}</span>
-            {/* Image slot reserved for P1 hero-thumbnail follow-up. */}
-            <div class="uc-thumb-slot" aria-hidden="true"></div>
-            <div class="uc-body">
-              <div class="uc-name">{row.title}</div>
-              {row.summary && <div class="uc-blurb">{row.summary}</div>}
-              {(row as any).primary_domain && (
-                <div class="uc-domain">{(row as any).primary_domain}</div>
-              )}
-            </div>
-          </a>
-        );
-      })}
-    </div>
+  <div class="container">
+    {orderedDomains.map((domain) => {
+      const primer = domainPrimer(domain);
+      return (
+      <section class="domain-section">
+        <SectionHeading
+          id={anchor(domain)}
+          title={domain}
+          iconSvg={domainIcon(domainIndex.idFor(domain))}
+          primer={primer?.html}
+          readMoreHref={primer?.href}
+        />
+        <div class="uc-grid">
+          {grouped.get(domain)!.map((uc) => (
+            <UseCaseCard
+              href={`/use-cases/${uc.id}/`}
+              title={uc.data.title}
+              gloss={bodyExcerpt(uc.body, '1) Use Case')}
+              status={hasCaseStudy(uc.data.status) ? 'published' : 'stub'}
+            />
+          ))}
+        </div>
+      </section>
+      );
+    })}
 
   </div>
+</ListPageLayout>
 
-  <style is:global>
-    .uc-list { margin-top: 1rem; }
-    .uc-row {
-      display: grid;
-      grid-template-columns: 48px 1fr;
-      gap: 1.5rem;
-      align-items: baseline;
-      padding: 1.5rem 0;
-      border-top: 1px solid rgba(255,255,255,0.06);
-      text-decoration: none; color: inherit;
-      transition: padding-left 0.15s;
-    }
-    .uc-row.last { border-bottom: 1px solid rgba(255,255,255,0.06); }
-    .uc-row:hover { padding-left: 0.75rem; }
-    .uc-row:hover .uc-name { color: #a5b4fc; }
-    .uc-idx {
-      font-size: 0.75rem; font-weight: 500; color: #a1a1aa;
-      font-variant-numeric: tabular-nums;
-    }
-    /* Reserved for thumbnails; currently 0-width so layout stays single-content. */
-    .uc-thumb-slot { display: none; }
-    .uc-body { min-width: 0; }
-    .uc-name {
-      font-family: 'Newsreader', Georgia, serif;
-      font-size: 1.2rem; font-weight: 500; color: white;
-      letter-spacing: -0.01em; margin-bottom: 0.35rem;
-      transition: color 0.15s;
-    }
-    .uc-blurb {
-      font-size: 0.85rem; color: #a1a1aa; line-height: 1.6;
-      margin-bottom: 0.5rem;
-    }
-    .uc-domain {
-      font-size: 0.7rem; color: #818cf8;
-      letter-spacing: 0.04em; text-transform: uppercase;
-      font-weight: 600;
-    }
-    @media (max-width: 640px) {
-      .uc-row {
-        grid-template-columns: 1fr;
-        gap: 0.4rem;
-        padding: 1.25rem 0;
-      }
-      .uc-idx { font-size: 0.7rem; }
-      .uc-name { font-size: 1.1rem; }
-    }
-  </style>
-</Guide>
+<style>
+  .domain-section {
+    margin-bottom: 4rem;
+  }
+  .domain-section:last-of-type { margin-bottom: 1rem; }
+  .uc-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  @media (max-width: 800px) {
+    .uc-grid { grid-template-columns: 1fr; }
+  }
+</style>

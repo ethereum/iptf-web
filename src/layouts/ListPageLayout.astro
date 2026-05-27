@@ -1,0 +1,43 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import PageHeader from '../components/PageHeader.astro';
+
+interface Crumb { label: string; href?: string }
+interface Pill { label: string; emphasis?: boolean }
+
+interface Props {
+  title: string;
+  pageTitle: string;
+  description?: string;
+  current?: string;
+  breadcrumbs?: Crumb[];
+  lede?: string;
+  pills?: Pill[];
+}
+
+const {
+  title,
+  pageTitle,
+  description,
+  current,
+  breadcrumbs = [{ label: 'Home', href: '/' }],
+  lede,
+  pills,
+} = Astro.props;
+---
+
+<BaseLayout title={title} description={description} current={current}>
+  <PageHeader breadcrumbs={[...breadcrumbs, { label: pageTitle }]} title={pageTitle} lede={lede} pills={pills} />
+  <slot name="anchor-nav" />
+  <div class="list-body">
+    <slot />
+  </div>
+  <slot name="next-step" />
+</BaseLayout>
+
+<style>
+  .list-body {
+    padding-top: 2rem;
+    padding-bottom: 4rem;
+  }
+</style>
