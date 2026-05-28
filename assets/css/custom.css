@@ -900,3 +900,67 @@ a.initiative-card:hover .initiative-icon {
     font-size: 12pt;
   }
 }
+
+/* ===========================
+   Footnotes
+   =========================== */
+.footnotes {
+  margin-top: var(--spacing-2xl);
+  padding-top: var(--spacing-lg);
+  border-top: 1px solid var(--color-border);
+  font-size: 0.875rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+.footnotes ol {
+  padding-left: var(--spacing-lg);
+  margin: 0;
+}
+
+.footnotes > ol > li {
+  margin-bottom: var(--spacing-md);
+}
+
+.footnotes > ol > li:last-child {
+  margin-bottom: 0;
+}
+
+.footnotes ul {
+  margin: var(--spacing-sm) 0;
+}
+
+.footnotes ul li {
+  margin-bottom: var(--spacing-xs);
+  padding-left: 0;
+}
+
+.footnotes ul li:last-child {
+  margin-bottom: 0;
+}
+
+.footnotes p {
+  margin-bottom: var(--spacing-xs);
+}
+
+.footnotes a.reversefootnote {
+  font-style: normal;
+  margin-left: var(--spacing-xs);
+  text-decoration: none;
+  color: var(--color-accent);
+}
+
+.footnotes a.reversefootnote:hover {
+  color: var(--color-accent-hover);
+}
+
+/* Footnote reference superscript in body */
+sup[role="doc-noteref"] a {
+  text-decoration: none;
+  font-weight: 600;
+  color: var(--color-accent);
+}
+
+sup[role="doc-noteref"] a:hover {
+  color: var(--color-accent-hover);
+}
