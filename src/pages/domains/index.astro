@@ -1,52 +1,110 @@
 ---
-import Guide from '../../layouts/Guide.astro';
-import { getNodesByType, getRelated, getApproachesForDomain } from '../../lib/data';
+import { getCollection } from 'astro:content';
+import ListPageLayout from '../../layouts/ListPageLayout.astro';
+import { stripTypePrefix } from '../../lib/slugify';
+import { bodyBulletList, bodyExcerpt } from '../../lib/excerpt';
 
-const domains = getNodesByType('domain').sort((a, b) => a.title.localeCompare(b.title));
-const base = import.meta.env.BASE_URL;
-
-// Gather stats per domain. Case-study count is transitive:
-// domain -> use-case <- approach (via `addresses` edge).
-const domainsWithStats = domains.map(d => {
-  const related = getRelated(d.id);
-  return {
-    ...d,
-    approachCount: getApproachesForDomain(d.id).length,
-    patternCount: related.patterns.length,
-    vendorCount: related.vendors.length,
-  };
-});
+const items = (await getCollection('domains')).slice().sort((a, b) =>
+  stripTypePrefix(a.data.title).localeCompare(stripTypePrefix(b.data.title)),
+);
 ---
 
-<Guide title="Domains" description="Browse by business area" activeSection="domains">
-  <div style="max-width:1200px; margin:0 auto; padding:6rem 2rem 4rem;">
-
-    <div style="margin-bottom:3rem;">
-      <div style="font-size:0.65rem; font-weight:700; color:#818cf8; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.5rem;">Domains</div>
-      <h1 style="font-family:'Newsreader',Georgia,serif; font-size:2.5rem; font-weight:400; color:white; letter-spacing:-0.025em; line-height:1.15; margin-bottom:0.75rem;">Browse by domain</h1>
-      <p style="font-size:1rem; color:#a1a1aa; line-height:1.7; max-width:640px;">Start from your area of work to see relevant case studies, patterns, and vendors. Jurisdictions and compliance frameworks overlay on every domain.</p>
+<ListPageLayout
+  title="Domains"
+  pageTitle="Domains"
+  description="Domains"
+  current="/domains/"
+>
+  <div class="container">
+    <div class="domain-grid">
+      {items.map((d) => {
+        const title = stripTypePrefix(d.data.title);
+        const tldrBullets = bodyBulletList(d.body, 'TLDR');
+        const tldrText = tldrBullets.length === 0 ? bodyExcerpt(d.body, 'TLDR') || bodyExcerpt(d.body) : '';
+        return (
+          <a class="domain-card" href={`/domains/${d.id}/`}>
+            <h3>{title}</h3>
+            {tldrBullets.length > 0 ? (
+              <ul class="domain-tldr">
+                {tldrBullets.map((b) => <li>{b}</li>)}
+              </ul>
+            ) : tldrText ? (
+              <p>{tldrText}</p>
+            ) : null}
+          </a>
+        );
+      })}
     </div>
-
-    <!-- Card grid -->
-    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(320px, 1fr)); gap:1.25rem;">
-      {domainsWithStats.map(d => (
-        <a href={`/domains/${d.slug}`} style="padding:1.75rem; border:1px solid rgba(255,255,255,0.06); border-radius:12px; background:#18181b; text-decoration:none; color:inherit; display:flex; flex-direction:column; gap:0.75rem; transition:all 0.15s;" onmouseover="this.style.borderColor='rgba(129,140,248,0.25)'; this.style.background='#1c1c20';" onmouseout="this.style.borderColor='rgba(255,255,255,0.06)'; this.style.background='#18181b';">
-          <h3 style="font-family:'Newsreader',Georgia,serif; font-size:1.4rem; font-weight:500; color:white; letter-spacing:-0.02em;">{d.title}</h3>
-          {d.summary && <p style="font-size:0.85rem; color:#71717a; line-height:1.6; flex:1;">{d.summary}</p>}
-          <div style="display:flex; gap:1.25rem; margin-top:auto; padding-top:0.75rem; border-top:1px solid rgba(255,255,255,0.04);">
-            <div style="font-size:0.75rem; color:#52525b;">
-              <strong style="color:#d4d4d8; font-weight:600;">{d.approachCount}</strong> {d.approachCount === 1 ? 'case study' : 'case studies'}
-            </div>
-            <div style="font-size:0.75rem; color:#52525b;">
-              <strong style="color:#d4d4d8; font-weight:600;">{d.patternCount}</strong> {d.patternCount === 1 ? 'pattern' : 'patterns'}
-            </div>
-            <div style="font-size:0.75rem; color:#52525b;">
-              <strong style="color:#d4d4d8; font-weight:600;">{d.vendorCount}</strong> {d.vendorCount === 1 ? 'vendor' : 'vendors'}
-            </div>
-          </div>
-        </a>
-      ))}
-    </div>
-
   </div>
-</Guide>
+</ListPageLayout>
+
+<style>
+  .domain-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-top: 2.5rem;
+  }
+  @media (max-width: 720px) {
+    .domain-grid { grid-template-columns: 1fr; }
+  }
+  .domain-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 1.5rem 1.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg);
+    box-shadow: var(--shadow-sm);
+    text-decoration: none;
+    color: var(--color-text);
+    transition: transform var(--duration-base) var(--easing-soft),
+                box-shadow var(--duration-base) var(--easing-soft),
+                border-color var(--duration-base) var(--easing-soft);
+  }
+  .domain-card:hover {
+    border-color: var(--color-cta);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+  .domain-card h3 {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: 1.2rem;
+    letter-spacing: -0.018em;
+    line-height: 1.25;
+    color: var(--color-primary);
+    margin: 0;
+  }
+  .domain-card p {
+    font-size: 14.5px;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+    margin: 0;
+  }
+  .domain-tldr {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: var(--color-text-secondary);
+    font-size: 14.5px;
+    line-height: 1.55;
+  }
+  .domain-tldr li {
+    list-style: disc;
+    margin-top: 0.3rem;
+  }
+  .domain-tldr li:first-child { margin-top: 0; }
+  .domain-link {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-cta);
+    margin-top: 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .domain-link .arr { transition: transform var(--duration-fast) var(--easing-soft); }
+  .domain-card:hover .domain-link .arr { transform: translateX(3px); }
+</style>

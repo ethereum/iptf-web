@@ -1,0 +1,49 @@
+---
+interface Props {
+  heading: string;
+  body: string;
+  ctaLabel: string;
+  ctaHref: string;
+}
+
+const { heading, body, ctaLabel, ctaHref } = Astro.props;
+---
+
+<section class="next-step">
+  <div>
+    <h3>{heading}</h3>
+    <p>{body}</p>
+  </div>
+  <a class="btn primary" href={ctaHref}>{ctaLabel} <span class="arr">→</span></a>
+</section>
+
+<style>
+  .next-step {
+    margin-top: 2.5rem;
+    padding: 2rem 2.25rem;
+    background: var(--color-bg-subtle);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2rem;
+    align-items: center;
+  }
+  @media (max-width: 700px) {
+    .next-step { grid-template-columns: 1fr; padding: 1.5rem; }
+  }
+  .next-step h3 {
+    font-family: var(--font-sans);
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.018em;
+    color: var(--color-primary);
+    margin-bottom: 0.4rem;
+  }
+  .next-step p {
+    font-size: 14.5px;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+    max-width: 56ch;
+  }
+</style>

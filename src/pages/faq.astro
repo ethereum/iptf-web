@@ -1,205 +1,201 @@
 ---
-import Guide from '../layouts/Guide.astro';
+/*
+ * FAQ page — ported from ethereum/iptf-web (`src/pages/faq.astro`,
+ * test_guide branch).
+ *
+ * Content is a hand-written categories array — kept verbatim from
+ * upstream. Restyled to our light theme + tokens. Accordion uses
+ * native <details name=""> for mutually-exclusive open behavior,
+ * dropping the fixed max-height JS pattern (project rule: never
+ * use fixed sizes on collapsibles — let content drive height).
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import { faqCategories } from '../data/faq';
 
-const base = import.meta.env.BASE_URL;
+const categories = faqCategories;
 
-const categories = [
-  {
-    label: 'Privacy Basics',
-    questions: [
-      {
-        q: 'Is Ethereum private enough for institutional use?',
-        a: [
-          'Not by default. Ethereum is a public, transparent ledger — every transaction, balance, and counterparty relationship is visible to anyone. For institutional use, this is a non-starter: treasury operations leak competitive intelligence, counterparty exposure becomes public, and regulatory obligations around data minimization are impossible to meet.',
-          'However, a growing ecosystem of privacy-preserving layers can be composed on top of Ethereum: shielded pools, privacy L2s, zero-knowledge proofs, and trusted execution environments. The question is not whether Ethereum is private, but which privacy architecture fits your requirements and what trade-offs you are accepting.'
-        ],
-        links: [
-          { label: 'Private Payments', href: `/approaches/private-payments` },
-          { label: 'Shielded ERC-20 Transfers', href: `/patterns/shielding` },
-          { label: 'Private L2s', href: `/patterns/privacy-l2s` },
-        ],
-      },
-      {
-        q: 'What does "private" actually mean on a public blockchain?',
-        a: [
-          'Privacy on Ethereum means controlling what information is visible and to whom. The spectrum ranges from anonymity (unlinkable addresses, but amounts may be visible) to full confidentiality (amounts, counterparties, and transaction patterns all hidden). Most institutional solutions sit somewhere in between, using selective disclosure to reveal specific data to authorized parties like regulators.',
-          'The IPTF uses the I2I/I2U distinction to clarify threat models: in institution-to-institution contexts, both parties have symmetric trust and shared compliance burden. In institution-to-user contexts, the power dynamic is asymmetric and privacy protections must favor the weaker party.'
-        ],
-        links: [
-          { label: 'Selective Disclosure', href: `/patterns/selective-disclosure` },
-          { label: 'Viewing Keys', href: `/patterns/viewing-keys` },
-        ],
-      },
-    ],
-  },
-  {
-    label: 'Compliance & Regulation',
-    questions: [
-      {
-        q: 'What does MiCA say about on-chain privacy?',
-        a: [
-          'MiCA does not prohibit on-chain privacy, but it imposes obligations that any privacy architecture must accommodate: KYC/AML for crypto-asset service providers, Travel Rule compliance for transfers, and record-keeping requirements. The key question is whether your privacy solution supports selective disclosure — the ability to reveal specific transaction data to regulators without making it publicly visible.',
-          'Viewing keys and zero-knowledge proofs of compliance (proving you hold a valid KYC attestation without revealing your identity) are the primary mechanisms. The regulatory posture is: privacy is acceptable as long as compliance access exists.'
-        ],
-        links: [
-          { label: 'EU MiCA Framework', href: `/jurisdictions/eu-mica` },
-          { label: 'Selective Disclosure', href: `/patterns/selective-disclosure` },
-        ],
-      },
-      {
-        q: 'Can institutions use DeFi and stay compliant?',
-        a: [
-          'It depends on the DeFi protocol and the jurisdiction. The core tension is that DeFi composability often requires public state, while institutional compliance requires controlled access. Permissioned DeFi pools (where participants are KYC\'d before entry) and privacy layers with attestation-gated access are the two main patterns that reconcile these requirements.',
-          'Shielded pools with attestation-gated entry can provide DeFi-like composability while maintaining a compliance perimeter. Our case studies on private payments and private trade settlement demonstrate this approach end-to-end.'
-        ],
-        links: [
-          { label: 'Private Payments', href: `/approaches/private-payments` },
-          { label: 'Verifiable Attestations', href: `/patterns/verifiable-attestation` },
-        ],
-      },
-      {
-        q: 'How do we handle Travel Rule obligations with private transfers?',
-        a: [
-          'The Travel Rule requires originator and beneficiary information to accompany transfers above a threshold. In a shielded transfer, this information is hidden by default. The emerging pattern is to embed encrypted Travel Rule payloads within the transaction memo field, readable only by the recipient institution and, upon lawful request, by regulators holding a viewing key.',
-          'Zero-knowledge proofs can attest that the payload is well-formed and that both parties satisfy KYC requirements, without revealing the payload contents on-chain. Several vendors are building Travel Rule compliance layers that integrate with shielded pool architectures.'
-        ],
-        links: [
-          { label: 'Selective Disclosure', href: `/patterns/selective-disclosure` },
-          { label: 'Viewing Keys', href: `/patterns/viewing-keys` },
-        ],
-      },
-    ],
-  },
-  {
-    label: 'Technology Readiness',
-    questions: [
-      {
-        q: 'Which privacy solutions are production-ready today?',
-        a: [
-          'Privacy-preserving KYC (zero-knowledge credential verification) is the most mature — several vendors offer production-grade solutions. L1 shielded pools are production for individual use but institutional adoption is still early. Privacy L2s are approaching mainnet but not yet production for institutional workloads. FHE-based solutions are at the proof-of-concept stage.',
-          'The honest answer: no single privacy architecture is fully production-ready for all institutional use cases today. The practical path is to pick the approach whose maturity matches your deployment timeline and risk tolerance.'
-        ],
-        links: [
-          { label: 'Privacy-Preserving KYC', href: `/approaches/privacy-kyc` },
-          { label: 'Railgun', href: `/vendors/railgun` },
-          { label: 'Aztec Network', href: `/vendors/aztec` },
-        ],
-      },
-      {
-        q: 'How do viewing keys work for regulatory access?',
-        a: [
-          'Viewing keys are cryptographic keys that grant read-only access to shielded transaction data without granting transfer authority. A user or institution holds a spending key (for moving funds) and a separate viewing key (for disclosure). The viewing key can be shared with a regulator or auditor, who can then decrypt and verify specific transactions without seeing anything else in the pool.',
-          'The key properties: viewing keys are scoped (can be time-bounded or limited to specific accounts), they are read-only (no transfer authority), and they can be revoked. Dual-key architecture works in both L1 shielded pools and L2 privacy systems.'
-        ],
-        links: [
-          { label: 'User-Controlled Viewing Keys', href: `/patterns/viewing-keys` },
-          { label: 'Selective Disclosure', href: `/patterns/selective-disclosure` },
-        ],
-      },
-      {
-        q: 'UTXO vs account model: which is better for privacy?',
-        a: [
-          'UTXO-based privacy (Railgun, Zcash-style) provides stronger unlinkability by default — each transaction consumes and creates new notes, breaking the connection between sender and receiver. Account-based privacy (Aztec, FHE-based) is more familiar to Ethereum developers and supports richer programmability, but requires more careful design to prevent linkability.',
-          'For institutional payments, UTXO models are simpler and better understood. For complex smart contract interactions (DeFi, derivatives), account-based privacy L2s offer more flexibility. The right choice depends on your use case rather than any absolute technical superiority.'
-        ],
-        links: [
-          { label: 'Private Payments', href: `/approaches/private-payments` },
-        ],
-      },
-    ],
-  },
-];
+const pageDescription =
+  'Curated from direct conversations with institutions evaluating privacy on Ethereum. Each answer links deeper into the guide.';
 ---
 
-<Guide title="FAQ" description="Frequently asked questions about institutional privacy on Ethereum">
+<BaseLayout
+  title="FAQ"
+  description={pageDescription}
+  current="/faq/"
+>
+  <PageHeader
+    breadcrumbs={[
+      { label: 'Home', href: '/' },
+      { label: 'FAQ' },
+    ]}
+    title="What institutions ask us most"
+    lede={pageDescription}
+  />
 
-  <div style="max-width:800px; margin:0 auto; padding:5rem 2rem 4rem;">
-
-    <!-- Breadcrumb -->
-    <nav style="display:flex; align-items:center; gap:6px; font-size:0.75rem; color:#71717a; margin-bottom:2rem;">
-      <a href={`/`} style="color:#71717a; text-decoration:none;">Guide</a>
-      <span style="color:#3f3f46;">/</span>
-      <span>FAQ</span>
-    </nav>
-
-    <!-- Header -->
-    <div style="margin-bottom:3rem;">
-      <div style="font-size:0.65rem; font-weight:700; color:#818cf8; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.5rem;">Frequently Asked Questions</div>
-      <h1 style="font-family:'Newsreader',Georgia,serif; font-size:2.5rem; font-weight:400; color:white; line-height:1.15; letter-spacing:-0.025em; margin-bottom:0.75rem;">What institutions ask us most</h1>
-      <p style="font-size:1rem; color:#a1a1aa; line-height:1.7;">Curated from direct conversations with institutions evaluating privacy on Ethereum. Each answer links deeper into the guide.</p>
-    </div>
-
-    <!-- FAQ Categories -->
-    {categories.map((cat, catIdx) => (
-      <div style="margin-bottom:3rem;">
-        <div style="font-size:0.6rem; font-weight:700; color:#71717a; letter-spacing:0.12em; text-transform:uppercase; padding-bottom:0.75rem; border-bottom:1px solid rgba(255,255,255,0.06); margin-bottom:0;">
-          {cat.label}
-        </div>
-
-        {cat.questions.map((item, qIdx) => (
-          <div
-            class:list={['faq-item', { open: catIdx === 0 && qIdx === 0 }]}
-            style="border-bottom:1px solid rgba(255,255,255,0.05);"
-          >
-            <button
-              class="faq-question"
-              style="width:100%; background:none; border:none; color:white; padding:1.25rem 0; font-family:'Newsreader',Georgia,serif; font-size:1.1rem; font-weight:500; text-align:left; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:1rem;"
-            >
-              <span>{item.q}</span>
-              <svg class="faq-icon" style="width:20px; height:20px; flex-shrink:0; color:#52525b; transition:all 0.25s;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-            </button>
-            <div class="faq-answer" style="max-height:0; overflow:hidden; transition:max-height 0.35s ease, padding 0.35s ease;">
-              {item.a.map(p => (
-                <p style="font-size:0.9rem; color:#a1a1aa; line-height:1.7; margin-bottom:0.75rem;">{p}</p>
-              ))}
-              <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:1rem;">
-                {item.links.map(link => (
-                  <a href={link.href} style="display:inline-flex; align-items:center; gap:5px; font-size:0.75rem; font-weight:600; color:#818cf8; text-decoration:none; padding:4px 10px; border-radius:6px; background:rgba(129,140,248,0.08);">
-                    <svg style="width:10px; height:10px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-                    {link.label}
-                  </a>
+  <section class="faq">
+    <div class="faq-inner">
+      {categories.map((cat) => (
+        <div class="faq-category">
+          <div class="faq-cat-label">{cat.label}</div>
+          {cat.questions.map((item, qIdx) => (
+            <details class="faq-item" name="iptf-faq" open={cat === categories[0] && qIdx === 0}>
+              <summary>
+                <span class="faq-q">{item.q}</span>
+                <span class="faq-toggle" aria-hidden="true"></span>
+              </summary>
+              <div class="faq-a">
+                {item.a.map((p) => (
+                  <p>{p}</p>
                 ))}
+                {item.links && item.links.length > 0 && (
+                  <div class="faq-links">
+                    {item.links.map((link) => (
+                      <a href={link.href} class="faq-link">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                          <path d="M5 12h14" />
+                          <path d="M12 5l7 7-7 7" />
+                        </svg>
+                        {link.label}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
-            </div>
-          </div>
-        ))}
-      </div>
-    ))}
+            </details>
+          ))}
+        </div>
+      ))}
+    </div>
+  </section>
+</BaseLayout>
 
-  </div>
+<style>
+  .faq {
+    padding: 2rem 0 4rem;
+  }
+  .faq-inner {
+    max-width: 800px;
+    margin: 0;
+    padding: 0 var(--container-pad);
+  }
 
-  <style>
-    .faq-question:hover {
-      color: #a5b4fc !important;
-    }
-    .faq-item.open .faq-icon {
-      transform: rotate(45deg);
-      color: #818cf8 !important;
-    }
-    .faq-item.open .faq-answer {
-      max-height: 600px !important;
-      padding-bottom: 1.5rem;
-    }
-    .faq-answer a:hover {
-      background: rgba(129,140,248,0.15) !important;
-      color: #a5b4fc !important;
-    }
-    @media (max-width: 640px) {
-      h1 {
-        font-size: 1.75rem !important;
-      }
-    }
-  </style>
+  .faq-category {
+    margin-bottom: 2.5rem;
+  }
+  .faq-cat-label {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding-bottom: 0.85rem;
+    border-bottom: 1px solid var(--color-border);
+    margin-bottom: 0;
+  }
 
-  <script>
-    document.querySelectorAll('.faq-question').forEach(btn => {
-      btn.addEventListener('click', () => {
-        const item = btn.parentElement!;
-        const wasOpen = item.classList.contains('open');
-        document.querySelectorAll('.faq-item').forEach(i => i.classList.remove('open'));
-        if (!wasOpen) item.classList.add('open');
-      });
-    });
-  </script>
+  .faq-item {
+    border-bottom: 1px solid var(--color-border);
+  }
+  .faq-item summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 1.2rem 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    color: var(--color-primary);
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .faq-item summary::-webkit-details-marker { display: none; }
+  .faq-item summary:hover {
+    color: var(--color-cta);
+  }
+  .faq-q {
+    font-family: var(--font-sans);
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    line-height: 1.4;
+  }
+  /* Plus / minus toggle drawn from two pseudo-elements so we can
+     animate the rotation cleanly when the details element opens. */
+  .faq-toggle {
+    position: relative;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    transition: transform var(--duration-base) var(--easing-soft),
+      color var(--duration-base) var(--easing-soft);
+  }
+  .faq-toggle::before,
+  .faq-toggle::after {
+    content: '';
+    position: absolute;
+    background: currentColor;
+    transition: opacity var(--duration-fast) var(--easing-soft);
+  }
+  .faq-toggle::before {
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 2px;
+    transform: translateY(-50%);
+  }
+  .faq-toggle::after {
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    transform: translateX(-50%);
+  }
+  .faq-item[open] .faq-toggle {
+    transform: rotate(45deg);
+    color: var(--color-cta);
+  }
 
-</Guide>
+  .faq-a {
+    padding: 0 0 1.5rem;
+    color: var(--color-text-secondary);
+  }
+  .faq-a p {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    margin: 0 0 0.85rem;
+    color: var(--color-text);
+  }
+  .faq-a p:last-of-type { margin-bottom: 1rem; }
+
+  .faq-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 0.5rem;
+  }
+  .faq-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-cta);
+    text-decoration: none;
+    padding: 5px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--color-cta-tint);
+    transition: background var(--duration-fast) var(--easing-soft),
+      color var(--duration-fast) var(--easing-soft);
+  }
+  .faq-link:hover {
+    background: var(--color-cta-tint-strong);
+    color: var(--color-cta-hover);
+  }
+  .faq-link svg {
+    width: 10px;
+    height: 10px;
+  }
+</style>

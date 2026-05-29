@@ -1,154 +1,161 @@
 ---
-import Guide from '../../layouts/Guide.astro';
-import { getNodesByType, getNodeBySlug, getRelated } from '../../lib/data';
+/*
+ * Vendor detail — adds a "Used in" reverse-reference sidebar per the
+ * iptf-web merge handoff (locked 2026-05-19, frontmatter-only scope).
+ *
+ * Scans every approach's sub-approach yaml blocks for `example_vendors`
+ * arrays containing this vendor's slug. Surfaces those approach +
+ * sub-approach pairs in the right rail. No body-prose name matching —
+ * structured references only.
+ */
+import { getCollection } from 'astro:content';
+import yaml from 'js-yaml';
+import DetailPageLayout from '../../layouts/DetailPageLayout.astro';
+import RailConnections from '../../components/RailConnections.astro';
+import ArticleFooter from '../../components/ArticleFooter.astro';
+import { stripTypePrefix } from '../../lib/slugify';
+import { bodyExcerpt, popSection } from '../../lib/excerpt';
 import { renderMarkdown } from '../../lib/render';
+import { extractRelated, getReferencedBy } from '../../lib/related';
+import {
+  parseSections,
+  getSection,
+  parseSubSections,
+  extractYamlBlock,
+} from '../../lib/parse-sections';
 
-export function getStaticPaths() {
-  const vendors = getNodesByType('vendor');
-  return vendors.map(v => ({ params: { slug: v.slug } }));
+interface SubApproachYaml {
+  example_vendors?: string[];
 }
 
-const { slug } = Astro.params;
-const node = getNodeBySlug('vendor', slug!);
-if (!node) return Astro.redirect('/guide');
+export async function getStaticPaths() {
+  const entries = await getCollection('vendors');
+  return entries.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry },
+  }));
+}
 
-const related = getRelated(node.id);
-const base = import.meta.env.BASE_URL;
+const { entry } = Astro.props;
+const title = stripTypePrefix(entry.data.title);
 
-const S = {
-  page: 'max-width:1120px; margin:0 auto; padding:5rem 2rem 4rem; display:grid; grid-template-columns:1fr 280px; gap:4rem;',
-  breadcrumb: 'display:flex; align-items:center; gap:6px; font-size:0.75rem; color:#71717a; margin-bottom:2rem;',
-  bcLink: 'color:#71717a; text-decoration:none;',
-  bcSep: 'color:#3f3f46;',
-  badge: (bg: string, fg: string) => `font-size:0.65rem; font-weight:600; padding:3px 8px; border-radius:4px; background:${bg}; color:${fg};`,
-  title: "font-family:'Newsreader',Georgia,serif; font-size:2.25rem; font-weight:400; color:white; line-height:1.15; letter-spacing:-0.025em; margin-bottom:0.75rem;",
-  desc: 'font-size:1rem; color:#a1a1aa; line-height:1.7; max-width:640px;',
-  website: 'display:inline-flex; align-items:center; gap:6px; margin-top:1rem; font-size:0.8rem; font-weight:500; color:#818cf8; text-decoration:none;',
-  neutral: 'display:flex; align-items:center; gap:10px; padding:0.75rem 1rem; border-radius:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); margin-bottom:2.5rem; font-size:0.75rem; color:#71717a;',
-  sectionLabel: 'font-size:0.6rem; font-weight:700; color:#818cf8; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.5rem;',
-  sidebarLabel: 'font-size:0.6rem; font-weight:700; color:#71717a; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.75rem; padding-bottom:0.5rem; border-bottom:1px solid rgba(255,255,255,0.06);',
-  sidebarRow: 'display:flex; justify-content:space-between; padding:0.5rem 0; border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.8rem;',
-  sidebarLink: 'display:flex; align-items:center; gap:6px; padding:0.4rem 0; font-size:0.8rem; font-weight:500; color:#a1a1aa; text-decoration:none;',
-};
+// Pop `## What it is` out so its full text becomes the lede and the
+// body doesn't render the same paragraph twice.
+const { content: whatItIs, bodyWithout } = popSection(entry.body, 'What it is');
+const lede = whatItIs || bodyExcerpt(entry.body);
+const bodyHtml = renderMarkdown(whatItIs ? bodyWithout : entry.body);
+
+const related = await extractRelated(entry.body, 'vendors', entry.id, entry.data);
+const referencedBy = await getReferencedBy('vendors', entry.id);
+const sibling = { href: '/vendors/', label: 'More vendors' };
+
+// "Used in" — find every approach whose sub-approach yaml lists this
+// vendor in `example_vendors`. Frontmatter-only scope: no body-prose
+// name matching, only structured yaml refs.
+const approaches = await getCollection('approaches');
+interface UsedIn {
+  approachId: string;
+  approachTitle: string;
+  subName: string;
+}
+const usedIn: UsedIn[] = [];
+for (const a of approaches) {
+  const sections = parseSections(a.body);
+  const approachesSec = getSection(sections, 'approaches');
+  if (!approachesSec) continue;
+  const subs = parseSubSections(approachesSec.content);
+  for (const sub of subs) {
+    const yamlText = extractYamlBlock(sub.content);
+    if (!yamlText) continue;
+    let parsed: SubApproachYaml = {};
+    try {
+      parsed = (yaml.load(yamlText) as SubApproachYaml) || {};
+    } catch {
+      continue;
+    }
+    if (Array.isArray(parsed.example_vendors) && parsed.example_vendors.includes(entry.id)) {
+      usedIn.push({
+        approachId: a.id,
+        approachTitle: a.data.title ? stripTypePrefix(a.data.title) : a.id,
+        subName: sub.heading,
+      });
+    }
+  }
+}
+// Stable order by approach title.
+usedIn.sort((a, b) => a.approachTitle.localeCompare(b.approachTitle));
 ---
 
-<Guide title={node.title} description={node.summary} activeSection="vendors">
-  <div style={S.page}>
+<DetailPageLayout
+  title={`${title} · Vendor`}
+  pageTitle={title}
+  description={lede}
+  current="/vendors/"
+  breadcrumbs={[
+    { label: 'Home', href: '/' },
+    { label: 'Vendors', href: '/vendors/' },
+    { label: title },
+  ]}
+  lede={lede}
+>
+  <div class="prose" set:html={bodyHtml} />
 
-    <!-- LEFT COLUMN -->
-    <div style="min-width:0;">
+  <Fragment slot="after-content">
+    <ArticleFooter related={related} sibling={sibling} />
+  </Fragment>
 
-      <!-- Breadcrumb -->
-      <nav style={S.breadcrumb}>
-        <a href={`/`} style={S.bcLink}>Guide</a>
-        <span style={S.bcSep}>/</span>
-        <a href={`/vendors`} style={S.bcLink}>Vendors</a>
-        <span style={S.bcSep}>/</span>
-        <span>{node.title}</span>
-      </nav>
-
-      <!-- Header -->
-      <div style="margin-bottom:2.5rem;">
-        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:1rem;">
-          {node.maturity && <span style={S.badge('rgba(52,211,153,0.1)', '#34d399')}>{node.maturity}</span>}
-          {node.status && <span style={S.badge('rgba(129,140,248,0.12)', '#a5b4fc')}>{node.status}</span>}
-        </div>
-        <h1 style={S.title}>{node.title}</h1>
-        {node.summary && <p style={S.desc}>{node.summary}</p>}
-        {node.website && (
-          <a href={node.website} target="_blank" rel="noopener noreferrer" style={S.website}>
-            {node.website.replace(/^https?:\/\//, '').replace(/\/$/, '')}
-            <svg style="width:12px; height:12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
+  <Fragment slot="rail">
+    {usedIn.length > 0 && (
+      <aside class="vendor-used-in">
+        <div class="rail-label">Used in</div>
+        {usedIn.map((u) => (
+          <a class="used-in-row" href={`/approaches/${u.approachId}/#${u.subName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`}>
+            <div class="used-in-approach">{u.approachTitle}</div>
+            <div class="used-in-sub">{u.subName}</div>
           </a>
-        )}
-      </div>
+        ))}
+      </aside>
+    )}
+    <RailConnections referencedBy={referencedBy} />
+  </Fragment>
+</DetailPageLayout>
 
-      <!-- Neutral disclaimer -->
-      <div style={S.neutral}>
-        <svg style="width:16px; height:16px; flex-shrink:0; color:#52525b;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-        IPTF vendor assessments are neutral and factual. No ranking, no endorsement. Evaluate based on your own requirements.
-      </div>
-
-      <!-- Full content -->
-      <div style="margin-bottom:2.5rem;">
-        {/* SOURCE: iptf-map field — do not alter. Vendor body is rendered verbatim. */}
-        <div set:html={renderMarkdown(node.content)} class="prose" />
-      </div>
-
-    </div>
-
-    <!-- RIGHT COLUMN (sidebar) -->
-    <aside>
-      <div style="position:sticky; top:80px;">
-
-        <!-- Metadata -->
-        <div style="margin-bottom:2.5rem;">
-          <div style={S.sidebarLabel}>Details</div>
-          {node.status && (
-            <div style={S.sidebarRow}>
-              <span style="color:#71717a;">Status</span>
-              <span style="color:#d4d4d8; font-weight:500;">{node.status}</span>
-            </div>
-          )}
-          {node.maturity && (
-            <div style={S.sidebarRow}>
-              <span style="color:#71717a;">Maturity</span>
-              <span style="color:#d4d4d8; font-weight:500;">{node.maturity}</span>
-            </div>
-          )}
-          {node.category && (
-            <div style={S.sidebarRow}>
-              <span style="color:#71717a;">Category</span>
-              <span style="color:#d4d4d8; font-weight:500;">{node.category}</span>
-            </div>
-          )}
-          {node.last_reviewed && (
-            <div style="display:flex; justify-content:space-between; padding:0.5rem 0; font-size:0.8rem;">
-              <span style="color:#71717a;">Last reviewed</span>
-              <span style="color:#d4d4d8; font-weight:500;">{new Date(node.last_reviewed).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span>
-            </div>
-          )}
-        </div>
-
-        <!-- Supports patterns -->
-        {related.patterns.length > 0 && (
-          <div style="margin-bottom:2.5rem;">
-            <div style={S.sidebarLabel}>Supports patterns</div>
-            {related.patterns.map(p => (
-              <a href={`/patterns/${p.slug}`} style={S.sidebarLink}>
-                <svg style="width:12px; height:12px; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-                {p.title}
-              </a>
-            ))}
-          </div>
-        )}
-
-        <!-- Used in case studies -->
-        {related.usedInApproaches.length > 0 && (
-          <div style="margin-bottom:2.5rem;">
-            <div style={S.sidebarLabel}>Used in case studies</div>
-            {related.usedInApproaches.map(a => (
-              <a href={`/approaches/${a.slug}`} style={S.sidebarLink}>
-                <svg style="width:12px; height:12px; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-                {a.title}
-              </a>
-            ))}
-          </div>
-        )}
-
-        <!-- External links -->
-        {node.website && (
-          <div style="margin-bottom:2.5rem;">
-            <div style={S.sidebarLabel}>Links</div>
-            <a href={node.website} target="_blank" rel="noopener noreferrer" style={S.sidebarLink}>
-              <svg style="width:12px; height:12px; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
-              Website
-            </a>
-          </div>
-        )}
-
-      </div>
-    </aside>
-
-  </div>
-</Guide>
+<style>
+  .vendor-used-in {
+    margin-bottom: 1.75rem;
+  }
+  .rail-label {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--color-cta);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 0.65rem;
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .used-in-row {
+    display: block;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--color-border);
+    text-decoration: none;
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .used-in-row:last-child { border-bottom: none; }
+  .used-in-approach {
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .used-in-row:hover .used-in-approach {
+    color: var(--color-cta);
+  }
+  .used-in-sub {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    margin-top: 2px;
+  }
+</style>

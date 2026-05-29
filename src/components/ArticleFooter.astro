@@ -1,0 +1,182 @@
+---
+/**
+ * Block that lives BELOW the article prose (in the after-content slot
+ * of DetailPageLayout).
+ *
+ *   - "Continue reading" — outgoing cross-references that previously
+ *     occupied multiple rail boxes, rendered as a single flat
+ *     two-column card grid. Only shows when there are any outgoing
+ *     refs (the body already linked to them inline; this is a
+ *     navigational shortcut, not a duplication of every link).
+ *   - Sibling line — single inline link like "More patterns at this
+ *     layer →". Replaces the previous "Other L2 patterns" rail box.
+ *   - Last reviewed — small typographic line, footer-of-article style.
+ */
+
+interface RelatedItem {
+  label: string;
+  href: string;
+}
+
+interface RelatedGroup {
+  heading: string;
+  items: RelatedItem[];
+}
+
+interface Sibling {
+  href: string;
+  label: string;
+}
+
+interface Props {
+  /** Outgoing cross-references derived from the body / frontmatter. */
+  related?: RelatedGroup[];
+  /** Single "go to siblings" link, e.g. {href: '/patterns/', label: 'More L2 patterns'}. */
+  sibling?: Sibling | null;
+  /** Last-reviewed date as a YYYY-MM-DD string. */
+  lastReviewed?: string;
+}
+
+const { related = [], sibling = null, lastReviewed } = Astro.props;
+
+// Flatten outgoing groups into a single list of {kind, label, href}.
+// The headings (e.g. "Building blocks referenced") become inline kind-
+// tags inside the cards rather than separate sub-sections.
+const flatItems = related.flatMap((group) =>
+  group.items.map((it) => ({
+    kind: group.heading.replace(/^Related |^Referenced$/i, '').toLowerCase(),
+    label: it.label,
+    href: it.href,
+  })),
+);
+const hasContent = flatItems.length > 0 || sibling || lastReviewed;
+---
+
+{hasContent && (
+  <footer class="article-footer">
+    {flatItems.length > 0 && (
+      <section class="continue">
+        <h4>Continue reading</h4>
+        <div class="continue-grid">
+          {flatItems.map((it) => (
+            <a class="continue-card" href={it.href}>
+              <span class="kind">{it.kind}</span>
+              <span class="title">{it.label}</span>
+              <span class="arr">→</span>
+            </a>
+          ))}
+        </div>
+      </section>
+    )}
+
+    {sibling && (
+      <p class="sibling-line">
+        <a href={sibling.href}>{sibling.label} <span class="arr">→</span></a>
+      </p>
+    )}
+
+    {lastReviewed && (
+      <p class="reviewed-line">Last reviewed <strong>{lastReviewed}</strong></p>
+    )}
+  </footer>
+)}
+
+<style>
+  .article-footer {
+    margin-top: 3.5rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .continue h4 {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    margin-bottom: 1rem;
+  }
+  .continue-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.65rem;
+  }
+  @media (max-width: 600px) {
+    .continue-grid { grid-template-columns: 1fr; }
+  }
+  .continue-card {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 0.5rem 0.85rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    color: var(--color-text);
+    background: var(--color-bg);
+    transition: border-color var(--duration-fast) var(--easing-soft),
+                background var(--duration-fast) var(--easing-soft),
+                transform var(--duration-fast) var(--easing-soft);
+  }
+  .continue-card:hover {
+    border-color: var(--color-cta);
+    background: var(--color-bg-subtle);
+    transform: translateY(-1px);
+  }
+  .continue-card .kind {
+    grid-column: 1;
+    grid-row: 1;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+  .continue-card .title {
+    grid-column: 1;
+    grid-row: 2;
+    font-family: var(--font-sans);
+    font-size: 14.5px;
+    font-weight: 600;
+    color: var(--color-primary);
+    line-height: 1.3;
+  }
+  .continue-card .arr {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    color: var(--color-cta);
+    font-weight: 700;
+    transition: transform var(--duration-fast) var(--easing-soft);
+  }
+  .continue-card:hover .arr { transform: translateX(3px); }
+
+  .sibling-line {
+    margin-top: 1.5rem;
+    font-size: 14.5px;
+  }
+  .sibling-line a {
+    color: var(--color-cta);
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .sibling-line a:hover { text-decoration: underline; }
+  .sibling-line .arr {
+    transition: transform var(--duration-fast) var(--easing-soft);
+    display: inline-block;
+  }
+  .sibling-line a:hover .arr { transform: translateX(2px); }
+
+  .reviewed-line {
+    margin-top: 1.25rem;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--color-text-muted);
+    letter-spacing: 0.04em;
+  }
+  .reviewed-line strong {
+    color: var(--color-text-secondary);
+    font-weight: 600;
+  }
+</style>

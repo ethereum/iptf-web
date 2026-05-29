@@ -1,0 +1,279 @@
+---
+/**
+ * Hero animation. Ported from the Nexus Compute Engine WebGL shader
+ * (Meng To via Aura Build), inverted to a light-mode IPTF blue ramp
+ * so the canvas blends with the white page background:
+ *
+ *   #ffffff  page background (dominant)
+ *   #cfe0f1  pale blue       (ambient mid-tone)
+ *   #647ced  --color-cta-mid (wave body — cta-leaning soft blue)
+ *   #2257e9  --color-cta     (focus dots, brightest stop)
+ *
+ * Drops in as a full-bleed background behind the hero text. Falls back
+ * to a flat white surface when WebGL is unavailable or the visitor
+ * prefers reduced motion — no GPU work in those cases.
+ */
+---
+
+<div class="hero-canvas" aria-hidden="true">
+  <canvas id="hero-canvas"></canvas>
+</div>
+
+<style>
+  /* Full-bleed band spanning the entire hero. No CSS mask — the
+     shader is now responsible for what shows where: the lightest
+     "ambient" layer renders across the whole canvas, while the
+     denser wave + focus layers are gated to the right side. */
+  .hero-canvas {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    background: var(--color-bg);
+    pointer-events: none;
+  }
+  .hero-canvas canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  @media (max-width: 920px) {
+    .hero-canvas { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .hero-canvas canvas { display: none; }
+  }
+  .hero-canvas.no-webgl canvas { display: none; }
+</style>
+
+<script>
+  const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const wrap = document.querySelector<HTMLDivElement>('.hero-canvas');
+  const canvas = document.getElementById('hero-canvas') as HTMLCanvasElement | null;
+
+  if (wrap && canvas && !prefersReduced) {
+    const gl = canvas.getContext('webgl', { alpha: false, antialias: false });
+
+    if (!gl) {
+      wrap.classList.add('no-webgl');
+    } else {
+      const vsSource = `
+        attribute vec4 a_position;
+        void main() { gl_Position = a_position; }
+      `;
+
+      // Same noise + Bayer-dither math as the Nexus source; only the
+      // four output colours have been replaced. Light-mode ramp:
+      // white background (matches page) with rare deep-navy highlights.
+      const fsSource = `
+        precision mediump float;
+        uniform float u_time;
+        uniform vec2 u_resolution;
+        uniform float u_dpr;
+
+        void main() {
+          vec2 fragCoord = gl_FragCoord.xy;
+          // Target a constant CSS-pixel dot size across devices.
+          // scale is in fragment pixels, so multiply by DPR so a
+          // retina screen still produces ~3 CSS px blocks, same as
+          // a standard-DPR external monitor.
+          float scale = 3.0 * u_dpr;
+
+          vec2 scaledCoord = floor(fragCoord / scale);
+          vec2 uv = (scaledCoord * scale) / u_resolution.xy;
+
+          vec2 p = uv * 2.0 - 1.0;
+          p.x *= u_resolution.x / u_resolution.y;
+
+          float n1 = sin(p.x * 4.0 + u_time * 0.6) * cos(p.y * 3.0 + u_time * 0.3);
+          float n2 = sin(p.x * 2.0 - u_time * 0.8) * 0.5;
+          float n3 = cos(p.y * 5.0 + u_time * 0.5) * 0.2;
+          float val = n1 + n2 + n3;
+
+          // Centered vignette — gentle edge softener for the
+          // animated brightness computation.
+          vec2 center = u_resolution.xy / 2.0;
+          float dist = distance(fragCoord, center);
+          float maxDist = length(u_resolution.xy);
+
+          // Focal radial gate: 1 at the cluster centre (~75%, 50%)
+          // on the right, 0 far from it. The smoothstep has an inner
+          // plateau (30% of the radius stays at gate=1) so the deep
+          // blue focus layer gets a solid core of pixels at full
+          // strength on wide displays instead of just a thin focal
+          // point. focalMax is sized off the wider dimension so the
+          // blob scales generously on big monitors.
+          vec2 focalCenter = vec2(u_resolution.x * 0.75, u_resolution.y * 0.5);
+          float focalDist = distance(fragCoord, focalCenter);
+          float focalMax = max(u_resolution.x * 0.30, u_resolution.y * 0.60);
+          float focalGate = 1.0 - smoothstep(focalMax * 0.3, focalMax, focalDist);
+
+          // Text-area gate, shaped as an ellipse that hugs the text
+          // bounding box. The horizontal centre is computed in real
+          // pixels so it stays locked to the container's actual
+          // left padding regardless of viewport width — at narrow
+          // viewports the container fills the screen, at wide
+          // viewports it sits with big left/right margins, and the
+          // gate follows it either way. Without this the blank
+          // zone drifts right of the text on wide monitors.
+          float containerMaxPx = 1200.0 * u_dpr;
+          float containerPadPx = 32.0 * u_dpr;
+          float containerLeftPx = max(0.0, (u_resolution.x - containerMaxPx) * 0.5);
+          float textCenterX = containerLeftPx + containerPadPx + 280.0 * u_dpr;
+          vec2 textCenter = vec2(textCenterX, u_resolution.y * 0.5);
+          vec2 textRadii  = vec2(380.0 * u_dpr, u_resolution.y * 0.42);
+          vec2 textDelta  = (fragCoord - textCenter) / textRadii;
+          float textNorm  = length(textDelta);
+          float textGate  = 1.0 - smoothstep(0.4, 1.05, textNorm);
+
+          // Brightness used by the dither thresholding.
+          //   STATIC value (left): a low base, dropped even lower
+          //     under textGate so the dot density tapers smoothly
+          //     to near-zero right around the text.
+          //   ANIMATED value (right): the regular time-varying noise
+          //     field with a soft vignette.
+          //   focalGate then blends between the two with a pure
+          //     interpolation — no edge, no 90° line.
+          float brightStatic = mix(-0.05, -0.22, textGate);
+          float brightAnim   = (val + 2.0) / 4.0 * (1.0 - (dist / maxDist) * 0.5);
+          float brightness   = mix(brightStatic, brightAnim, focalGate);
+
+          float fbx = mod(scaledCoord.x, 4.0);
+          float fby = mod(scaledCoord.y, 4.0);
+          float threshold = 0.0;
+          if (fby < 1.0) {
+            if (fbx < 1.0) threshold = 0.0;     else if (fbx < 2.0) threshold = 0.5;
+            else if (fbx < 3.0) threshold = 0.125; else threshold = 0.625;
+          } else if (fby < 2.0) {
+            if (fbx < 1.0) threshold = 0.75;    else if (fbx < 2.0) threshold = 0.25;
+            else if (fbx < 3.0) threshold = 0.875; else threshold = 0.375;
+          } else if (fby < 3.0) {
+            if (fbx < 1.0) threshold = 0.1875;  else if (fbx < 2.0) threshold = 0.6875;
+            else if (fbx < 3.0) threshold = 0.0625; else threshold = 0.5625;
+          } else {
+            if (fbx < 1.0) threshold = 0.9375;  else if (fbx < 2.0) threshold = 0.4375;
+            else if (fbx < 3.0) threshold = 0.8125; else threshold = 0.3125;
+          }
+
+          // Light-mode 4-stop ramp, anchored on --color-cta (#2257e9)
+          // for the focus stop so the densest dither dots match the
+          // brand's bright interactive blue rather than the navy.
+          vec3 c_bg     = vec3(1.0, 1.0, 1.0);            // #ffffff page background
+          vec3 c_ambient = vec3(0.812, 0.878, 0.945);     // #cfe0f1 pale blue
+          vec3 c_wave   = vec3(0.392, 0.553, 0.929);      // ~#647ced softer cta-leaning mid
+          vec3 c_focus  = vec3(0.133, 0.341, 0.914);      // #2257e9 --color-cta
+
+          // Ambient (lightest) is the only colour the left side can
+          // show. Because the static brightness on the left is very
+          // low, the Bayer matrix only crosses this threshold at its
+          // sparsest cells — producing the desired X-with-white
+          // pattern.
+          vec3 color = c_bg;
+          if (brightness > threshold - 0.15) color = c_ambient;
+
+          // Wave + focus admitted only inside the focal blob. Their
+          // thresholds are pushed unreachable on the left (focalGate
+          // → 0), so the medium and dark blues never appear there;
+          // on the right they relax to normal so the cluster builds
+          // up smoothly with no edge.
+          float waveT  = threshold + 0.1  + (1.0 - focalGate) * 1.5;
+          float focusT = threshold + 0.35 + (1.0 - focalGate) * 1.5;
+          if (brightness > waveT)  color = c_wave;
+          if (brightness > focusT) color = c_focus;
+
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `;
+
+      function compile(type: number, source: string): WebGLShader | null {
+        const sh = gl!.createShader(type);
+        if (!sh) return null;
+        gl!.shaderSource(sh, source);
+        gl!.compileShader(sh);
+        if (!gl!.getShaderParameter(sh, gl!.COMPILE_STATUS)) {
+          console.error(gl!.getShaderInfoLog(sh));
+          gl!.deleteShader(sh);
+          return null;
+        }
+        return sh;
+      }
+
+      const vs = compile(gl.VERTEX_SHADER, vsSource);
+      const fs = compile(gl.FRAGMENT_SHADER, fsSource);
+
+      if (!vs || !fs) {
+        wrap.classList.add('no-webgl');
+      } else {
+        const program = gl.createProgram()!;
+        gl.attachShader(program, vs);
+        gl.attachShader(program, fs);
+        gl.linkProgram(program);
+
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+          console.error(gl.getProgramInfoLog(program));
+          wrap.classList.add('no-webgl');
+        } else {
+          const buf = gl.createBuffer();
+          gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+          gl.bufferData(
+            gl.ARRAY_BUFFER,
+            new Float32Array([-1, 1, 1, 1, -1, -1, 1, -1]),
+            gl.STATIC_DRAW,
+          );
+          const aPos = gl.getAttribLocation(program, 'a_position');
+          const uTime = gl.getUniformLocation(program, 'u_time');
+          const uRes = gl.getUniformLocation(program, 'u_resolution');
+          const uDpr = gl.getUniformLocation(program, 'u_dpr');
+
+          const dpr = Math.min(window.devicePixelRatio || 1, 2);
+          function resize() {
+            const w = canvas!.clientWidth;
+            const h = canvas!.clientHeight;
+            const cw = Math.floor(w * dpr);
+            const ch = Math.floor(h * dpr);
+            if (canvas!.width !== cw || canvas!.height !== ch) {
+              canvas!.width = cw;
+              canvas!.height = ch;
+            }
+          }
+
+          let running = true;
+          let start = performance.now();
+
+          const io = new IntersectionObserver(
+            (entries) => {
+              for (const e of entries) {
+                running = e.isIntersecting;
+                if (running) start = performance.now();
+              }
+            },
+            { threshold: 0 },
+          );
+          io.observe(canvas);
+
+          window.addEventListener('resize', resize, { passive: true });
+
+          function frame() {
+            if (!running) {
+              requestAnimationFrame(frame);
+              return;
+            }
+            resize();
+            gl!.viewport(0, 0, gl!.canvas.width, gl!.canvas.height);
+            gl!.useProgram(program);
+            gl!.enableVertexAttribArray(aPos);
+            gl!.bindBuffer(gl!.ARRAY_BUFFER, buf);
+            gl!.vertexAttribPointer(aPos, 2, gl!.FLOAT, false, 0, 0);
+            gl!.uniform1f(uTime, (performance.now() - start) * 0.001);
+            gl!.uniform2f(uRes, gl!.canvas.width, gl!.canvas.height);
+            gl!.uniform1f(uDpr, dpr);
+            gl!.drawArrays(gl!.TRIANGLE_STRIP, 0, 4);
+            requestAnimationFrame(frame);
+          }
+          requestAnimationFrame(frame);
+        }
+      }
+    }
+  }
+</script>

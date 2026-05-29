@@ -1,95 +1,175 @@
 ---
-import Guide from '../../layouts/Guide.astro';
-import { getNodesByType } from '../../lib/data';
+import { getCollection } from 'astro:content';
+import ListPageLayout from '../../layouts/ListPageLayout.astro';
+import AnchorNav from '../../components/AnchorNav.astro';
+import SectionHeading from '../../components/SectionHeading.astro';
+import ApproachCard from '../../components/ApproachCard.astro';
+import { parseApproachTitle } from '../../lib/parseApproachTitle';
+import { stripTypePrefix } from '../../lib/slugify';
+import { bodyExcerpt, bodyBulletList } from '../../lib/excerpt';
+import { buildDomainIndex, type Domain } from '../../lib/domain';
+import { domainIcon } from '../../lib/icons';
+import { inlineMd } from '../../lib/inlineMarkdown';
 
-// SOURCE: iptf-map field — do not alter. `title` is the prefix-stripped frontmatter
-// title; `summary` is the first paragraph of `## Problem framing → ### Scenario`.
-const rows = getNodesByType('approach');
+/*
+ * Listing buckets approaches by canonical domain, derived from each
+ * approach's `use_case → primary_domain`. Domains themselves are
+ * data-driven from the `domains` collection (add/remove upstream is
+ * reflected here automatically). Editorial overrides are gone — what an
+ * approach addresses lives in its frontmatter.
+ *
+ * Approaches whose use_case slug can't be resolved (or whose use-case
+ * has no/unknown primary_domain) fall into an "unbucketed" group that's
+ * rendered last rather than silently dropped.
+ */
+
+const approaches = await getCollection('approaches');
+const useCases = await getCollection('useCases');
+const domains = await getCollection('domains');
+const useCaseById = new Map(useCases.map((uc) => [uc.id, uc]));
+const domainIndex = buildDomainIndex(domains);
+
+// Per-domain primer is the domain's frontmatter `description` (a curated
+// one-liner, iptf-map PR #173). Falls back to the first ## TLDR bullet
+// where no description exists yet. Links to the domain detail page.
+function domainPrimer(d: Domain): { html: string; href: string } | undefined {
+  const entry = domainIndex.entryFor(d) as
+    | { id: string; data: { description?: string }; body?: string }
+    | undefined;
+  if (!entry) return undefined;
+  const text = entry.data.description?.trim() || bodyBulletList(entry.body, 'TLDR')[0];
+  if (!text) return undefined;
+  return { html: `<p>${inlineMd(text)}</p>`, href: `/domains/${entry.id}/` };
+}
+
+interface ApproachView {
+  id: string;
+  title: string;
+  goal: string;
+  status?: string;
+  useCaseTitle?: string;
+  useCaseSlug?: string;
+  domain: Domain | null;
+  buildingBlocks: number;
+}
+
+const items: ApproachView[] = approaches.map((entry) => {
+  const useCase = entry.data.use_case ? useCaseById.get(entry.data.use_case) : null;
+  const domain = useCase ? domainIndex.resolve(useCase.data.primary_domain) : null;
+  const primary = (entry.data.primary_patterns ?? []).length;
+  const supporting = (entry.data.supporting_patterns ?? []).length;
+  return {
+    id: entry.id,
+    title: entry.data.title ? stripTypePrefix(entry.data.title) : parseApproachTitle(entry.body) || entry.id,
+    goal: bodyExcerpt(entry.body),
+    status: entry.data.status
+      ? entry.data.status.charAt(0).toUpperCase() + entry.data.status.slice(1)
+      : undefined,
+    useCaseTitle: useCase ? stripTypePrefix(useCase.data.title) : undefined,
+    useCaseSlug: entry.data.use_case ?? undefined,
+    domain,
+    buildingBlocks: primary + supporting,
+  };
+});
+
+// Bucket by canonical domain. Approaches without a resolvable domain
+// fall into an "unbucketed" group that's rendered last (rather than
+// silently dropped, so reviewers can see what's missing data).
+const buckets = new Map<Domain | 'unbucketed', ApproachView[]>();
+for (const d of domainIndex.names) buckets.set(d, []);
+buckets.set('unbucketed', []);
+for (const it of items) {
+  const key = it.domain ?? 'unbucketed';
+  buckets.get(key)!.push(it);
+}
+
+const orderedDomains = domainIndex.names.filter((d) => (buckets.get(d) ?? []).length > 0);
+const unbucketed = buckets.get('unbucketed') ?? [];
+
+function anchor(domain: string): string {
+  return domain.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+const tabs = orderedDomains.map((d) => ({
+  href: `#${anchor(d)}`,
+  label: d,
+  count: buckets.get(d)!.length,
+  iconSvg: domainIcon(domainIndex.idFor(d)),
+}));
+
 ---
 
-<Guide title="Case Studies" description="Solution architectures for institutional privacy on Ethereum" activeSection="approaches">
-  <div class="idx-page">
+<ListPageLayout
+  title="Approaches"
+  pageTitle="Approaches"
+  description="Approaches"
+  current="/approaches/"
+>
+  <Fragment slot="anchor-nav">
+    <AnchorNav tabs={tabs} ariaLabel="Domain navigation" />
+  </Fragment>
 
-    <div class="idx-header">
-      <div class="idx-label">Case Studies</div>
-      <h1 class="idx-title">From requirements to solutions</h1>
-      <p class="idx-desc">{rows.length} case studies combining privacy primitives to solve concrete institutional problems — from private payments to confidential settlement.</p>
-    </div>
+  <div class="container">
+    {orderedDomains.map((domain) => {
+      const primer = domainPrimer(domain);
+      return (
+      <section class="domain-section">
+        <SectionHeading
+          id={anchor(domain)}
+          title={domain}
+          iconSvg={domainIcon(domainIndex.idFor(domain))}
+          primer={primer?.html}
+          readMoreHref={primer?.href}
+        />
+        <div class="cs-list">
+          {buckets.get(domain)!.map((it) => (
+            <ApproachCard
+              href={`/approaches/${it.id}/`}
+              title={it.title}
+              goal={it.goal}
+              status={it.status}
+              useCase={it.useCaseTitle}
+              useCaseHref={it.useCaseSlug ? `/use-cases/${it.useCaseSlug}/` : undefined}
+            />
+          ))}
+        </div>
+      </section>
+      );
+    })}
 
-    <div class="cs-list">
-      {rows.map((row, i) => {
-        const idx = String(i + 1).padStart(2, '0');
-        const isLast = i === rows.length - 1;
-        return (
-          <a href={`/approaches/${row.slug}`} class={`cs-row ${isLast ? 'last' : ''}`}>
-            <span class="cs-idx">{idx}</span>
-            <div class="cs-thumb">
-              <img src={`/assets/images/approaches/${row.slug}.png`} alt="" loading="lazy" />
-            </div>
-            <div class="cs-body">
-              <div class="cs-name">{row.title}</div>
-              {row.summary && <div class="cs-blurb">{row.summary}</div>}
-            </div>
-          </a>
-        );
-      })}
-    </div>
+    {unbucketed.length > 0 && (
+      <section class="domain-section">
+        <SectionHeading
+          id="unbucketed"
+          title="Unbucketed"
+        />
+        <div class="cs-list">
+          {unbucketed.map((it) => (
+            <ApproachCard
+              href={`/approaches/${it.id}/`}
+              title={it.title}
+              goal={it.goal}
+              status={it.status}
+              useCase={it.useCaseTitle}
+              useCaseHref={it.useCaseSlug ? `/use-cases/${it.useCaseSlug}/` : undefined}
+            />
+          ))}
+        </div>
+      </section>
+    )}
 
   </div>
+</ListPageLayout>
 
-  <style is:global>
-    /* .idx-page / .idx-header / .idx-label / .idx-title / .idx-desc
-       live in src/styles/global.css so every index page shares them. */
-    .cs-row {
-      display: grid;
-      grid-template-columns: 32px 220px 1fr;
-      gap: 1.5rem;
-      align-items: center;
-      padding: 1.5rem 0;
-      border-top: 1px solid rgba(255,255,255,0.06);
-      text-decoration: none; color: inherit;
-      transition: padding-left 0.15s;
-    }
-    .cs-row.last { border-bottom: 1px solid rgba(255,255,255,0.06); }
-    .cs-row:hover { padding-left: 0.75rem; }
-    .cs-row:hover .cs-name { color: #a5b4fc; }
-    .cs-idx {
-      font-size: 0.75rem; font-weight: 500; color: #a1a1aa;
-      font-variant-numeric: tabular-nums;
-    }
-    .cs-thumb {
-      width: 220px; height: 110px;
-      border-radius: 8px;
-      overflow: hidden;
-      background: #18181b;
-      border: 1px solid rgba(255,255,255,0.05);
-    }
-    .cs-thumb img {
-      width: 100%; height: 100%;
-      object-fit: cover;
-      display: block;
-    }
-    .cs-body { min-width: 0; }
-    .cs-name {
-      font-family: 'Newsreader', Georgia, serif;
-      font-size: 1.2rem; font-weight: 500; color: white;
-      letter-spacing: -0.01em; margin-bottom: 0.35rem;
-      transition: color 0.15s;
-    }
-    .cs-blurb {
-      font-size: 0.85rem; color: #a1a1aa; line-height: 1.6;
-      margin-bottom: 0.5rem;
-    }
-
-    @media (max-width: 720px) {
-      .cs-row {
-        grid-template-columns: 1fr;
-        gap: 0.75rem;
-        padding: 1.25rem 0;
-      }
-      .cs-idx { font-size: 0.7rem; }
-      .cs-thumb { width: 100%; height: 180px; }
-      .cs-name { font-size: 1.1rem; }
-    }
-  </style>
-</Guide>
+<style>
+  .domain-section { margin-bottom: 4rem; }
+  .domain-section:last-of-type { margin-bottom: 1rem; }
+  .cs-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.85rem;
+  }
+  @media (max-width: 720px) {
+    .cs-list { grid-template-columns: 1fr; }
+  }
+</style>

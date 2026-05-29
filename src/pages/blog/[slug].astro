@@ -1,0 +1,147 @@
+---
+/*
+ * /blog/{slug}/ — post detail. slug is jekyllSlugify(post.data.title),
+ * matching ethereum/iptf-web's permalink convention.
+ *
+ * Source: the `posts` content collection, which loads from the
+ * posts-source/ submodule.
+ */
+import { getCollection, render } from 'astro:content';
+import DetailPageLayout from '../../layouts/DetailPageLayout.astro';
+import ArticleFooter from '../../components/ArticleFooter.astro';
+import { jekyllSlugify } from '../../lib/jekyllSlug';
+
+function toISODate(d: string | Date | undefined): string {
+  if (!d) return '';
+  if (d instanceof Date) return d.toISOString().slice(0, 10);
+  return String(d).slice(0, 10);
+}
+
+export async function getStaticPaths() {
+  const entries = await getCollection('posts');
+  return entries.map((entry) => ({
+    params: { slug: jekyllSlugify(entry.data.title) },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+const date = toISODate(entry.data.date);
+const sibling = { href: '/blog/', label: 'More writeups' };
+
+const pills = [
+  ...(date ? [{ label: date, emphasis: true }] : []),
+  ...(entry.data.author ? [{ label: entry.data.author }] : []),
+];
+---
+
+<DetailPageLayout
+  title={`${entry.data.title} · Blog`}
+  pageTitle={entry.data.title}
+  description={entry.data.description ?? ''}
+  current="/blog/"
+  breadcrumbs={[
+    { label: 'Home', href: '/' },
+    { label: 'Blog', href: '/blog/' },
+    { label: entry.data.title },
+  ]}
+  lede={entry.data.description}
+  pills={pills}
+  centered
+>
+  {entry.data.image && (
+    <div class="post-hero-image">
+      <img src={entry.data.image} alt="" loading="eager" />
+    </div>
+  )}
+
+  <div class="prose post-prose">
+    <Content />
+  </div>
+
+  <Fragment slot="after-content">
+    <ArticleFooter sibling={sibling} lastReviewed={date || undefined} />
+  </Fragment>
+</DetailPageLayout>
+
+<style>
+  .post-hero-image {
+    width: 100%;
+    margin: 0 0 2rem;
+    border-radius: var(--radius-md);
+    overflow: hidden;
+    background: var(--color-bg-subtle);
+  }
+  .post-hero-image img {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+
+  /* Long-form prose styling — slightly more comfortable measure than
+     the standard .prose used on detail pages. */
+  :global(.post-prose) {
+    font-size: 1.02rem;
+    line-height: 1.75;
+    color: var(--color-text);
+    max-width: 720px;
+  }
+  :global(.post-prose h2) {
+    font-family: var(--font-sans);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.02em;
+    margin: 2.5rem 0 0.75rem;
+  }
+  :global(.post-prose h3) {
+    font-family: var(--font-sans);
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.015em;
+    margin: 2rem 0 0.5rem;
+  }
+  :global(.post-prose p) {
+    margin: 0.85rem 0;
+  }
+  :global(.post-prose img) {
+    max-width: 100%;
+    height: auto;
+    border-radius: var(--radius-sm);
+    margin: 1.25rem 0;
+  }
+  :global(.post-prose a) {
+    color: var(--color-cta);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color var(--duration-fast) var(--easing-soft);
+  }
+  :global(.post-prose a:hover) {
+    border-bottom-color: currentColor;
+  }
+  :global(.post-prose code) {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: var(--color-bg-subtle);
+    padding: 0.05em 0.4em;
+    border-radius: var(--radius-sm);
+    color: var(--color-primary);
+  }
+  :global(.post-prose blockquote) {
+    border-left: 3px solid var(--color-cta);
+    padding-left: 1.25rem;
+    color: var(--color-text-secondary);
+    font-style: italic;
+    margin: 1.5rem 0;
+  }
+  :global(.post-prose ul),
+  :global(.post-prose ol) {
+    padding-left: 1.5rem;
+    margin: 0.85rem 0;
+  }
+  :global(.post-prose li) {
+    margin: 0.35rem 0;
+  }
+</style>

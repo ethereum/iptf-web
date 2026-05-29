@@ -1,0 +1,166 @@
+---
+interface Crumb {
+  label: string;
+  href?: string;
+}
+
+interface Pill {
+  label: string;
+  emphasis?: boolean;
+}
+
+interface Props {
+  breadcrumbs?: Crumb[];
+  title: string;
+  /** Lede may contain inline HTML (e.g. <strong>) — passed through set:html. */
+  lede?: string;
+  /** Optional bullet list rendered under the title instead of a prose lede. */
+  ledeBullets?: string[];
+  /** Optional metadata line shown under lede, e.g. "Reviewed weekly · Last edit DATE". */
+  metaRow?: string;
+  pills?: Pill[];
+  /** Centre breadcrumb + title + lede + pills horizontally. Used by the
+   *  blog detail layout where the post body is also centred. */
+  centered?: boolean;
+}
+
+const { breadcrumbs = [], title, lede, ledeBullets, metaRow, pills = [], centered = false } = Astro.props;
+---
+
+<header class:list={['page-header', { 'page-header--centered': centered }]}>
+  <div class="container">
+    {breadcrumbs.length > 0 && (
+      <nav class="breadcrumb" aria-label="Breadcrumb">
+        {breadcrumbs.map((crumb, i) => (
+          <>
+            {crumb.href ? <a href={crumb.href}>{crumb.label}</a> : <span>{crumb.label}</span>}
+            {i < breadcrumbs.length - 1 && <span class="sep">/</span>}
+          </>
+        ))}
+      </nav>
+    )}
+    <h1>{title}</h1>
+    {ledeBullets && ledeBullets.length > 0 && (
+      <ul class="lede-bullets">
+        {ledeBullets.map((b) => <li>{b}</li>)}
+      </ul>
+    )}
+    {!ledeBullets && lede && <p class="lede" set:html={lede} />}
+    {metaRow && <p class="meta-row" set:html={metaRow} />}
+    {pills.length > 0 && (
+      <div class="meta-pills">
+        {pills.map((p) => (
+          <span class="meta-pill">{p.emphasis ? <strong>{p.label}</strong> : p.label}</span>
+        ))}
+      </div>
+    )}
+  </div>
+</header>
+
+<style>
+  .page-header {
+    padding: 4.5rem 0 3rem;
+    background: radial-gradient(ellipse 60% 50% at 90% 10%, rgba(49, 130, 206, 0.05), transparent 60%);
+  }
+  /* Centered variant — used by blog post details (per 2026-05-22
+     meeting: writeups should read centred). Centres breadcrumb,
+     title, lede, meta row, and pills inside the container. */
+  .page-header--centered .container {
+    text-align: center;
+  }
+  .page-header--centered .breadcrumb { justify-content: center; }
+  .page-header--centered h1 {
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+  }
+  .page-header--centered .lede,
+  .page-header--centered .meta-row {
+    margin-left: auto;
+    margin-right: auto;
+    text-align: center;
+  }
+  .page-header--centered .meta-pills { justify-content: center; }
+  .page-header--centered .lede-bullets {
+    margin-left: auto;
+    margin-right: auto;
+    text-align: left;
+  }
+  .breadcrumb {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.25rem;
+    align-items: center;
+  }
+  .breadcrumb a { color: var(--color-text-secondary); }
+  .breadcrumb a:hover { color: var(--color-cta); }
+  .breadcrumb .sep { color: var(--color-border-strong); margin: 0 0.4rem; }
+
+  .page-header h1 {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: clamp(2.25rem, 4.4vw, 3.05rem);
+    line-height: 1.08;
+    letter-spacing: -0.028em;
+    color: var(--color-primary);
+    margin-bottom: 1.25rem;
+    max-width: 26ch;
+    text-wrap: balance;
+    min-width: 0;
+  }
+  .page-header .lede {
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    color: var(--color-text-secondary);
+    max-width: 64ch;
+  }
+  .page-header .lede :global(strong) { color: var(--color-primary); font-weight: 600; }
+  /* Lede bullets — used by domain pages where the upstream TLDR is a
+     bullet list. Matches the prose lede on color and width so the hero
+     reads as a unit, but each bullet stays on its own line. */
+  .page-header .lede-bullets {
+    margin: 0;
+    padding-left: 1.25rem;
+    max-width: 64ch;
+    list-style: disc;
+    color: var(--color-text-secondary);
+  }
+  .page-header .lede-bullets li {
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    margin-top: 0.4rem;
+  }
+  .page-header .lede-bullets li:first-child { margin-top: 0; }
+  .page-header .lede-bullets :global(strong) { color: var(--color-primary); font-weight: 600; }
+
+  .page-header .meta-row {
+    margin-top: 1.25rem;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+  }
+  .page-header .meta-row :global(strong) { color: var(--color-primary); font-weight: 600; }
+
+  .meta-pills {
+    margin-top: 1.25rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+  }
+  .meta-pill {
+    background: var(--color-bg-subtle);
+    border: 1px solid var(--color-border);
+    padding: 0.3rem 0.7rem;
+    border-radius: 99px;
+    color: var(--color-text-secondary);
+  }
+  .meta-pill strong { color: var(--color-primary); font-weight: 600; }
+</style>

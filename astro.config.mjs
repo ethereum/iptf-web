@@ -1,18 +1,24 @@
+// @ts-check
 import { defineConfig } from 'astro/config';
+import mdx from '@astrojs/mdx';
+import { remarkRewriteLinks } from './src/plugins/remark-rewrite-links.ts';
+import { remarkApproachVariants } from './src/plugins/remark-approach-variants.ts';
+
 import react from '@astrojs/react';
-import sitemap from '@astrojs/sitemap';
-import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  site: 'https://iptf.ethereum.org',
-  integrations: [
-    react(),
-    sitemap(),
-  ],
+  site: 'https://iptf.netlify.app',
+  trailingSlash: 'always',
   build: {
-    assets: 'astro',
+    format: 'directory',
   },
-  vite: {
-    plugins: [tailwindcss()],
+  markdown: {
+    remarkPlugins: [remarkRewriteLinks, remarkApproachVariants],
+    syntaxHighlight: 'shiki',
+    shikiConfig: {
+      theme: 'github-light',
+      wrap: true,
+    },
   },
+  integrations: [mdx(), react()],
 });

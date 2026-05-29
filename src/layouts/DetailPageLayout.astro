@@ -1,0 +1,91 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import PageHeader from '../components/PageHeader.astro';
+
+interface Crumb { label: string; href?: string }
+interface Pill { label: string; emphasis?: boolean }
+
+interface Props {
+  title: string;
+  pageTitle: string;
+  description?: string;
+  current?: string;
+  breadcrumbs: Crumb[];
+  lede?: string;
+  /** Optional bullet list rendered under the title instead of a prose lede. */
+  ledeBullets?: string[];
+  pills?: Pill[];
+  /** Centre the page header AND collapse the rail column so the
+   *  article body reads as one centred reading column. Used by
+   *  blog post details (per 2026-05-22 meeting: writeups centred). */
+  centered?: boolean;
+}
+
+const { title, pageTitle, description, current, breadcrumbs, lede, ledeBullets, pills, centered = false } = Astro.props;
+---
+
+<BaseLayout title={title} description={description} current={current}>
+  <PageHeader breadcrumbs={breadcrumbs} title={pageTitle} lede={lede} ledeBullets={ledeBullets} pills={pills} centered={centered} />
+  <section class={`detail ${centered ? 'detail--centered' : ''}`}>
+    <div class="container">
+      <div class="detail-grid">
+        <article class="detail-body">
+          <slot />
+          <slot name="after-content" />
+        </article>
+        <slot name="rail" />
+      </div>
+    </div>
+  </section>
+  <slot name="next-step" />
+</BaseLayout>
+
+<style>
+  .detail {
+    padding: 3rem 0 4rem;
+  }
+  .detail-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 3rem;
+    align-items: start;
+  }
+  /* Centred variant — single column, no rail reservation. The article
+     body uses its own max-width (set by the consuming page) and
+     centres via auto margins.
+     NOTE: do NOT use `justify-items: center` here — that lets the grid
+     item size to its content max-content (eg a wide hero image),
+     overflowing the track on mobile. Instead, the item stretches
+     (default) to the track width and caps at 720px via max-width. */
+  .detail--centered .detail-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .detail--centered .detail-body {
+    width: 100%;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  @media (max-width: 900px) {
+    /* minmax(0, 1fr) so intrinsic image/code/table widths can't push
+       the track past the container — would otherwise force horizontal
+       page scroll on mobile. */
+    .detail-grid { grid-template-columns: minmax(0, 1fr); gap: 2rem; }
+  }
+  .detail-body { min-width: 0; }
+
+  /* Align the first element of the main column and the rail to the
+     same Y origin. Without this, components with their own top
+     margin (e.g. EntryFacts with margin-top: 1.5rem) drift below
+     the rail's first child — a misalignment visible across all
+     detail templates that use the grid.
+     Uses :global so the reset crosses the Astro scoped-CSS boundary
+     into child components like <EntryFacts>. */
+  :global(.detail-body > :first-child),
+  :global(.detail-grid > aside > :first-child),
+  :global(.detail-grid > aside section:first-child),
+  :global(.detail-grid > aside details:first-child),
+  :global(.detail-body > section:first-child) {
+    margin-top: 0;
+  }
+</style>

@@ -1,0 +1,55 @@
+---
+import '../styles/globals.css';
+import NavBar from '../components/NavBar.astro';
+import NavOverlay from '../components/NavOverlay.astro';
+import SiteFooter from '../components/SiteFooter.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  current?: string;
+  /** Optional canonical override; defaults to Astro.url. */
+  canonical?: string;
+}
+
+const { title, description, current, canonical } = Astro.props;
+const fullTitle = title ? `${title} · IPTF` : 'Institutional Privacy Task Force';
+const desc =
+  description ??
+  'A working knowledge base for institutions arriving at Ethereum with privacy requirements. Maintained by the Privacy Cluster.';
+const canon = canonical ?? new URL(Astro.url.pathname, Astro.site ?? Astro.url).toString();
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={desc} />
+    <link rel="canonical" href={canon} />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="256x256" href="/favicon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={desc} />
+  </head>
+  <body>
+    <NavBar current={current} />
+    <main>
+      <slot />
+    </main>
+    <SiteFooter />
+    <NavOverlay />
+  </body>
+</html>
+
+<style is:global>
+  /* No globally-scoped overrides here. Tokens + globals.css already imported above. */
+</style>

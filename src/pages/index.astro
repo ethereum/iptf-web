@@ -1,676 +1,1336 @@
 ---
-import Guide from '../layouts/Guide.astro';
-import { getNodesByType, getApproachesForDomain } from '../lib/data';
-import { getRecentPosts, formatPostDate } from '../lib/posts';
+import BaseLayout from '../layouts/BaseLayout.astro';
+import HeroAnimation from '../components/HeroAnimation.astro';
+import PipelineAnimation from '../components/PipelineAnimation.astro';
+import { getStats } from '../lib/stats';
+import { getCollection } from 'astro:content';
+import { jekyllSlugify } from '../lib/jekyllSlug';
+import { findFaq } from '../data/faq';
 
-const base = import.meta.env.BASE_URL;
-const recentPosts = getRecentPosts(3);
+const stats = await getStats();
 
-// ── Dynamic data ──
-const approaches = getNodesByType('approach');
-const domains = getNodesByType('domain');
-
-// Count approaches per domain transitively (domain -> use-case <- approach).
-function countApproachesForDomain(domainId: string): number {
-  return getApproachesForDomain(domainId).length;
+// Top 3 long-form posts from the posts collection (sourced from the
+// posts-source submodule = ethereum/iptf-web). Sorted newest first by
+// frontmatter date.
+function toISODate(d: string | Date | undefined): string {
+  if (!d) return '';
+  if (d instanceof Date) return d.toISOString().slice(0, 10);
+  return String(d).slice(0, 10);
 }
+const allPosts = await getCollection('posts');
+const latestPosts = [...allPosts]
+  .map((p) => ({
+    slug: jekyllSlugify(p.data.title),
+    title: p.data.title,
+    description: p.data.description ?? '',
+    date: toISODate(p.data.date),
+    image: p.data.image,
+  }))
+  .sort((a, b) => b.date.localeCompare(a.date))
+  .slice(0, 3);
 
-// Map context value to badge class & label
-function contextBadge(ctx?: string) {
-  switch (ctx) {
-    case 'i2i':  return { cls: 'b-i2i', label: 'I2I' };
-    case 'i2u':  return { cls: 'b-i2u', label: 'I2U' };
-    case 'both': return { cls: 'b-both', label: 'Both' };
-    default:     return null;
-  }
-}
+// FAQ teaser — 5 hand-curated featured questions resolved against the
+// shared FAQ dataset (src/data/faq.ts). The homepage renders these inline
+// as expandable accordions so the full answer is one click away without a
+// page jump.
+const FEATURED_FAQ_QS = [
+  'Is Ethereum private enough for institutional use?',
+  'What does MiCA say about on-chain privacy?',
+  'How do viewing keys work for regulatory access?',
+  'Can institutions use DeFi and stay compliant?',
+  'Which privacy solutions are production-ready today?',
+];
+const faqTeasers = FEATURED_FAQ_QS
+  .map((q) => findFaq(q))
+  .filter((e): e is NonNullable<typeof e> => e !== undefined);
 ---
 
-<Guide
-  title="IPTF — Institutional Privacy on Ethereum"
-  description="From requirements to deployable privacy solutions for institutions on Ethereum.">
+<BaseLayout title="" description="A working knowledge base for institutional privacy on Ethereum." current="/">
 
   <!-- HERO -->
   <section class="hero">
-    <div class="hero-eyebrow">Ethereum Foundation &middot; Privacy Cluster</div>
-    <h1>Privacy for <span class="cycle-wrap"><em class="cycle" data-words="Institutions,Non-Profits,NGOs,DAO Treasuries,Family Offices,Research Collectives,Govtech">Institutions</em><span class="cycle-sizer" aria-hidden="true">Research Collectives</span></span><br>on Ethereum</h1>
-    <p class="hero-desc">We bridge institutions and the Ethereum privacy ecosystem. From requirements to deployable solutions.</p>
-    <a href="#case-studies" class="hero-cta">
-      Explore case studies
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-    </a>
-    <div class="hero-scroll"><span>Scroll</span><div class="scroll-line"></div></div>
-  </section>
-
-  <!-- POSITIONING -->
-  <section class="positioning">
-    <div class="pos-inner">
-
-      <!-- Flow: Institutions -> IPTF -> Ecosystem -->
-      <div class="pos-flow-minimal">
-        <span class="pos-endpoint">Institutions</span>
-        <div class="pos-line-h"></div>
-        <div class="pos-center-box">
-          <div class="pos-center-label">IPTF</div>
-          <div class="pos-center-desc">From requirements<br>to deployable solutions</div>
-        </div>
-        <div class="pos-line-h"></div>
-        <span class="pos-endpoint">Ecosystem</span>
-      </div>
-
-      <!-- Three pillars -->
-      <div class="pos-pillars">
-        <div class="pillar">
-          <h3>Map the problem space</h3>
-          <p>21 use cases gathered from direct institutional conversations. Real privacy requirements grounded in regulatory constraints, not speculated.</p>
-        </div>
-        <div class="pillar">
-          <h3>Prototype solutions</h3>
-          <p>End-to-end proof-of-concepts across ZK proofs, MPC, FHE, and TEEs. We stress-test architectures and find where they break.</p>
-        </div>
-        <div class="pillar">
-          <h3>Coordinate the ecosystem</h3>
-          <p>Workshops with vendors and institutions. Neutral vendor assessments. Connecting the people building privacy tools with the people who need them.</p>
+    <HeroAnimation />
+    <div class="container">
+      <div class="hero-inner">
+        <h1>Advancing privacy standards for institutional applications</h1>
+        <p class="lede">The <strong>Institutional Privacy Task Force (IPTF)</strong> is a dedicated team that helps onboard institutions onto Ethereum, with a focus on ensuring their privacy needs are met in a performant, secure, usable, and accessible way.</p>
+        <div class="cta-row">
+          <a href="/approaches/" class="btn primary lg">See approaches<span class="arr">→</span></a>
+          <a href="/blog/" class="btn ghost lg">See writeups<span class="arr">→</span></a>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- BRIDGE -->
-  <div class="bridge"></div>
+  <!-- READING PATHS -->
+  <section class="block">
+    <div class="container">
+      <div class="section-head">
+        <h2>Find the right privacy solution</h2>
+        <p class="meta">We document patterns, use cases, and regulatory frameworks for implementing privacy-preserving financial applications on Ethereum.</p>
+      </div>
 
-  <!-- LIGHT SECTIONS -->
-  <div class="light">
-
-    <!-- CASE STUDIES (dynamic from approaches) -->
-    <section class="cs-section" id="case-studies">
-      <div class="cs-inner">
-        <div class="cs-header">
-          <div>
-            <div class="s-label">Case Studies</div>
-            <h2 class="s-title">From requirements to solutions</h2>
+      <div class="paths">
+        <a class="path" href="/approaches/">
+          <div class="path-content">
+            <h3>Approaches</h3>
+            <p>Read worked architectures directly. Each names trade-offs in plain language, evaluates under CROPS, and references a working prototype where one exists.</p>
+            <span class="path-link"><strong>{stats.approaches}</strong> approaches <span class="arr">→</span></span>
           </div>
-          <a href={`/approaches`} class="cs-all">
-            All case studies
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-          </a>
-        </div>
+          <img class="path-img" src="/cards/casestudies.webp" alt="" width="540" height="675" loading="lazy" />
+        </a>
 
-        <div class="cs-list">
-          {approaches.map((approach, i) => {
-            const idx = String(i + 1).padStart(2, '0');
-            return (
-              <a class="cs-item" href={`/approaches/${approach.slug}`}>
-                <span class="cs-idx">{idx}</span>
-                <div class="cs-thumb">
-                  <img src={`/assets/images/approaches/${approach.slug}.png`} alt="" loading="lazy" />
-                </div>
-                <div class="cs-body">
-                  <div class="cs-name">{approach.title}</div>
-                  {approach.summary && <div class="cs-blurb">{approach.summary}</div>}
-                </div>
+        <a class="path" href="/use-cases/">
+          <div class="path-content">
+            <h3>Problem areas</h3>
+            <p>Begin from the institutional question that mirrors your situation. Each use case pairs with one or more approaches that demonstrate how others have built solutions.</p>
+            <span class="path-link"><strong>{stats.useCases}</strong> use cases <span class="arr">→</span></span>
+          </div>
+          <img class="path-img" src="/cards/usecases.webp" alt="" width="540" height="675" loading="lazy" />
+        </a>
+
+        <a class="path" href="/patterns/">
+          <div class="path-content">
+            <h3>Reusable solutions</h3>
+            <p>Build your own approach using the cryptographic primitives applied in our case studies. Each building block includes its risk profile, architectural layer, and trade-offs.</p>
+            <span class="path-link"><strong>{stats.patterns}</strong> building blocks <span class="arr">→</span></span>
+          </div>
+          <img class="path-img" src="/cards/juridictions.webp" alt="" width="540" height="675" loading="lazy" />
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- WHO IS THIS FOR -->
+  <section class="glance">
+    <div class="container">
+      <div class="section-head">
+        <h2>Who is this for</h2>
+        <p class="meta">IPTF coordinates between vendors and protocols, institutions, and regulators. The map and the approaches are written so each group can reach the same evidence by a different door. Pick the column that fits your role; each one is a recommended reading order, not a forced path.</p>
+      </div>
+
+      <div class="persona-grid">
+        <div class="persona">
+          <div class="persona-head">
+            <span class="persona-eyebrow">For business stakeholders</span>
+            <p class="persona-purpose">Decide what to integrate.</p>
+          </div>
+          <ol class="persona-rail">
+            <li>
+              <a href="/use-cases/">
+                <span class="persona-num">01</span>
+                <span class="persona-body">
+                  <span class="persona-label">Use cases</span>
+                  <span class="persona-hint">Start with business requirements and challenges.</span>
+                </span>
+                <span class="arr">→</span>
               </a>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-
-    <!-- DOMAINS (dynamic from domains) -->
-    <section class="dom-section">
-      <div class="dom-inner">
-        <div class="s-label">Domains</div>
-        <h2 class="s-title">Browse by domain</h2>
-        <div class="dom-grid">
-          {domains.map((domain) => {
-            const count = countApproachesForDomain(domain.id);
-            const label = count === 1 ? '1 case study' : `${count} case studies`;
-            return (
-              <a class="dom-card" href={`/domains/${domain.slug}`}>
-                <h4>{domain.title}</h4>
-                <span>{label}</span>
+            </li>
+            <li>
+              <a href="/jurisdictions/">
+                <span class="persona-num">02</span>
+                <span class="persona-body">
+                  <span class="persona-label">Jurisdictions</span>
+                  <span class="persona-hint">Regulatory considerations in the regions you operate in.</span>
+                </span>
+                <span class="arr">→</span>
               </a>
-            );
-          })}
+            </li>
+            <li>
+              <a href="/approaches/">
+                <span class="persona-num">03</span>
+                <span class="persona-body">
+                  <span class="persona-label">Approaches</span>
+                  <span class="persona-hint">Recommended architectures with named trade-offs.</span>
+                </span>
+                <span class="arr">→</span>
+              </a>
+            </li>
+          </ol>
+        </div>
+
+        <div class="persona">
+          <div class="persona-head">
+            <span class="persona-eyebrow">For technical teams</span>
+            <p class="persona-purpose">Decide how to build.</p>
+          </div>
+          <ol class="persona-rail">
+            <li>
+              <a href="/patterns/">
+                <span class="persona-num">01</span>
+                <span class="persona-body">
+                  <span class="persona-label">Building blocks</span>
+                  <span class="persona-hint">Reusable technical building blocks with standardized evaluations.</span>
+                </span>
+                <span class="arr">→</span>
+              </a>
+            </li>
+            <li>
+              <a href="/approaches/">
+                <span class="persona-num">02</span>
+                <span class="persona-body">
+                  <span class="persona-label">Approaches</span>
+                  <span class="persona-hint">Detailed implementation guidance from worked approaches.</span>
+                </span>
+                <span class="arr">→</span>
+              </a>
+            </li>
+            <li>
+              <a href="/vendors/">
+                <span class="persona-num">03</span>
+                <span class="persona-body">
+                  <span class="persona-label">Vendors</span>
+                  <span class="persona-hint">Tooling and infrastructure options mapped to patterns.</span>
+                </span>
+                <span class="arr">→</span>
+              </a>
+            </li>
+            <li>
+              <a href="/domains/">
+                <span class="persona-num">04</span>
+                <span class="persona-body">
+                  <span class="persona-label">Domains</span>
+                  <span class="persona-hint">Domain-specific considerations across payments, custody, identity, and more.</span>
+                </span>
+                <span class="arr">→</span>
+              </a>
+            </li>
+          </ol>
+        </div>
+
+        <div class="persona">
+          <div class="persona-head">
+            <span class="persona-eyebrow">For legal and compliance</span>
+            <p class="persona-purpose">Map regulatory requirements.</p>
+          </div>
+          <ol class="persona-rail">
+            <li>
+              <a href="/jurisdictions/">
+                <span class="persona-num">01</span>
+                <span class="persona-body">
+                  <span class="persona-label">Jurisdictions</span>
+                  <span class="persona-hint">Regulatory frameworks applied as overlay on the architectures.</span>
+                </span>
+                <span class="arr">→</span>
+              </a>
+            </li>
+            <li>
+              <a href="/use-cases/">
+                <span class="persona-num">02</span>
+                <span class="persona-body">
+                  <span class="persona-label">Use cases</span>
+                  <span class="persona-hint">Compliance constraints surfaced in context, written from interview.</span>
+                </span>
+                <span class="arr">→</span>
+              </a>
+            </li>
+            <li>
+              <a href="/approaches/">
+                <span class="persona-num">03</span>
+                <span class="persona-body">
+                  <span class="persona-label">Approaches</span>
+                  <span class="persona-hint">Architectures evaluated for regulated deployment.</span>
+                </span>
+                <span class="arr">→</span>
+              </a>
+            </li>
+            <li>
+              <a href="/patterns/pattern-regulatory-disclosure-keys-proofs/">
+                <span class="persona-num">04</span>
+                <span class="persona-body">
+                  <span class="persona-label">Disclosure mechanisms</span>
+                  <span class="persona-hint">Selective disclosure with keys and proofs for audit and reporting.</span>
+                </span>
+                <span class="arr">→</span>
+              </a>
+            </li>
+          </ol>
         </div>
       </div>
-    </section>
+    </div>
+  </section>
 
-    <!-- FAQ (static) -->
-    <section class="faq-section">
-      <div class="faq-inner">
-        <div class="s-label">Questions</div>
-        <h2 class="s-title">What institutions ask us most</h2>
-        <div class="faq-list">
-          <a class="faq-row" href={`/faq`}><span>Is Ethereum private enough for institutional use?</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg></a>
-          <a class="faq-row" href={`/faq`}><span>What does MiCA say about on-chain privacy?</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg></a>
-          <a class="faq-row" href={`/faq`}><span>Which privacy solutions are production-ready today?</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg></a>
-          <a class="faq-row" href={`/faq`}><span>How do viewing keys work for regulatory access?</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg></a>
-          <a class="faq-row" href={`/faq`}><span>Can institutions use DeFi and stay compliant?</span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg></a>
+  <!-- WRITEUPS — moved above the assessment framework per 2026-05-22 meeting:
+       Oscar wanted writeups higher / more first-class. -->
+  {latestPosts.length > 0 && (
+    <section class="block">
+      <div class="container">
+        <div class="section-head">
+          <h2>Recent writeups from the team</h2>
+          <p class="meta">Long-form research, guides, POCs, and analysis from IPTF engineers.</p>
         </div>
-      </div>
-    </section>
 
-    <!-- EVAL -->
-    <section class="eval-section">
-      <div class="eval-inner">
-        <div class="s-label">Evaluation</div>
-        <h2 class="s-title">How we assess solutions</h2>
-        <div class="eval-grid">
-          <div class="eval-card">
-            <h3>CROPS Framework</h3>
-            <p>Every pattern and vendor rated on Censorship Resistance, Open Source, Privacy, and Security.</p>
-            <div class="crops-bar">
-              <div class="crop crop-g" title="Censorship Resistance"><div class="crop-l">CR</div><div class="crop-v">High</div></div>
-              <div class="crop crop-a" title="Open Source and Free"><div class="crop-l">OS</div><div class="crop-v">Partial</div></div>
-              <div class="crop crop-g" title="Privacy"><div class="crop-l">P</div><div class="crop-v">Full</div></div>
-              <div class="crop crop-a" title="Security"><div class="crop-l">S</div><div class="crop-v">Medium</div></div>
-            </div>
-          </div>
-          <div class="eval-div"></div>
-          <div class="eval-card">
-            <h3>I2I vs I2U Context</h3>
-            <p>Privacy requirements differ by power dynamics.</p>
-            <div class="ctx-pair">
-              <div class="ctx-box ctx-i"><strong>I2I</strong><small>Institution-to-Institution. Symmetric trust between counterparties.</small></div>
-              <div class="ctx-box ctx-u"><strong>I2U</strong><small>Institution-to-End-User. Asymmetric; CROPS protects the user.</small></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- BLOG PREVIEWS -->
-    {recentPosts.length > 0 && (
-      <section class="blog-section">
-        <div class="blog-inner">
-          <div class="blog-head">
-            <div>
-              <div class="s-label">Latest posts</div>
-            </div>
-            <a href="/blog" class="cs-all">
-              All posts
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-            </a>
-          </div>
-          <div class="blog-grid">
-            {recentPosts.map(post => (
-              <a class="blog-card" href={post.url}>
-                {post.image && (
-                  <div class="blog-thumb">
-                    <img src={post.image} alt="" loading="lazy" />
-                  </div>
+        <div class="writeups">
+          {latestPosts.map((p) => (
+            <a class="writeup" href={`/blog/${p.slug}/`}>
+              <div class="writeup-thumb">
+                {p.image ? (
+                  <img src={p.image} alt="" loading="lazy" />
+                ) : (
+                  <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                    <defs>
+                      <linearGradient id={`wr-${p.slug}`} x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0" style="stop-color:var(--color-cta)"/>
+                        <stop offset="1" style="stop-color:var(--color-primary)"/>
+                      </linearGradient>
+                    </defs>
+                    <rect width="100" height="100" fill={`url(#wr-${p.slug})`}/>
+                  </svg>
                 )}
-                <div class="blog-body">
-                  <h3>{post.title}</h3>
-                  <div class="blog-meta">{formatPostDate(post.date)}{post.author ? ` · ${post.author}` : ''}</div>
-                  {post.description && <p class="blog-desc">{post.description}</p>}
+              </div>
+              <div class="writeup-body">
+                {p.date && <div class="writeup-meta"><span>{p.date}</span></div>}
+                <h4>{p.title}</h4>
+                {p.description && <p>{p.description}</p>}
+              </div>
+            </a>
+          ))}
+        </div>
+
+        <div class="see-all-row">
+          <a href="/blog/">See all writeups<span class="arr">→</span></a>
+        </div>
+      </div>
+    </section>
+  )}
+
+  <section class="block home-crops">
+    <div class="container">
+      <div class="section-head">
+        <h2>How we assess solutions</h2>
+        <p class="meta">Every pattern on this site is rated against four properties (the CROPS framework) and tagged for the institutional context it fits.</p>
+      </div>
+      <div class="crops-grid">
+        <div class="crops-axis">
+          <span class="crops-axis-code">CR</span>
+          <h3>Censorship-resistance</h3>
+          <p>Whether a counterparty, sequencer, or relayer can block your transaction.</p>
+        </div>
+        <div class="crops-axis">
+          <span class="crops-axis-code">OS</span>
+          <h3>Open source</h3>
+          <p>Whether the implementation is free to audit, fork, and self-host.</p>
+        </div>
+        <div class="crops-axis">
+          <span class="crops-axis-code">P</span>
+          <h3>Privacy</h3>
+          <p>How much of the transaction (amounts, parties, patterns) stays hidden.</p>
+        </div>
+        <div class="crops-axis">
+          <span class="crops-axis-code">S</span>
+          <h3>Security</h3>
+          <p>The trust assumptions and threat model the architecture relies on.</p>
+        </div>
+      </div>
+      <div class="b2b-b2c-grid">
+        <div class="b2x-card">
+          <div class="b2x-label">Institution to institution</div>
+          <p>Both counterparties are regulated institutions. Symmetric power dynamic; both parties have legal teams, vendor choice, and contractual recourse.</p>
+        </div>
+        <div class="b2x-card">
+          <div class="b2x-label">Institution to user</div>
+          <p>One counterparty is a regulated institution, the other an individual. Asymmetric power dynamic; privacy must protect the user from the institution.</p>
+        </div>
+      </div>
+      <div class="home-crops-cta-row">
+        <a href="/patterns/" class="home-crops-cta">Browse the patterns<span class="arr">→</span></a>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOME-FAQ — paired with PipelineAnimation on the right so the
+       diamond visual carries some of the section's weight and the FAQ
+       column doesn't stretch the full container width. -->
+
+  <section class="block home-faq">
+    <div class="container">
+      <div class="home-faq-grid">
+        <div class="home-faq-content">
+          <div class="section-head">
+            <h2>What institutions ask us most</h2>
+            <p class="meta">Five questions we hear repeatedly. Each one links into the full FAQ where the answer cites the relevant pattern, jurisdiction, and approach.</p>
+          </div>
+          <div class="home-faq-list">
+            {faqTeasers.map((item) => (
+              <details class="home-faq-item" name="home-faq">
+                <summary>
+                  <span class="home-faq-q">{item.q}</span>
+                  <span class="home-faq-toggle" aria-hidden="true"></span>
+                </summary>
+                <div class="home-faq-a">
+                  {item.a.map((p) => (
+                    <p>{p}</p>
+                  ))}
+                  {item.links && item.links.length > 0 && (
+                    <div class="home-faq-links">
+                      {item.links.map((link) => (
+                        <a href={link.href} class="home-faq-link">
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+                            <path d="M5 12h14" />
+                            <path d="M12 5l7 7-7 7" />
+                          </svg>
+                          {link.label}
+                        </a>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </a>
+              </details>
             ))}
           </div>
+          <a href="/faq/" class="home-faq-cta">Read all FAQs<span class="arr">→</span></a>
         </div>
-      </section>
-    )}
-  </div>
+        <div class="home-faq-visual" aria-hidden="true">
+          <PipelineAnimation />
+        </div>
+      </div>
+    </div>
+  </section>
 
-  <script is:inline>
-    (function() {
-      const el = document.querySelector('.cycle');
-      if (!el) return;
-      const words = (el.dataset.words || '').split(',').map(s => s.trim()).filter(Boolean);
-      if (words.length < 2) return;
-      let i = 0;
-      setInterval(() => {
-        i = (i + 1) % words.length;
-        el.style.animation = 'none';
-        // Force reflow to restart the animation
-        void el.offsetWidth;
-        el.textContent = words[i];
-        el.style.animation = '';
-      }, 2400);
-    })();
-  </script>
+  <!-- CONTACT — final section before the footer per IA decision. -->
+  <section class="contact">
+    <div class="container">
+      <div class="contact-grid">
+        <div>
+          <h2>Talk to the IPTF team</h2>
+          <div class="contact-body">
+            <p>If you are an institution with a privacy requirement, a builder shipping a solution, or a regulator who wants the picture, we are listening.</p>
+          </div>
+        </div>
+        <div class="contact-options">
+          <a href="mailto:iptf@ethereum.org" class="contact-option">
+            <span class="contact-option-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+            <div>
+              <h4>iptf@ethereum.org</h4>
+              <p>General correspondence with the team.</p>
+            </div>
+            <span class="arr">→</span>
+          </a>
+          <a href="https://github.com/ethereum/iptf-map" class="contact-option">
+            <span class="contact-option-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg></span>
+            <div>
+              <h4>GitHub · iptf-map</h4>
+              <p>Open issues, propose patterns, contribute use cases.</p>
+            </div>
+            <span class="arr">→</span>
+          </a>
+          <a href="https://github.com/ethereum/iptf-pocs" class="contact-option">
+            <span class="contact-option-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a4 4 0 11-5.6 5.6l-7 7v3h3l7-7a4 4 0 005.6-5.6"/><circle cx="17" cy="7" r="1.5"/></svg></span>
+            <div>
+              <h4>GitHub · iptf-pocs</h4>
+              <p>Working prototypes and reference implementations.</p>
+            </div>
+            <span class="arr">→</span>
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
 
-</Guide>
+</BaseLayout>
 
-<style is:global>
-  :root {
-    --black: #08080a;
-    --dark: #111113;
-    --dark-2: #18181b;
-    --dark-3: #1c1c20;
-    --dark-4: #27272a;
-    --gray-700: #3f3f46;
-    --gray-600: #52525b;
-    --gray-500: #71717a;
-    --gray-400: #a1a1aa;
-    --gray-300: #d4d4d8;
-    --gray-200: #e4e4e7;
-    --gray-100: #f4f4f5;
-    --gray-50: #fafafa;
-    --white: #ffffff;
-    --indigo: #818cf8;
-    --indigo-bright: #a5b4fc;
-    --indigo-dim: #6366f1;
-    --indigo-deep: #4f46e5;
-    --warm: #f0f0f2;
-    --warm-2: #e6e6ea;
-  }
-
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-
-  body {
-    font-family: 'Inter', -apple-system, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-    background: var(--black);
-    color: var(--white);
-    overflow-x: hidden;
-  }
-
-  /* -- HERO -- */
+<style>
+  /* HERO */
   .hero {
-    min-height: 100vh;
-    display: flex; flex-direction: column; justify-content: center; align-items: center;
-    text-align: center; padding: 7rem 2rem 4rem; position: relative;
+    padding: 8rem 0 7rem;
+    border-bottom: 1px solid var(--color-border);
+    position: relative;
+    overflow: hidden;
   }
-  .hero::before {
-    content: ''; position: absolute;
-    width: 700px; height: 700px; border-radius: 50%;
-    background: radial-gradient(circle, rgba(99,102,241,0.07) 0%, transparent 70%);
-    top: 50%; left: 50%; transform: translate(-50%, -55%);
-    pointer-events: none;
+  @media (max-width: 720px) {
+    .hero { padding: 3rem 0 3.5rem; }
+    .hero .lede { font-size: 1.02rem; margin-bottom: 1.5rem; }
   }
-  .hero-eyebrow {
-    font-size: 0.7rem; font-weight: 600; color: var(--gray-500);
-    letter-spacing: 0.14em; text-transform: uppercase;
-    margin-bottom: 2.5rem; position: relative;
+  /* Animation spans the full hero width. Headline + CTAs left-aligned
+     so they sit on the same vertical body grid as the intro paragraph
+     and every section below. Per-line white highlights keep the navy
+     headline legible over the dense dither pattern. */
+  .hero-inner {
+    position: relative;
+    z-index: 2;
+    max-width: 880px;
+    text-align: left;
   }
   .hero h1 {
-    font-family: 'Newsreader', Georgia, serif;
-    font-size: clamp(2.75rem, 6vw, 4.5rem);
-    font-weight: 400; color: var(--white);
-    line-height: 1.1; letter-spacing: -0.025em;
-    max-width: 720px; margin-bottom: 1.5rem; position: relative;
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: clamp(2.6rem, 5.2vw, 3.65rem);
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    color: var(--color-primary);
+    margin-bottom: 1.5rem;
+    max-width: 18ch;
   }
-  .hero h1 em {
-    font-style: italic;
-    background: linear-gradient(135deg, var(--indigo-bright) 0%, var(--indigo) 50%, #c084fc 100%);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-    /* padding prevents italic letter tails getting clipped */
-    padding: 0 0.12em 0.08em;
-    margin: 0 -0.12em -0.08em;
-    display: inline-block;
+  .hero .lede {
+    font-size: 1.15rem;
+    line-height: 1.6;
+    color: var(--color-text-secondary);
+    max-width: 56ch;
+    margin-bottom: 2rem;
   }
-  .cycle-wrap {
-    display: inline-block;
-    position: relative;
-    vertical-align: baseline;
-  }
-  /* Invisible sizer — holds the longest word's width so the H1 never reflows */
-  .cycle-sizer {
-    display: inline-block;
-    visibility: hidden;
-    font-style: italic;
-    pointer-events: none;
-    user-select: none;
-  }
-  .cycle {
-    position: absolute;
-    left: 0;
-    top: 0;
-    right: 0;
-    text-align: center;
-    animation: cycleFade 500ms ease-out;
-  }
-  @keyframes cycleFade {
-    0%   { opacity: 0; transform: translateY(6px); }
-    100% { opacity: 1; transform: translateY(0); }
-  }
-  .hero-desc {
-    font-size: 1.05rem; color: var(--gray-400); line-height: 1.7;
-    max-width: 500px; margin-bottom: 2.5rem; position: relative;
-  }
-  .hero-cta {
-    display: inline-flex; align-items: center; gap: 10px;
-    padding: 0.8rem 1.75rem; background: var(--white); color: var(--black);
-    border-radius: 100px; font-size: 0.85rem; font-weight: 600;
-    text-decoration: none; letter-spacing: -0.01em;
-    transition: all 0.3s cubic-bezier(0.4,0,0.2,1); position: relative;
-  }
-  .hero-cta:hover {
-    box-shadow: 0 0 0 1px rgba(255,255,255,0.08), 0 8px 40px rgba(99,102,241,0.15);
-    transform: translateY(-1px);
-  }
-  .hero-cta svg { width: 15px; height: 15px; transition: transform 0.3s; }
-  .hero-cta:hover svg { transform: translateX(3px); }
-
-  .hero-scroll {
-    position: absolute; bottom: 2.5rem; left: 50%; transform: translateX(-50%);
-    display: flex; flex-direction: column; align-items: center; gap: 8px;
-    color: var(--gray-700); font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase;
-  }
-  .scroll-line { width: 1px; height: 28px; background: linear-gradient(to bottom, var(--gray-700), transparent); }
-
-  /* -- POSITIONING -- */
-  .positioning {
-    padding: 7rem 2rem;
-    border-top: 1px solid rgba(255,255,255,0.04);
-  }
-  .pos-inner {
-    max-width: 1000px; margin: 0 auto;
-  }
-
-  /* Flow: minimal horizontal */
-  .pos-flow-minimal {
+  .hero .lede strong { color: var(--color-primary); font-weight: 600; }
+  .cta-row {
     display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
     align-items: center;
-    justify-content: center;
-    gap: 0;
-    margin-bottom: 5rem;
-  }
-  .pos-endpoint {
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--gray-400);
-    padding: 0 0.25rem;
-  }
-  .pos-line-h {
-    width: 80px;
-    height: 1px;
-    background: linear-gradient(to right, rgba(255,255,255,0.04), rgba(129,140,248,0.25), rgba(255,255,255,0.04));
-    margin: 0 1rem;
-  }
-  .pos-center-box {
-    padding: 2.5rem 3rem;
-    border: 1px solid rgba(129,140,248,0.2);
-    border-radius: 14px;
-    background: linear-gradient(135deg, rgba(99,102,241,0.06) 0%, rgba(99,102,241,0.02) 100%);
-    text-align: center;
-  }
-  .pos-center-label {
-    font-size: 0.7rem;
-    font-weight: 700;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-    color: var(--indigo-bright);
-    margin-bottom: 6px;
-  }
-  .pos-center-desc {
-    font-size: 0.9rem;
-    color: var(--gray-500);
-    font-family: 'Newsreader', Georgia, serif;
-    font-style: italic;
-    line-height: 1.5;
   }
 
-  .pos-pillars {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 2.5rem;
-  }
-  .pillar { padding-top: 1.25rem; position: relative; }
-  .pillar::before {
-    content: ''; position: absolute; top: 0; left: 0;
-    width: 32px; height: 2px; border-radius: 1px;
-  }
-  .pillar:nth-child(1)::before { background: var(--indigo); }
-  .pillar:nth-child(2)::before { background: var(--indigo); opacity: 0.5; }
-  .pillar:nth-child(3)::before { background: var(--indigo); opacity: 0.3; }
-  .pillar h3 {
-    font-size: 0.9rem; font-weight: 700; color: var(--white);
-    margin-bottom: 0.5rem; letter-spacing: -0.01em;
-  }
-  .pillar p {
-    font-size: 0.85rem; color: var(--gray-500); line-height: 1.6;
-  }
-
-  /* -- BRIDGE -- */
-  .bridge { display: none; }
-
-  /* -- CONTENT -- */
-  .light { background: var(--dark); color: var(--gray-300); }
-
-  /* -- SHARED -- */
-  .s-label {
-    font-size: 0.65rem; font-weight: 700; color: var(--indigo);
-    letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.5rem;
-  }
-  .s-title {
-    font-family: 'Newsreader', Georgia, serif;
-    font-size: 2rem; font-weight: 400; color: var(--white);
-    letter-spacing: -0.02em; line-height: 1.15;
-  }
-
-  /* -- CASE STUDIES (approaches) -- */
-  .cs-section { padding: 5rem 2rem 4rem; }
-  .cs-inner { max-width: 1120px; margin: 0 auto; }
-  .cs-header {
-    display: flex; align-items: flex-end; justify-content: space-between;
-    margin-bottom: 2.5rem;
-  }
-  .cs-all {
-    font-size: 0.8rem; font-weight: 600; color: var(--gray-500);
-    text-decoration: none; display: flex; align-items: center; gap: 6px;
-    transition: color 0.15s; flex-shrink: 0;
-  }
-  .cs-all:hover { color: var(--white); }
-  .cs-all svg { width: 14px; height: 14px; transition: transform 0.2s; }
-  .cs-all:hover svg { transform: translateX(3px); }
-
-  .cs-list {}
-  .cs-item {
-    display: grid;
-    grid-template-columns: 32px 220px 1fr;
-    gap: 1.5rem;
-    align-items: center;
-    padding: 1.5rem 0;
-    border-top: 1px solid rgba(255,255,255,0.06);
-    text-decoration: none; color: inherit;
-    transition: all 0.15s; cursor: pointer;
-  }
-  .cs-item:last-child { border-bottom: 1px solid rgba(255,255,255,0.06); }
-  .cs-item:hover { padding-left: 0.75rem; }
-  .cs-item:hover .cs-name { color: var(--indigo-dim); }
-  .cs-idx {
-    font-size: 0.75rem; font-weight: 500; color: var(--gray-400);
-    font-variant-numeric: tabular-nums;
-  }
-  .cs-thumb {
-    width: 220px; height: 110px;
-    border-radius: 8px;
+  /* ABOUT */
+  .about-section {
+    padding: 5rem 0;
+    border-bottom: 1px solid var(--color-border);
+    position: relative;
     overflow: hidden;
-    background: #18181b;
-    border: 1px solid rgba(255,255,255,0.05);
   }
-  .cs-thumb img {
-    width: 100%; height: 100%;
-    object-fit: cover;
-    display: block;
+  .about-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-width: 64ch;
   }
-  .cs-domain {
-    font-size: 0.7rem; font-weight: 600; color: var(--gray-500);
-    letter-spacing: 0.04em; text-transform: uppercase;
-  }
-  .cs-body {}
-  .cs-name {
-    font-family: 'Newsreader', Georgia, serif;
-    font-size: 1.2rem; font-weight: 500; color: var(--white);
-    letter-spacing: -0.01em; margin-bottom: 0.2rem;
-    transition: color 0.15s;
-  }
-  .cs-blurb {
-    font-size: 0.85rem; color: var(--gray-400); line-height: 1.6;
+  .about-grid h2 {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: clamp(2.15rem, 3.8vw, 2.85rem);
+    line-height: 1.14;
+    letter-spacing: -0.025em;
+    color: var(--color-primary);
+    max-width: 22ch;
     margin-bottom: 0.5rem;
   }
-  .cs-badges { display: flex; gap: 5px; align-items: center; flex-shrink: 0; }
-  .badge {
-    font-size: 0.65rem; font-weight: 600; padding: 2px 7px;
-    border-radius: 4px; letter-spacing: 0.02em; white-space: nowrap;
+  .about-grid .body {
+    font-size: 1.0625rem;
+    line-height: 1.7;
+    color: var(--color-text-secondary);
+    max-width: 64ch;
   }
-  .b-i2i { background: rgba(129,140,248,0.12); color: var(--indigo-bright); }
-  .b-i2u { background: rgba(245,158,11,0.12); color: #fbbf24; }
-  .b-both { background: rgba(255,255,255,0.06); color: var(--gray-400); }
+  .about-grid .body p { margin-bottom: 1rem; }
+  .about-grid .body p:last-child { margin-bottom: 0; }
+  .about-grid .body strong { color: var(--color-primary); font-weight: 600; }
 
-  /* -- DOMAINS -- */
-  .dom-section { padding: 4rem 2rem 5rem; border-top: 1px solid rgba(255,255,255,0.04); }
-  .dom-inner { max-width: 1120px; margin: 0 auto; }
-  .dom-grid {
-    display: grid; grid-template-columns: repeat(4, 1fr);
-    gap: 1px; background: rgba(255,255,255,0.04);
-    border-radius: 10px; overflow: hidden; margin-top: 2.5rem;
-  }
-  .dom-card {
-    background: var(--dark-2); padding: 1.25rem 1.5rem;
-    text-decoration: none; color: var(--gray-300); transition: background 0.15s;
-  }
-  .dom-card:hover { background: var(--dark-3); }
-  .dom-card h4 { font-size: 0.9rem; font-weight: 600; color: var(--white); letter-spacing: -0.01em; margin-bottom: 2px; }
-  .dom-card span { font-size: 0.75rem; color: var(--gray-500); }
-
-  /* -- FAQ -- */
-  .faq-section { padding: 5rem 2rem; background: var(--dark-2); }
-  .faq-inner { max-width: 720px; margin: 0 auto; }
-  .faq-list { margin-top: 2.5rem; }
-  .faq-row {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 1.15rem 0; border-bottom: 1px solid rgba(255,255,255,0.06);
-    cursor: pointer; transition: all 0.15s;
-    text-decoration: none; color: inherit;
-  }
-  .faq-row:first-child { border-top: 1px solid rgba(255,255,255,0.06); }
-  .faq-row:hover { padding-left: 0.5rem; }
-  .faq-row span {
-    font-family: 'Newsreader', Georgia, serif;
-    font-size: 1.05rem; color: var(--gray-300); transition: color 0.15s;
-  }
-  .faq-row:hover span { color: var(--indigo-bright); }
-  .faq-row svg {
-    width: 15px; height: 15px; color: var(--gray-600);
-    flex-shrink: 0; transition: all 0.2s;
-  }
-  .faq-row:hover svg { color: var(--indigo-bright); transform: translateX(3px); }
-
-  /* -- EVAL -- */
-  .eval-section { padding: 5rem 2rem; background: var(--dark); border-top: 1px solid rgba(255,255,255,0.04); }
-  .eval-inner { max-width: 880px; margin: 0 auto; }
-  .eval-grid {
-    display: grid; grid-template-columns: 1fr 1px 1fr;
-    gap: 2.5rem; margin-top: 2.5rem;
-  }
-  .eval-div { background: rgba(255,255,255,0.06); }
-  .eval-card h3 {
-    font-size: 0.9rem; font-weight: 700; color: var(--white);
-    margin-bottom: 0.5rem; letter-spacing: -0.01em;
-  }
-  .eval-card p {
-    font-size: 0.82rem; color: var(--gray-500); line-height: 1.6;
-    margin-bottom: 1.25rem;
-  }
-  .crops-bar { display: flex; gap: 5px; }
-  .crop { flex: 1; padding: 8px 6px; border-radius: 6px; text-align: center; }
-  .crop-l { font-size: 0.6rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 1px; }
-  .crop-v { font-size: 0.7rem; font-weight: 600; }
-  .crop-g { background: rgba(16,185,129,0.1); }
-  .crop-g .crop-l { color: #6ee7b7; }
-  .crop-g .crop-v { color: #34d399; }
-  .crop-a { background: rgba(245,158,11,0.1); }
-  .crop-a .crop-l { color: #fcd34d; }
-  .crop-a .crop-v { color: #fbbf24; }
-
-  /* -- BLOG PREVIEWS -- */
-  .blog-section {
-    padding: 5rem 2rem;
-    background: var(--black);
-    border-top: 1px solid rgba(255,255,255,0.04);
-  }
-  .blog-inner { max-width: 1120px; margin: 0 auto; }
-  .blog-head {
-    display: flex; align-items: end; justify-content: space-between;
-    flex-wrap: wrap; gap: 1rem;
-    margin-bottom: 2.5rem;
-  }
-  .blog-grid {
+  /* READING PATHS */
+  .paths {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 1.25rem;
   }
-  .blog-card {
-    text-decoration: none; color: inherit;
-    background: var(--dark-2);
-    border-radius: 12px;
+  @media (max-width: 800px) { .paths { grid-template-columns: 1fr; } }
+  .path {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 2.25rem 2rem 0;
+    background: var(--color-bg-card);
+    display: flex;
+    flex-direction: column;
+    text-decoration: none;
+    color: var(--color-text);
+    transition: transform var(--duration-base) var(--easing-soft),
+                box-shadow var(--duration-base) var(--easing-soft),
+                border-color var(--duration-base) var(--easing-soft);
+    position: relative;
     overflow: hidden;
-    border: 1px solid rgba(255,255,255,0.04);
-    transition: transform 0.2s ease, border-color 0.2s ease;
-    display: flex; flex-direction: column;
+    box-shadow: var(--shadow-sm);
+    min-height: 560px;
   }
-  .blog-card:hover {
-    transform: translateY(-2px);
-    border-color: rgba(129,140,248,0.25);
+  .path:hover {
+    border-color: var(--color-cta);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-3px);
   }
-  .blog-thumb {
-    aspect-ratio: 16 / 9;
-    background: var(--dark-3);
-    overflow: hidden;
+  .path::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 3px;
+    width: 0;
+    background: var(--color-cta);
+    transition: width var(--duration-slow) var(--easing-soft);
   }
-  .blog-thumb img {
-    width: 100%; height: 100%; object-fit: cover;
-    transition: transform 0.4s ease;
+  .path:hover::after { width: 100%; }
+  .path-content { display: flex; flex-direction: column; gap: 0.75rem; min-width: 0; flex: 1; }
+  .path h3 {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: 1.85rem;
+    letter-spacing: -0.022em;
+    line-height: 1.15;
+    color: var(--color-primary);
   }
-  .blog-card:hover .blog-thumb img { transform: scale(1.04); }
-  .blog-body { padding: 1.25rem 1.25rem 1.5rem; flex: 1; display: flex; flex-direction: column; gap: 0.5rem; }
-  .blog-body h3 {
-    font-family: 'Newsreader', Georgia, serif;
-    font-size: 1.1rem; font-weight: 500; color: var(--white);
-    letter-spacing: -0.01em; line-height: 1.3;
+  .path p {
+    font-size: 15px;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
   }
-  .blog-meta {
-    font-size: 0.7rem; color: var(--gray-500);
-    letter-spacing: 0.02em;
+  .path-link {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--color-cta);
+    /* Pin to the bottom of .path-content so the three CTAs line up
+       on the same row across cards regardless of body length. */
+    margin-top: auto;
+    padding-top: 1rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
   }
-  .blog-desc {
-    font-size: 0.82rem; color: var(--gray-500); line-height: 1.55;
-    margin-top: 0.25rem;
+  .path-link .arr { transition: transform var(--duration-fast) var(--easing-soft); }
+  .path:hover .path-link .arr { transform: translateX(3px); }
+  .path-img {
+    margin-top: auto;
+    width: 80%;
+    height: auto;
+    display: block;
+    /* Image sits inside the card's horizontal padding so it lines up
+       with the title, body, and link above it. Scaled to 80% so the
+       artwork doesn't dominate the card visually. */
+    margin-bottom: 1.5rem;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* WHO IS THIS FOR */
+  .glance {
+    padding: 8rem 0;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg-subtle);
+  }
+  .persona-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 3rem;
+    margin-top: 3rem;
   }
   @media (max-width: 900px) {
-    .blog-grid { grid-template-columns: 1fr; }
+    .persona-grid { grid-template-columns: 1fr; gap: 2.5rem; }
   }
-  .ctx-pair { display: flex; gap: 8px; }
-  .ctx-box { flex: 1; padding: 10px 12px; border-radius: 8px; border: 1px solid; }
-  .ctx-i { border-color: rgba(129,140,248,0.25); background: rgba(99,102,241,0.08); }
-  .ctx-u { border-color: rgba(251,191,36,0.25); background: rgba(245,158,11,0.08); }
-  .ctx-box strong { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em; display: block; margin-bottom: 2px; }
-  .ctx-i strong { color: var(--indigo-bright); }
-  .ctx-u strong { color: #fbbf24; }
-  .ctx-box small { font-size: 0.72rem; color: var(--gray-400); line-height: 1.3; }
+  .persona {
+    display: flex;
+    flex-direction: column;
+    gap: 1.75rem;
+    min-width: 0;
+  }
+  .persona + .persona {
+    border-left: 1px solid var(--color-border);
+    padding-left: 3rem;
+  }
+  @media (max-width: 900px) {
+    .persona + .persona {
+      border-left: none;
+      border-top: 1px solid var(--color-border);
+      padding-left: 0;
+      padding-top: 2.5rem;
+    }
+  }
+  .persona-head {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+  .persona-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    font-weight: 600;
+  }
+  .persona-purpose {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: 1.35rem;
+    letter-spacing: -0.018em;
+    line-height: 1.2;
+    color: var(--color-primary);
+    margin: 0;
+  }
+  .persona-rail {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    position: relative;
+  }
+  .persona-rail::before {
+    content: '';
+    position: absolute;
+    left: 13.5px;
+    top: calc(0.85rem + 14px);
+    bottom: calc(0.85rem + 14px);
+    width: 1px;
+    background: var(--color-border-strong);
+    z-index: 0;
+  }
+  .persona-rail li {
+    position: relative;
+    z-index: 1;
+  }
+  .persona-rail a {
+    display: grid;
+    grid-template-columns: 28px 1fr 14px;
+    gap: 0.9rem;
+    align-items: start;
+    padding: 0.85rem 0;
+    text-decoration: none;
+    color: var(--color-text);
+  }
+  .persona-num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    letter-spacing: 0.04em;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border-strong);
+    transition: background var(--duration-fast) var(--easing-soft),
+                color var(--duration-fast) var(--easing-soft),
+                border-color var(--duration-fast) var(--easing-soft);
+    flex-shrink: 0;
+  }
+  .persona-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+  .persona-label {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--color-primary);
+    letter-spacing: -0.015em;
+    line-height: 1.3;
+  }
+  .persona-hint {
+    font-size: 13.5px;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+  }
+  .persona-rail a .arr {
+    font-weight: 600;
+    color: var(--color-text-muted);
+    transition: transform var(--duration-fast) var(--easing-soft),
+                color var(--duration-fast) var(--easing-soft);
+    align-self: center;
+  }
+  .persona-rail a:hover .persona-num {
+    background: var(--color-cta);
+    color: var(--color-on-cta);
+    border-color: var(--color-cta);
+  }
+  .persona-rail a:hover .persona-label {
+    color: var(--color-cta);
+  }
+  .persona-rail a:hover .arr {
+    transform: translateX(3px);
+    color: var(--color-cta);
+  }
+  @media (hover: none) and (pointer: coarse) {
+    .persona-rail a:hover .arr { transform: none; }
+  }
 
-  /* -- RESPONSIVE -- */
-  @media (max-width: 1024px) {
-    .pos-line-h { width: 40px; margin: 0 0.5rem; }
-    .pos-pillars { grid-template-columns: 1fr; gap: 1.5rem; }
-    .dom-grid { grid-template-columns: repeat(2, 1fr); }
+  /* RESEARCH-AND-PROTOTYPES section — 50/50 layout: numbered pipeline
+     steps on the left, sibling WebGL animation on the right. */
+  .research-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4rem;
+    /* stretch (default) — the visual column matches the content
+       column's height so the canvas is exactly as tall as the steps
+       list on the left. */
+    align-items: stretch;
+  }
+  @media (max-width: 900px) {
+    .research-grid { grid-template-columns: 1fr; gap: 2.5rem; }
+  }
+  /* Tighter section-head spacing inside the grid — no need for the
+     huge 3rem default since the meta is supporting the numbered
+     list immediately below, not a wide grid of cards. */
+  .research-head { margin-bottom: 2.25rem; }
+  .research-steps {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+  }
+  .research-step {
+    display: grid;
+    grid-template-columns: 2rem 1fr;
+    gap: 0.85rem;
+    align-items: baseline;
+  }
+  .research-step-num {
+    font-family: var(--font-mono);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-cta);
+    line-height: 1;
+  }
+  .research-step-body { min-width: 0; }
+  .research-step-body strong {
+    font-family: var(--font-sans);
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.012em;
+    display: block;
+    margin-bottom: 0.2rem;
+  }
+  .research-step-body p {
+    font-size: 14.5px;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+    margin: 0;
+  }
+
+  /* Visual half — hosts PipelineAnimation. position: relative so the
+     canvas (absolute, inset: 0) fills exactly this box. With the grid
+     stretching, this column inherits the content column's height —
+     no fixed aspect-ratio needed on desktop. */
+  .research-visual {
+    position: relative;
+    background: var(--color-bg);
+    min-height: 320px;
+  }
+  @media (max-width: 900px) {
+    /* When the grid stacks, the visual loses its stretch reference
+       (the content column is above it, not beside it). Give it an
+       explicit aspect so it still has presence on tablet. */
+    .research-visual { aspect-ratio: 16 / 9; min-height: 0; }
   }
   @media (max-width: 640px) {
-    .hero h1 { font-size: 2.25rem; }
-    .hero { padding: 6rem 1.5rem 3rem; }
-    .cs-item { grid-template-columns: 1fr; gap: 0.75rem; padding: 1.25rem 0; }
-    .cs-idx { display: none; }
-    .cs-thumb { width: 100%; height: 180px; }
-    .dom-grid { grid-template-columns: 1fr; }
-    .eval-grid { grid-template-columns: 1fr; }
-    .eval-div { display: none; }
+    /* Hide the second WebGL canvas on phones — one shader is enough
+       on a single page; drop the decorative one. */
+    .research-visual { display: none; }
   }
 
-  @keyframes up {
-    from { opacity: 0; transform: translateY(14px); }
-    to { opacity: 1; transform: translateY(0); }
+  /* WRITEUPS — bigger image on top, text below. Three cards across on
+     desktop to fit the three latest posts; collapses to single column
+     on mobile. Image gets a 16:9 framing so the hero artwork actually
+     reads, instead of the previous 104px square thumb. */
+  .writeups {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
   }
-  .hero-eyebrow { animation: up 0.7s ease-out 0.1s both; }
-  .hero h1 { animation: up 0.7s ease-out 0.2s both; }
-  .hero-desc { animation: up 0.7s ease-out 0.35s both; }
-  .hero-cta { animation: up 0.7s ease-out 0.5s both; }
+  @media (max-width: 900px) { .writeups { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 600px) { .writeups { grid-template-columns: 1fr; } }
+  .writeup {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg);
+    overflow: hidden;
+    transition: transform var(--duration-base) var(--easing-soft),
+                box-shadow var(--duration-base) var(--easing-soft),
+                border-color var(--duration-base) var(--easing-soft);
+    text-decoration: none;
+    color: var(--color-text);
+    box-shadow: var(--shadow-sm);
+  }
+  .writeup:hover {
+    border-color: var(--color-cta);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-3px);
+  }
+  .writeup-thumb {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    position: relative;
+    background: var(--color-bg-subtle);
+    border-bottom: 1px solid var(--color-border);
+    overflow: hidden;
+  }
+  .writeup-thumb img,
+  .writeup-thumb svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    transition: transform var(--duration-slow) var(--easing-soft);
+  }
+  .writeup:hover .writeup-thumb img,
+  .writeup:hover .writeup-thumb svg { transform: scale(1.04); }
+  .writeup-body { padding: 1rem 1.25rem 1.25rem; }
+  .writeup-meta {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+  }
+  .writeup-meta .pill {
+    background: var(--color-bg-muted);
+    color: var(--color-text-secondary);
+    padding: 0.12rem 0.55rem;
+    border-radius: 99px;
+    font-weight: 600;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .writeup h4 {
+    font-family: var(--font-sans);
+    font-weight: 600;
+    font-size: 1.1rem;
+    line-height: 1.3;
+    letter-spacing: -0.018em;
+    margin-bottom: 0.4rem;
+    color: var(--color-primary);
+  }
+  .writeup p {
+    font-size: 13.5px;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+  }
+  .see-all-row {
+    margin-top: 1.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+  /* Shares the mono/uppercase CTA style used by .home-faq-cta and
+     .home-crops-cta so the three "see more" links on the homepage
+     read as one component. */
+  .see-all-row a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--color-cta);
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .see-all-row a:hover { color: var(--color-cta-hover); }
+  .see-all-row a .arr { transition: transform var(--duration-fast) var(--easing-soft); }
+  .see-all-row a:hover .arr { transform: translateX(3px); }
+  .see-all-row .cadence {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--color-text-muted);
+    letter-spacing: 0.02em;
+  }
+
+  @media (hover: none) and (pointer: coarse) {
+    .writeup:hover { transform: none; }
+  }
+
+  /* CONTACT */
+  .contact {
+    padding: 10rem 0;
+    background: linear-gradient(135deg, var(--color-bg-subtle) 0%, var(--color-bg) 60%);
+  }
+  .contact-grid {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr;
+    gap: 4rem;
+    align-items: start;
+  }
+  @media (max-width: 800px) { .contact-grid { grid-template-columns: 1fr; gap: 2rem; } }
+  .contact h2 {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: clamp(2.15rem, 3.8vw, 2.85rem);
+    line-height: 1.14;
+    letter-spacing: -0.025em;
+    color: var(--color-primary);
+    max-width: 16ch;
+    margin-bottom: 0.7rem;
+  }
+  .contact-body p {
+    color: var(--color-text-secondary);
+    font-size: 1rem;
+    line-height: 1.6;
+    max-width: 40ch;
+    margin-bottom: 1.5rem;
+  }
+  .contact-options { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
+  .contact-option {
+    display: grid;
+    grid-template-columns: 44px 1fr 18px;
+    gap: 1rem;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    color: var(--color-text);
+    transition: border-color var(--duration-fast) var(--easing-soft),
+                box-shadow var(--duration-fast) var(--easing-soft);
+    box-shadow: var(--shadow-sm);
+  }
+  .contact-option:hover {
+    border-color: var(--color-cta);
+    box-shadow: var(--shadow-md);
+  }
+  .contact-option-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    background: var(--color-bg-subtle);
+    display: grid;
+    place-items: center;
+    color: var(--color-cta);
+    flex-shrink: 0;
+    transition: background var(--duration-fast) var(--easing-soft),
+                color var(--duration-fast) var(--easing-soft);
+  }
+  .contact-option-icon :global(svg) { width: 20px; height: 20px; }
+  .contact-option:hover .contact-option-icon { background: var(--color-primary); color: var(--color-on-primary); }
+  .contact-option h4 {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 0.15rem;
+    color: var(--color-primary);
+    letter-spacing: -0.015em;
+  }
+  .contact-option p { font-size: 13px; color: var(--color-text-muted); line-height: 1.45; }
+  .contact-option .arr {
+    color: var(--color-text-muted);
+    transition: transform var(--duration-fast) var(--easing-soft),
+                color var(--duration-fast) var(--easing-soft);
+    font-weight: 600;
+  }
+  .contact-option:hover .arr { color: var(--color-cta); transform: translateX(3px); }
+
+  /* HOME FAQ teaser — paired with PipelineAnimation on the right so
+     the FAQ accordion column sits at ~58% of the container width and
+     the diamond visual carries the rest. Animation hides on mobile so
+     the FAQ takes full width again. */
+  .home-faq {
+    border-top: 1px solid var(--color-border);
+  }
+  .home-faq-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    gap: 4rem;
+    /* `start` — the visual column stays at its intrinsic height so
+       expanding a FAQ accordion doesn't restretch the canvas and
+       resize the glyph mid-interaction. Vertical centring within
+       the column happens via canvas geometry. */
+    align-items: start;
+  }
+  @media (max-width: 960px) {
+    .home-faq-grid { grid-template-columns: 1fr; gap: 2rem; }
+  }
+  .home-faq-content { min-width: 0; }
+  .home-faq-visual {
+    position: relative;
+    background: var(--color-bg);
+    /* Square aspect ratio — height derives from the column's current
+       width instead of stretching to the FAQ accordion's height. Keeps
+       the WebGL canvas surface stable when a FAQ expands. */
+    aspect-ratio: 1 / 1;
+    width: 100%;
+  }
+  @media (max-width: 960px) {
+    /* On mobile, surface the animation above the headline as a small
+       centred motif rather than hide it. `order` reorders the DOM
+       columns into rows; -1 floats the visual to the top of the
+       stacked grid. Width + aspect-ratio give it a fixed square so
+       it doesn't dominate the section. */
+    .home-faq-visual {
+      order: -1;
+      width: 180px;
+      max-width: 60vw;
+      aspect-ratio: 1 / 1;
+      min-height: 0;
+      margin: 0 auto 0.5rem;
+    }
+  }
+  .home-faq-list {
+    margin: 1.5rem 0 1.5rem;
+    border-top: 1px solid var(--color-border);
+  }
+  .home-faq-item {
+    border-bottom: 1px solid var(--color-border);
+  }
+  .home-faq-item summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.2rem 0;
+    color: var(--color-primary);
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .home-faq-item summary::-webkit-details-marker { display: none; }
+  .home-faq-item summary:hover { color: var(--color-cta); }
+  .home-faq-q {
+    font-family: var(--font-sans);
+    font-size: 1.05rem;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    line-height: 1.4;
+  }
+  /* Plus / minus toggle drawn with two pseudo-elements; rotates 45deg
+     when the details opens (matches /faq/). */
+  .home-faq-toggle {
+    position: relative;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    transition: transform var(--duration-base) var(--easing-soft),
+      color var(--duration-base) var(--easing-soft);
+  }
+  .home-faq-toggle::before,
+  .home-faq-toggle::after {
+    content: '';
+    position: absolute;
+    background: currentColor;
+  }
+  .home-faq-toggle::before {
+    top: 50%; left: 0; right: 0; height: 2px;
+    transform: translateY(-50%);
+  }
+  .home-faq-toggle::after {
+    left: 50%; top: 0; bottom: 0; width: 2px;
+    transform: translateX(-50%);
+  }
+  .home-faq-item[open] .home-faq-toggle {
+    transform: rotate(45deg);
+    color: var(--color-cta);
+  }
+  .home-faq-a {
+    padding: 0 0 1.5rem;
+    color: var(--color-text-secondary);
+  }
+  .home-faq-a p {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    margin: 0 0 0.85rem;
+    color: var(--color-text);
+  }
+  .home-faq-a p:last-of-type { margin-bottom: 1rem; }
+  .home-faq-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 0.5rem;
+  }
+  .home-faq-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-cta);
+    text-decoration: none;
+    padding: 5px 12px;
+    border-radius: var(--radius-sm);
+    background: var(--color-cta-tint);
+    transition: background var(--duration-fast) var(--easing-soft),
+      color var(--duration-fast) var(--easing-soft);
+  }
+  .home-faq-link:hover {
+    background: var(--color-cta);
+    color: var(--color-on-cta);
+  }
+  .home-faq-link svg { width: 12px; height: 12px; flex-shrink: 0; }
+  .home-faq-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--color-cta);
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .home-faq-cta:hover { color: var(--color-cta-hover); }
+  .home-faq-cta .arr { transition: transform var(--duration-fast) var(--easing-soft); }
+  .home-faq-cta:hover .arr { transform: translateX(3px); }
+
+  /* HOME CROPS explainer */
+  .home-crops {
+    background: var(--color-bg-subtle);
+    border-top: 1px solid var(--color-border);
+    border-bottom: 1px solid var(--color-border);
+  }
+  .crops-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+    margin: 1.5rem 0 2rem;
+  }
+  .crops-axis {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1.25rem 1.25rem 1.1rem;
+  }
+  .crops-axis-code {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--color-cta);
+    letter-spacing: 0.12em;
+    margin-bottom: 0.5rem;
+  }
+  .crops-axis h3 {
+    font-family: var(--font-sans);
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    margin: 0 0 0.45rem;
+    letter-spacing: -0.018em;
+    line-height: 1.25;
+  }
+  .crops-axis p {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+    margin: 0;
+  }
+
+  .b2b-b2c-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  .b2x-card {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1.25rem 1.4rem;
+  }
+  .b2x-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--color-cta);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+  .b2x-card p {
+    font-size: 0.92rem;
+    color: var(--color-text);
+    line-height: 1.65;
+    margin: 0;
+  }
+
+  .home-crops-cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.5rem;
+    margin-top: 2rem;
+  }
+  .home-crops-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--color-cta);
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .home-crops-cta:hover { color: var(--color-cta-hover); }
+  .home-crops-cta .arr { transition: transform var(--duration-fast) var(--easing-soft); }
+  .home-crops-cta:hover .arr { transform: translateX(3px); }
+
+  /* HOME latest posts */
+  .post-grid {
+    display: grid;
+    /* Adapt to 1 / 2 / 3 latest-post entries without leaving empty
+       columns. minmax(280px, 480px) keeps single cards from blowing
+       up to full-width on wide screens. */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 480px));
+    gap: 1rem;
+    margin: 1.5rem 0 1.5rem;
+  }
+  .post-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    padding: 1.4rem 1.4rem 1.2rem;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    transition: border-color var(--duration-fast) var(--easing-soft),
+                box-shadow var(--duration-fast) var(--easing-soft);
+  }
+  .post-card:hover {
+    border-color: var(--color-cta-border);
+    box-shadow: var(--shadow-md);
+  }
+  .post-date {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    letter-spacing: 0.04em;
+  }
+  .post-card h3 {
+    font-family: var(--font-sans);
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    margin: 0;
+    letter-spacing: -0.015em;
+    line-height: 1.3;
+  }
+  .post-card p {
+    font-size: 0.85rem;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .home-posts-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--color-cta);
+    text-decoration: none;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .home-posts-cta:hover { color: var(--color-cta-hover); }
+
+  @media (max-width: 900px) {
+    .crops-grid { grid-template-columns: repeat(2, 1fr); }
+    .b2b-b2c-grid { grid-template-columns: 1fr; }
+    .post-grid { grid-template-columns: 1fr; }
+  }
 </style>

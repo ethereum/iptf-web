@@ -1,0 +1,89 @@
+---
+interface Tab {
+  href: string;
+  label: string;
+  count?: number;
+  iconSvg?: string;
+}
+
+interface Props {
+  tabs: Tab[];
+  ariaLabel?: string;
+}
+
+const { tabs, ariaLabel = 'Section navigation' } = Astro.props;
+---
+
+<nav class="anchor-nav" aria-label={ariaLabel}>
+  <div class="container anchor-nav-inner">
+    {tabs.map((t) => (
+      <a href={t.href}>
+        {t.iconSvg && <span class="ic" set:html={t.iconSvg} />}
+        <span class="lbl">
+          {t.label}
+          {typeof t.count === 'number' && <span class="count">({t.count})</span>}
+        </span>
+      </a>
+    ))}
+  </div>
+</nav>
+
+<style>
+  .anchor-nav {
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg);
+  }
+  .anchor-nav-inner {
+    display: flex;
+    gap: 0.25rem;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    overflow-x: auto;
+    flex-wrap: wrap;
+    scrollbar-width: none;
+  }
+  .anchor-nav-inner::-webkit-scrollbar { display: none; }
+  .anchor-nav-inner > a:first-child { margin-left: -0.9rem; }
+
+  .anchor-nav a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    font-family: var(--font-sans);
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+    color: var(--color-cta);
+    padding: 0.5rem 0.9rem;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+    transition: background var(--duration-fast) var(--easing-soft),
+                color var(--duration-fast) var(--easing-soft);
+    text-decoration: none;
+  }
+  .anchor-nav a:hover {
+    color: var(--color-cta-hover);
+    background: var(--color-cta-tint);
+  }
+  .anchor-nav .ic {
+    display: inline-grid;
+    place-items: center;
+    color: var(--color-cta);
+  }
+  .anchor-nav .ic :global(svg) { width: 18px; height: 18px; flex-shrink: 0; }
+  .anchor-nav .count {
+    color: var(--color-cta);
+    font-size: inherit;
+    font-weight: 500;
+    margin-left: 0.25rem;
+  }
+
+  @media (max-width: 500px) {
+    .anchor-nav-inner {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    .anchor-nav a { font-size: 15px; }
+  }
+</style>

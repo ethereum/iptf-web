@@ -1,502 +1,378 @@
 ---
-import Guide from '../../layouts/Guide.astro';
-import { getNodesByType, getNodeBySlug, getRelated, getEdgesFrom } from '../../lib/data';
-import { parseSections, getSection } from '../../lib/parse-sections';
-import { renderMarkdown, renderMarkdownInline } from '../../lib/render';
+import { getCollection } from 'astro:content';
+import DetailPageLayout from '../../layouts/DetailPageLayout.astro';
+import RailConnections from '../../components/RailConnections.astro';
+import ArticleFooter from '../../components/ArticleFooter.astro';
+import EntryFacts from '../../components/EntryFacts.astro';
+import CropsPie from '../../components/CropsPie.astro';
+import ContextDifferentiation from '../../components/ContextDifferentiation.astro';
+import PostQuantum from '../../components/PostQuantum.astro';
+import VisibilityMatrix from '../../components/VisibilityMatrix.astro';
+import SubPatternsList from '../../components/SubPatternsList.astro';
+import OssImplList from '../../components/OssImplList.astro';
+import { stripTypePrefix } from '../../lib/slugify';
+import { bodyExcerpt, popSection } from '../../lib/excerpt';
+import { extractRelated, getReferencedBy, loadCollectionMaps } from '../../lib/related';
+import { renderMarkdown } from '../../lib/render';
 
-export function getStaticPaths() {
-  const patterns = getNodesByType('pattern');
-  return patterns.map(p => ({ params: { slug: p.slug } }));
+export async function getStaticPaths() {
+  const entries = await getCollection('patterns');
+  return entries.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry, allEntries: entries },
+  }));
 }
 
-const { slug } = Astro.params;
-const node = getNodeBySlug('pattern', slug!);
-if (!node) return Astro.redirect('/guide');
+const { entry } = Astro.props;
+const title = stripTypePrefix(entry.data.title);
 
-const related = getRelated(node.id);
+// Pop the `## Intent` section out — its full paragraph becomes the
+// page lede, and the body renders without it so the same prose isn't
+// shown twice (once truncated under the title, once full in the body).
+const { content: intentContent, bodyWithout } = popSection(entry.body, 'Intent');
+const lede =
+  entry.data.privacy_goal ||
+  intentContent ||
+  bodyExcerpt(entry.body);
+const bodyHtml = renderMarkdown(intentContent ? bodyWithout : entry.body);
 
-// SOURCE: iptf-map field — do not alter. Body is rendered through renderMarkdown() verbatim.
-const sections = parseSections(node.content);
-const intent = getSection(sections, 'intent');
-const components = getSection(sections, 'components') || getSection(sections, 'ingredients');
-const protocol = getSection(sections, 'protocol');
-const guarantees = getSection(sections, 'guarantees');
-const tradeoffs = getSection(sections, 'trade-offs') || getSection(sections, 'trade');
-const example = getSection(sections, 'example');
+// Title pills (Layer / Maturity / Context / Type) removed per IA call —
+// the same metadata surfaces in the body when the upstream pattern
+// authors include it, and the rail's count-chipped sections carry the
+// rest. Keeps the hero clean.
 
-const isMeta = node.kind === 'meta';
-const cropsObj = typeof node.crops_profile === 'object' ? node.crops_profile : null;
+const lastReviewed = entry.data.last_reviewed
+  ? typeof entry.data.last_reviewed === 'string'
+    ? entry.data.last_reviewed
+    : new Date(entry.data.last_reviewed).toISOString().slice(0, 10)
+  : undefined;
 
-const cropsColorBg = (val?: string) => {
-  if (!val) return { bg: 'rgba(82,82,91,0.08)', fg: '#52525b' };
-  if (['high', 'yes', 'full'].includes(val)) return { bg: 'rgba(52,211,153,0.08)', fg: '#34d399' };
-  if (['medium', 'partial'].includes(val)) return { bg: 'rgba(251,191,36,0.08)', fg: '#fbbf24' };
-  return { bg: 'rgba(248,113,113,0.08)', fg: '#f87171' };
-};
-const cropsLabel: Record<string, string> = {
-  cr: 'Censorship Resistance',
-  o:  'Open Source',
-  p:  'Privacy',
-  s:  'Security',
-};
-const cropsAbbr: Record<string, string> = { cr: 'CR', o: 'O', p: 'P', s: 'S' };
+const dependencies = (entry.data.dependencies as string[] | undefined) ?? [];
+const worksBestWhen = (entry.data['works-best-when'] as string[] | undefined) ?? [];
+const avoidWhen = (entry.data['avoid-when'] as string[] | undefined) ?? [];
 
-const pqRiskColor = (_risk?: string) => ({
-  bg: 'rgba(255,255,255,0.02)',
-  fg: '#a1a1aa',
-  border: 'rgba(255,255,255,0.06)',
-});
+const related = await extractRelated(entry.body, 'patterns', entry.id, entry.data);
+const referencedBy = await getReferencedBy('patterns', entry.id);
 
-// Sub-pattern lookup for meta patterns
-const subPatternNodes = (node.sub_patterns || [])
-  .map(sub => {
-    const target = getNodesByType('pattern').find(p => p.file === `patterns/${sub.pattern}.md`);
-    return target ? { ...sub, node: target } : null;
-  })
-  .filter(Boolean) as Array<{ name: string; pattern: string; crops_summary?: string; node: any }>;
+const factSections = [
+  ...(worksBestWhen.length > 0 ? [{ heading: 'Works best when', items: worksBestWhen }] : []),
+  ...(avoidWhen.length > 0 ? [{ heading: 'Avoid when', items: avoidWhen }] : []),
+  ...(dependencies.length > 0 ? [{ heading: 'Depends on', items: dependencies }] : []),
+];
 
-// Resolve typed `related_patterns` slugs to nodes once, in frontmatter scope
-type RelKey = 'requires' | 'composes_with' | 'alternative_to' | 'see_also';
-const relGroups: Array<[RelKey, string, any[]]> = (
-  [
-    ['requires', 'Requires'],
-    ['composes_with', 'Composes with'],
-    ['alternative_to', 'Alternative to'],
-    ['see_also', 'See also'],
-  ] as Array<[RelKey, string]>
-).map(([key, label]) => {
-  const slugs = (node.related_patterns as any)?.[key] as string[] | undefined;
-  const targets = (slugs || [])
-    .map(s => getNodesByType('pattern').find(p => p.file === `patterns/${s}.md`))
-    .filter(Boolean);
-  return [key, label, targets] as [RelKey, string, any[]];
-}).filter(([, , targets]) => targets.length > 0);
+// Resolve sub_patterns[].pattern slugs → variant entries with hrefs.
+// Slugs that don't resolve are dropped silently (the build-time
+// validator surfaces them).
+type SubPattern = { name: string; pattern: string; crops_summary?: string };
+const subPatternData = (entry.data.sub_patterns as SubPattern[] | undefined) ?? [];
+const maps = subPatternData.length > 0 ? await loadCollectionMaps() : null;
+const subPatterns = maps
+  ? subPatternData
+      .filter((sp) => maps.patterns.has(sp.pattern))
+      .map((sp) => ({
+        name: sp.name,
+        href: `/patterns/${sp.pattern}/`,
+        crops_summary: sp.crops_summary,
+      }))
+  : [];
 
-const S = {
-  page: '',
-  breadcrumb: 'display:flex; align-items:center; gap:6px; font-size:0.75rem; color:#71717a; margin-bottom:2rem;',
-  bcLink: 'color:#71717a; text-decoration:none;',
-  bcSep: 'color:#3f3f46;',
-  badge: (bg:string, fg:string) => `font-size:0.65rem; font-weight:600; padding:3px 8px; border-radius:4px; background:${bg}; color:${fg};`,
-  title: "font-family:'Newsreader',Georgia,serif; font-size:2.25rem; font-weight:400; color:white; line-height:1.15; letter-spacing:-0.025em; margin-bottom:0.75rem;",
-  intent: 'font-size:1rem; color:#a1a1aa; line-height:1.7; max-width:640px;',
-  sectionLabel: 'font-size:0.6rem; font-weight:700; color:#818cf8; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.5rem;',
-  sidebarLabel: 'font-size:0.6rem; font-weight:700; color:#71717a; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.75rem; padding-bottom:0.5rem; border-bottom:1px solid rgba(255,255,255,0.06);',
-  sidebarRow: 'display:flex; justify-content:space-between; padding:0.5rem 0; border-bottom:1px solid rgba(255,255,255,0.04); font-size:0.8rem;',
-  sidebarLink: 'display:flex; align-items:center; gap:6px; padding:0.4rem 0; font-size:0.8rem; font-weight:500; color:#a1a1aa; text-decoration:none;',
-  step: 'display:flex; gap:1rem; align-items:baseline; padding:0.75rem 0; border-bottom:1px solid rgba(255,255,255,0.03);',
-  stepNum: 'font-size:0.7rem; font-weight:700; color:#818cf8; background:rgba(129,140,248,0.1); width:24px; height:24px; border-radius:6px; display:flex; align-items:center; justify-content:center; flex-shrink:0;',
-  stepText: 'font-size:0.85rem; color:#a1a1aa; line-height:1.5;',
-};
+const layerKey = (entry.data.layer ?? '').toString().toLowerCase();
+const layerLabel = layerKey === 'l1' ? 'L1' : layerKey === 'l2' ? 'L2' : layerKey === 'hybrid' ? 'hybrid' : null;
+const sibling = layerLabel
+  ? { href: '/patterns/', label: `More ${layerLabel} patterns` }
+  : null;
+
+// Optional structured blocks for the renderer.
+const cropsContext = (entry.data.crops_context as Record<string, string> | undefined) ?? null;
+const ctxDiff = entry.data.context_differentiation as { i2i?: string; i2u?: string } | undefined;
+const pq = entry.data.post_quantum as { risk?: string; vector?: string; mitigation?: string } | undefined;
+const standards = (entry.data.standards as string[] | undefined) ?? [];
+const visibility = entry.data.visibility as
+  | { counterparty?: string[]; chain?: string[]; regulator?: string[]; public?: string[] }
+  | undefined;
+const ossImpls = (entry.data.open_source_implementations as Array<{ url: string; description?: string; language?: string }> | undefined) ?? [];
 ---
 
-<Guide title={node.title} description={node.summary} activeSection="patterns">
-  <div class="page">
+<DetailPageLayout
+  title={`${title} · Pattern`}
+  pageTitle={title}
+  description={lede}
+  current="/patterns/"
+  breadcrumbs={[
+    { label: 'Home', href: '/' },
+    { label: 'Building blocks', href: '/patterns/' },
+    { label: title },
+  ]}
+  lede={lede}
+>
+  <EntryFacts sections={factSections} />
 
-    <!-- LEFT COLUMN -->
-    <div style="min-width:0;">
+  {ctxDiff && <ContextDifferentiation i2i={ctxDiff.i2i} i2u={ctxDiff.i2u} />}
 
-      <!-- Breadcrumb -->
-      <nav style={S.breadcrumb}>
-        <a href={`/`} style={S.bcLink}>Guide</a>
-        <span style={S.bcSep}>/</span>
-        <a href={`/patterns`} style={S.bcLink}>Patterns</a>
-        <span style={S.bcSep}>/</span>
-        <span>{node.title}</span>
-      </nav>
+  {pq && <PostQuantum risk={pq.risk} vector={pq.vector} mitigation={pq.mitigation} />}
 
-      <!-- Header -->
-      <div style="margin-bottom:2.5rem;">
-        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:1rem;">
-          {node.maturity && <span style={S.badge('rgba(251,191,36,0.12)', '#fbbf24')}>{node.maturity}</span>}
-          {node.layer && <span style={S.badge('rgba(255,255,255,0.06)', '#a1a1aa')}>{node.layer}</span>}
-          {node.context && <span style={S.badge('rgba(129,140,248,0.08)', '#818cf8')}>{node.context === 'both' ? 'I2I + I2U' : node.context.toUpperCase()}</span>}
-          {isMeta && <span style={S.badge('rgba(165,180,252,0.12)', '#a5b4fc')}>meta</span>}
-        </div>
-        <h1 style={S.title}>{node.title}</h1>
-        {/* SOURCE: iptf-map intent paragraph — do not alter */}
-        {node.summary && <p style={S.intent}>{node.summary}</p>}
-      </div>
+  {visibility && (
+    <VisibilityMatrix
+      counterparty={visibility.counterparty}
+      chain={visibility.chain}
+      regulator={visibility.regulator}
+      public={visibility.public}
+    />
+  )}
 
-      <!-- CROPS profile (badges) -->
-      {cropsObj && (
-        <div style="display:flex; gap:6px; margin:2rem 0; padding:1.25rem; border:1px solid rgba(255,255,255,0.06); border-radius:12px; background:#18181b;">
-          {(['cr','o','p','s'] as const).map(key => {
-            const val = (cropsObj as any)[key] as string | undefined;
-            const { bg, fg } = cropsColorBg(val);
-            return (
-              <div style={`flex:1; text-align:center; padding:1rem 0.5rem; border-radius:8px; background:${bg};`}>
-                <div style={`font-size:0.75rem; font-weight:500; letter-spacing:0.08em; color:${fg}; opacity:0.6;`}>{cropsAbbr[key]}</div>
-                <div style={`font-size:1.25rem; font-weight:700; color:${fg}; margin-top:2px; line-height:1.2;`}>{val ? val.charAt(0).toUpperCase() + val.slice(1) : '—'}</div>
-                <div style={`font-size:0.55rem; margin-top:6px; color:${fg}; opacity:0.4; letter-spacing:0.02em;`}>{cropsLabel[key]}</div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+  <div class="prose pattern-prose" set:html={bodyHtml} />
 
-      <!-- CROPS context narrative (new in v2 schema) -->
-      {node.crops_context && (
-        <div style="margin-bottom:2.5rem;">
-          <div style={S.sectionLabel}>CROPS context</div>
-          <div class="crops-context">
-            {(['cr','o','p','s'] as const).map((key) => {
-              const text = (node.crops_context as any)?.[key];
-              if (!text) return null;
-              return (
-                <div class="crops-row">
-                  <div class="crops-row-label">{cropsLabel[key]}</div>
-                  <div class="crops-row-text" set:html={renderMarkdownInline(text)} />
-                </div>
-              );
-            })}
-          </div>
+  <SubPatternsList variants={subPatterns} />
+
+  <OssImplList items={ossImpls} />
+
+  <Fragment slot="after-content">
+    <ArticleFooter related={related} sibling={sibling} lastReviewed={lastReviewed} />
+  </Fragment>
+
+  <Fragment slot="rail">
+    <aside class="pattern-rail">
+      {entry.data.crops_profile && typeof entry.data.crops_profile === 'object' && (
+        <div class="rail-crops">
+          <div class="rail-crops-label">CROPS profile</div>
+          <CropsPie profile={entry.data.crops_profile} context={cropsContext} size={88} />
         </div>
       )}
 
-      <!-- Context differentiation (when context: both) -->
-      {node.context === 'both' && node.context_differentiation && (
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:1.5rem 0;">
-          {node.context_differentiation.i2i && (
-            <div style="padding:1rem 1.25rem; border-radius:10px; border:1px solid rgba(129,140,248,0.15); background:rgba(99,102,241,0.04);">
-              <div style="font-size:0.6rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:#a5b4fc; margin-bottom:0.5rem;">I2I</div>
-              <div style="font-size:0.82rem; color:#a1a1aa; line-height:1.55;">{node.context_differentiation.i2i}</div>
-            </div>
-          )}
-          {node.context_differentiation.i2u && (
-            <div style="padding:1rem 1.25rem; border-radius:10px; border:1px solid rgba(251,191,36,0.15); background:rgba(251,191,36,0.04);">
-              <div style="font-size:0.6rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:#fbbf24; margin-bottom:0.5rem;">I2U</div>
-              <div style="font-size:0.82rem; color:#a1a1aa; line-height:1.55;">{node.context_differentiation.i2u}</div>
-            </div>
-          )}
-        </div>
-      )}
-
-      <!-- Works best / Avoid when -->
-      {(node.works_best_when || node.avoid_when) && (
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin:1.5rem 0;">
-          {node.works_best_when && (
-            <div style="padding:1rem 1.25rem; border-radius:10px; border:1px solid rgba(52,211,153,0.15); background:rgba(52,211,153,0.04);">
-              <div style="font-size:0.6rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:#34d399; margin-bottom:0.5rem;">Works best when</div>
-              {node.works_best_when.map(item => (
-                <div style="font-size:0.82rem; color:#a1a1aa; line-height:1.5; padding-left:1rem; position:relative; margin-bottom:0.35rem;">
-                  <span style="position:absolute; left:0; top:7px; width:4px; height:4px; border-radius:50%; background:#34d399; display:block;"></span>
-                  {item}
-                </div>
-              ))}
-            </div>
-          )}
-          {node.avoid_when && (
-            <div style="padding:1rem 1.25rem; border-radius:10px; border:1px solid rgba(248,113,113,0.15); background:rgba(248,113,113,0.04);">
-              <div style="font-size:0.6rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; color:#f87171; margin-bottom:0.5rem;">Avoid when</div>
-              {node.avoid_when.map(item => (
-                <div style="font-size:0.82rem; color:#a1a1aa; line-height:1.5; padding-left:1rem; position:relative; margin-bottom:0.35rem;">
-                  <span style="position:absolute; left:0; top:7px; width:4px; height:4px; border-radius:50%; background:#f87171; display:block;"></span>
-                  {item}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      <!-- INTENT -->
-      {intent && (
-        <div style="margin-bottom:2.5rem;">
-          <div style={S.sectionLabel}>Intent</div>
-          {/* SOURCE: iptf-map field — do not alter */}
-          <div set:html={renderMarkdown(intent.content)} class="prose" />
-        </div>
-      )}
-
-      <!-- SUB-PATTERNS (meta only) -->
-      {isMeta && subPatternNodes.length > 0 && (
-        <div style="margin-bottom:2.5rem;">
-          <div style={S.sectionLabel}>Sub-patterns</div>
-          <div style="display:grid; grid-template-columns:1fr; gap:1px; background:rgba(255,255,255,0.04); border-radius:10px; overflow:hidden; margin-top:0.75rem;">
-            {subPatternNodes.map(sub => (
-              <a href={`/patterns/${sub.node.slug}`} style="background:#18181b; padding:1rem 1.25rem; text-decoration:none; color:inherit; display:flex; align-items:baseline; justify-content:space-between; gap:1rem;">
-                <div>
-                  <div style="font-size:0.9rem; font-weight:600; color:white; margin-bottom:0.2rem;">{sub.name}</div>
-                  {sub.crops_summary && <div style="font-size:0.75rem; color:#71717a;">{sub.crops_summary}</div>}
-                </div>
-                <svg style="width:14px; height:14px; color:#52525b; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
-              </a>
+      {standards.length > 0 && (
+        <details class="rail-section" open>
+          <summary class="rail-label">
+            <span>Standards</span>
+            <span class="rail-count">{standards.length}</span>
+          </summary>
+          <ul class="rail-fact-list rail-standards-list">
+            {standards.map((s) => (
+              <li><code>{s}</code></li>
             ))}
-          </div>
-        </div>
+          </ul>
+        </details>
       )}
 
-      <!-- COMPONENTS -->
-      {components && (
-        <div style="margin-bottom:2.5rem;">
-          <div style={S.sectionLabel}>{components.heading}</div>
-          {/* SOURCE: iptf-map field — do not alter */}
-          <div set:html={renderMarkdown(components.content)} class="prose" />
-        </div>
-      )}
-
-      <!-- PROTOCOL (numbered steps) -->
-      {protocol && protocol.items.length > 0 && (
-        <div style="margin-bottom:2.5rem;">
-          <div style={S.sectionLabel}>{protocol.heading}</div>
-          <div>
-            {protocol.items.map((step, i) => {
-              const match = step.match(/^\[([^\]]+)\]\s*(.*)$/);
-              const role = match?.[1];
-              const text = match ? match[2] : step;
-              return (
-                <div class="protocol-step">
-                  <div class="protocol-step-num">{i + 1}</div>
-                  <div class="protocol-step-body">
-                    {role && <span class="protocol-step-role">{role}</span>}
-                    <span class="protocol-step-text">{text}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      <!-- GUARANTEES -->
-      {guarantees && (
-        <div style="margin-bottom:2.5rem;">
-          <div style={S.sectionLabel}>{guarantees.heading}</div>
-          {/* SOURCE: iptf-map field — do not alter */}
-          <div set:html={renderMarkdown(guarantees.content)} class="prose" />
-        </div>
-      )}
-
-      <!-- TRADE-OFFS -->
-      {tradeoffs && (
-        <div style="margin-bottom:2.5rem;">
-          <div style={S.sectionLabel}>Trade-offs</div>
-          {/* SOURCE: iptf-map field — do not alter */}
-          <div set:html={renderMarkdown(tradeoffs.content)} class="prose" />
-        </div>
-      )}
-
-      <!-- POST-QUANTUM -->
-      {node.post_quantum && (() => {
-        const c = pqRiskColor(node.post_quantum.risk);
-        return (
-          <div style={`margin-bottom:2.5rem; padding:1.25rem 1.5rem; border:1px solid ${c.border}; border-radius:12px; background:${c.bg};`}>
-            <div style={`font-size:0.6rem; font-weight:700; color:${c.fg}; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.75rem;`}>Post-quantum</div>
-            {node.post_quantum.vector && <div style="font-size:0.85rem; color:#d4d4d8; line-height:1.6; margin-bottom:0.5rem;"><strong style="color:white;">Vector:</strong> <span set:html={renderMarkdownInline(node.post_quantum.vector)} /></div>}
-            {node.post_quantum.mitigation && <div style="font-size:0.85rem; color:#a1a1aa; line-height:1.6;"><strong style="color:#d4d4d8;">Mitigation:</strong> <span set:html={renderMarkdownInline(node.post_quantum.mitigation)} /></div>}
-          </div>
-        );
-      })()}
-
-      <!-- EXAMPLE -->
-      {example && (
-        <div style="margin-bottom:2.5rem;">
-          <div style={S.sectionLabel}>Example</div>
-          {/* SOURCE: iptf-map field — do not alter */}
-          <div set:html={renderMarkdown(example.content)} class="prose" />
-        </div>
-      )}
-
-      <!-- OPEN-SOURCE IMPLEMENTATIONS -->
-      {node.open_source_implementations && node.open_source_implementations.length > 0 && (
-        <div style="margin-bottom:2.5rem;">
-          <div style={S.sectionLabel}>Open-source implementations</div>
-          <div style="margin-top:0.75rem; border:1px solid rgba(255,255,255,0.06); border-radius:10px; overflow:hidden;">
-            {node.open_source_implementations.map((impl, i, arr) => (
-              <a href={impl.url} target="_blank" rel="noopener noreferrer" style={`display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; padding:0.85rem 1.25rem; text-decoration:none; color:inherit; ${i === arr.length - 1 ? '' : 'border-bottom:1px solid rgba(255,255,255,0.04);'}`}>
-                <div>
-                  <div style="font-size:0.85rem; color:#d4d4d8; line-height:1.5;">{impl.description || impl.url}</div>
-                  {impl.language && <div style="font-size:0.7rem; color:#71717a; margin-top:0.25rem;">{impl.language}</div>}
-                </div>
-                <svg style="width:14px; height:14px; color:#52525b; flex-shrink:0; margin-top:2px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
-
-    </div>
-
-    <!-- RIGHT COLUMN -->
-    <aside>
-      <div style="position:sticky; top:80px;">
-
-        <!-- Metadata -->
-        <div style="margin-bottom:2.5rem;">
-          <div style={S.sidebarLabel}>Details</div>
-          {node.status && <div style={S.sidebarRow}><span style="color:#71717a;">Status</span><span style="color:#d4d4d8; font-weight:500;">{node.status}</span></div>}
-          {node.maturity && <div style={S.sidebarRow}><span style="color:#71717a;">Maturity</span><span style="color:#d4d4d8; font-weight:500;">{node.maturity}</span></div>}
-          {node.layer && <div style={S.sidebarRow}><span style="color:#71717a;">Layer</span><span style="color:#d4d4d8; font-weight:500;">{node.layer}</span></div>}
-          {node.context && <div style={S.sidebarRow}><span style="color:#71717a;">Context</span><span style="color:#d4d4d8; font-weight:500;">{node.context === 'both' ? 'I2I + I2U' : node.context.toUpperCase()}</span></div>}
-          {node.kind && <div style={S.sidebarRow}><span style="color:#71717a;">Kind</span><span style="color:#d4d4d8; font-weight:500;">{node.kind}</span></div>}
-          {node.last_reviewed && <div style="display:flex; justify-content:space-between; padding:0.5rem 0; font-size:0.8rem;"><span style="color:#71717a;">Last reviewed</span><span style="color:#d4d4d8; font-weight:500;">{new Date(node.last_reviewed).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}</span></div>}
-        </div>
-
-        <!-- Standards -->
-        {node.standards && node.standards.length > 0 && (
-          <div style="margin-bottom:2.5rem;">
-            <div style={S.sidebarLabel}>Standards</div>
-            <div style="display:flex; flex-wrap:wrap; gap:6px;">
-              {node.standards.map(s => (
-                <span style="font-size:0.7rem; font-family:'JetBrains Mono',monospace; color:#a1a1aa; padding:3px 8px; border-radius:4px; background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06);">{s}</span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <!-- Used in case studies -->
-        {related.usedInApproaches.length > 0 && (
-          <div style="margin-bottom:2.5rem;">
-            <div style={S.sidebarLabel}>Used in case studies</div>
-            {related.usedInApproaches.map(a => (
-              <a href={`/approaches/${a.slug}`} style={S.sidebarLink}>
-                <svg style="width:12px; height:12px; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-                {a.title}
-              </a>
-            ))}
-          </div>
-        )}
-
-        <!-- Vendor tooling -->
-        {related.implementedBy.length > 0 && (
-          <div style="margin-bottom:2.5rem;">
-            <div style={S.sidebarLabel}>Vendor tooling</div>
-            {related.implementedBy.map(v => (
-              <a href={`/vendors/${v.slug}`} style={S.sidebarLink}>
-                <svg style="width:12px; height:12px; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
-                {v.title}
-              </a>
-            ))}
-          </div>
-        )}
-
-        <!-- Related patterns (typed) -->
-        {relGroups.map(([_, label, targets]) => (
-          <div style="margin-bottom:2rem;">
-            <div style={S.sidebarLabel}>{label}</div>
-            {targets.map(target => (
-              <a href={`/patterns/${target.slug}`} style={S.sidebarLink}>
-                <svg style="width:12px; height:12px; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-                {target.title}
-              </a>
-            ))}
-          </div>
-        ))}
-
-      </div>
+      <RailConnections referencedBy={referencedBy} />
     </aside>
+  </Fragment>
+</DetailPageLayout>
 
-  </div>
+<style>
+  /* Pattern body now renders via renderMarkdown (marked) instead of
+     Astro's <Content />, because we pop the `## Intent` section out
+     of the markdown before render — the Intent paragraph becomes the
+     page lede so it doesn't show up twice. These prose styles match
+     the look the article had under <Content />. */
+  .pattern-prose :global(h2) {
+    font-family: var(--font-sans);
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.02em;
+    margin: 2.25rem 0 0.85rem;
+    line-height: 1.25;
+  }
+  .pattern-prose :global(h3) {
+    font-family: var(--font-sans);
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.015em;
+    margin: 1.5rem 0 0.5rem;
+  }
+  .pattern-prose :global(p) {
+    margin: 0.6rem 0 0.95rem;
+    line-height: 1.65;
+    color: var(--color-text);
+  }
+  .pattern-prose :global(ul),
+  .pattern-prose :global(ol) {
+    padding-left: 1.5rem;
+    margin: 0.6rem 0 0.95rem;
+  }
+  .pattern-prose :global(li) {
+    margin: 0.25rem 0;
+    line-height: 1.6;
+  }
+  .pattern-prose :global(a) {
+    color: var(--color-cta);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color var(--duration-fast) var(--easing-soft);
+  }
+  .pattern-prose :global(a:hover) {
+    border-bottom-color: currentColor;
+  }
+  .pattern-prose :global(code) {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--color-bg-subtle);
+    padding: 0.05em 0.4em;
+    border-radius: var(--radius-sm);
+    color: var(--color-primary);
+  }
+  .pattern-prose :global(strong) {
+    color: var(--color-primary);
+    font-weight: 700;
+  }
+  .pattern-prose :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+  .pattern-prose :global(th),
+  .pattern-prose :global(td) {
+    padding: 0.55rem 0.8rem;
+    border-bottom: 1px solid var(--color-border);
+    text-align: left;
+    vertical-align: top;
+  }
+  .pattern-prose :global(th) {
+    background: var(--color-bg-subtle);
+    color: var(--color-primary);
+    font-weight: 700;
+  }
 
-  <style>
-    .page {
-      max-width: 1120px;
-      margin: 0 auto;
-      padding: 5rem 2rem 4rem;
-      display: grid;
-      grid-template-columns: 1fr 280px;
-      gap: 4rem;
-    }
-    .protocol-step {
-      display: flex;
-      gap: 1rem;
-      align-items: baseline;
-      padding: 0.75rem 0;
-      border-bottom: 1px solid rgba(255,255,255,0.03);
-    }
-    .protocol-step:last-child { border-bottom: none; }
-    .protocol-step-num {
-      font-size: 0.7rem;
-      font-weight: 700;
-      color: #818cf8;
-      background: rgba(129,140,248,0.1);
-      width: 24px; height: 24px;
-      border-radius: 6px;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-    }
-    .protocol-step-body {
-      flex: 1;
-      min-width: 0;
-      display: grid;
-      grid-template-columns: 120px 1fr;
-      column-gap: 0.75rem;
-      align-items: baseline;
-    }
-    .protocol-step-role {
-      font-size: 0.62rem;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: #d4d4d8;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.08);
-      padding: 2px 7px;
-      border-radius: 4px;
-      white-space: nowrap;
-      justify-self: start;
-    }
-    .protocol-step-text {
-      font-size: 0.85rem;
-      color: #a1a1aa;
-      line-height: 1.5;
-      min-width: 0;
-    }
-    .protocol-step-body:not(:has(.protocol-step-role)) .protocol-step-text {
-      grid-column: 1 / -1;
-    }
-    @media (max-width: 640px) {
-      .protocol-step-body {
-        grid-template-columns: 1fr;
-        row-gap: 0.4rem;
-      }
-    }
-    .crops-context {
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 10px;
-      overflow: hidden;
-      margin-top: 0.75rem;
-    }
-    .crops-row {
-      display: grid;
-      grid-template-columns: 160px 1fr;
-      border-bottom: 1px solid rgba(255,255,255,0.04);
-    }
-    .crops-row:last-child { border-bottom: none; }
-    .crops-row-label {
-      padding: 0.85rem 1rem;
-      background: rgba(255,255,255,0.02);
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.06em;
-      color: #a1a1aa;
-    }
-    .crops-row-text {
-      padding: 0.85rem 1rem;
-      font-size: 0.82rem;
-      color: #a1a1aa;
-      line-height: 1.6;
-      min-width: 0;
-    }
-    @media (max-width: 1024px) {
-      .page {
-        grid-template-columns: 1fr;
-        gap: 2rem;
-        padding: 4.5rem 1.5rem 3rem;
-      }
-    }
-    @media (max-width: 720px) {
-      .crops-row {
-        grid-template-columns: 1fr;
-      }
-      .crops-row-label {
-        padding: 0.6rem 1rem 0.25rem;
-        background: transparent;
-      }
-      .crops-row-text {
-        padding: 0 1rem 0.85rem;
-      }
-    }
-  </style>
-</Guide>
+  /* The legacy .crops-card style is no longer used — pizza moved
+     to the rail. Block kept removed to avoid dead CSS. */
+
+  /* CROPS pizza in the rail. Pinned at the top of the sidebar so
+     the at-a-glance signal is always above the fold; tooltip still
+     escapes the card on hover (no overflow:hidden). */
+  .rail-crops {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.55rem 0 1.25rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .rail-crops-label {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* ─── Right rail ────────────────────────────────────────────── */
+  /* Mirrors the approach-detail rail vocabulary: each section is a
+     native <details> with a count chip; first section open by
+     default, rest collapsed. Single +/− affordance. */
+  .pattern-rail {
+    position: sticky;
+    top: 80px;
+    font-family: var(--font-sans);
+  }
+  .rail-section {
+    margin-bottom: 1.4rem;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 0.85rem;
+  }
+  .rail-section[open] {
+    padding-bottom: 1.1rem;
+  }
+  .rail-section:last-child {
+    border-bottom: none;
+  }
+  .rail-label {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.55rem 0 0.5rem;
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .rail-label::-webkit-details-marker { display: none; }
+  .rail-label:hover {
+    color: var(--color-primary);
+  }
+  .rail-label::after {
+    content: '+';
+    color: var(--color-text-faint);
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .rail-section[open] > .rail-label::after {
+    content: '−';
+  }
+  .rail-count {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--color-bg-subtle);
+    color: var(--color-text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-left: auto;
+    margin-right: 0.4rem;
+  }
+
+  /* Fact lists — Works best when / Avoid when / Depends on /
+     Standards all share this list shape. */
+  .rail-fact-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.35rem 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .rail-fact-list li {
+    font-size: 0.84rem;
+    line-height: 1.5;
+    color: var(--color-text);
+    padding-left: 0.85rem;
+    position: relative;
+  }
+  .rail-fact-list li::before {
+    content: '';
+    position: absolute;
+    top: 0.5rem;
+    left: 0;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--color-cta);
+  }
+  /* Standards render as inline chips that flow horizontally and
+     wrap to a new row only when the rail is too narrow to fit them. */
+  .rail-standards-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .rail-standards-list li {
+    padding-left: 0;
+  }
+  .rail-standards-list li::before { content: none; }
+  .rail-standards-list code {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    background: var(--color-bg-subtle);
+    padding: 0.15rem 0.5rem;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 900px) {
+    .pattern-rail { position: static; }
+  }
+</style>

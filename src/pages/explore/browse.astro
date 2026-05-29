@@ -1,13 +1,76 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import { BrowseGrid } from '../../components/BrowseGrid';
+/*
+ * /explore/browse/ — flat, filterable card grid of every node
+ * (excluding domains, which are organizational headers, not
+ * standalone entries).
+ */
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PageHeader from '../../components/PageHeader.astro';
+import { BrowseGrid } from '../../components/explore/BrowseGrid';
 import graphData from '../../data/graph.json';
+
+const description =
+  'A flat, filterable index of everything on the site. Search by name or summary, filter by type, expand a card for context.';
 ---
-<Layout title="IPTF Privacy Map - Browse">
-  <BrowseGrid client:load graph={graphData} />
-  <script define:vars={{ nodeCount: graphData.meta.node_count, edgeCount: graphData.meta.edge_count }}>
-    document.getElementById('nav-browse')?.classList.add('active');
-    const stats = document.getElementById('nav-stats');
-    if (stats) stats.textContent = `${nodeCount} nodes · ${edgeCount} edges`;
-  </script>
-</Layout>
+
+<BaseLayout
+  title="Browse"
+  description={description}
+  current="/explore/"
+>
+  <PageHeader
+    breadcrumbs={[
+      { label: 'Home', href: '/' },
+      { label: 'Explore', href: '/explore/browse/' },
+      { label: 'Browse' },
+    ]}
+    title="Browse everything"
+    lede={description}
+  />
+
+  <div class="explore-nav">
+    <div class="container">
+      <a href="/explore/galaxy/" class="explore-tab">Galaxy</a>
+      <a href="/explore/tree/" class="explore-tab">Tree</a>
+      <a href="/explore/browse/" class="explore-tab active">Browse</a>
+    </div>
+  </div>
+
+  <section class="browse-section">
+    <div class="container">
+      <BrowseGrid client:only="react" graph={graphData} />
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .explore-nav {
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-bg);
+  }
+  .explore-nav .container {
+    display: flex;
+    gap: 0.25rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0;
+  }
+  .explore-tab {
+    padding: 0.7rem 1rem;
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    transition: color var(--duration-fast) var(--easing-soft),
+      border-color var(--duration-fast) var(--easing-soft);
+  }
+  .explore-tab:hover { color: var(--color-primary); }
+  .explore-tab.active {
+    color: var(--color-cta);
+    border-bottom-color: var(--color-cta);
+  }
+  .browse-section {
+    background: var(--color-bg);
+  }
+</style>

@@ -1,0 +1,439 @@
+@import './tokens.css';
+
+/* ───── reset ───── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html {
+  scroll-behavior: smooth;
+  /* Block accidental horizontal scroll at the page level. Components
+     that legitimately need horizontal overflow (.prose table, the
+     anchor nav rail, etc.) set their own overflow-x: auto inside
+     their own bounded boxes. */
+  overflow-x: hidden;
+}
+body {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  /* NOTE: don't set overflow-x: hidden on body — it implicitly turns
+     overflow-y into `auto`, which makes body a scroll container and
+     BREAKS position: sticky for every descendant (glossary cat-nav,
+     detail-page rail). The horizontal-scroll safety net lives on
+     <html> only. Real overflow sources must be fixed at source
+     (eg grid `1fr` → `minmax(0, 1fr)`). */
+}
+img, svg, video { display: block; max-width: 100%; }
+button { font: inherit; }
+ul, ol { list-style: none; }
+a { color: var(--color-cta); text-decoration: none; transition: color var(--duration-fast) var(--easing-soft); }
+a:hover { color: var(--color-cta-hover); }
+
+/* ───── layout ───── */
+.container {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: 0 var(--container-pad);
+}
+
+/* ───── shared text bits ───── */
+.section-tag {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  color: var(--color-cta);
+  text-transform: uppercase;
+  display: inline-block;
+  margin-bottom: 1rem;
+}
+
+.section-head {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 3rem;
+}
+.section-head h2 {
+  font-family: var(--font-sans);
+  font-weight: 700;
+  font-size: clamp(2.15rem, 3.8vw, 2.85rem);
+  line-height: 1.14;
+  letter-spacing: -0.025em;
+  color: var(--color-primary);
+  max-width: 30ch;
+  margin-bottom: 0.25rem;
+}
+.section-head .meta {
+  font-size: 1.0625rem;
+  color: var(--color-text-secondary);
+  line-height: 1.65;
+  max-width: 80ch;
+}
+.section-head .meta strong { color: var(--color-primary); font-weight: 600; }
+
+section.block {
+  padding: 10rem 0;
+  border-bottom: 1px solid var(--color-border);
+}
+/* Mobile section padding — 10rem (160px) is the right rhythm on
+   desktop but suffocates a phone with white space. Step it down so
+   the page reads tighter without losing the divider rhythm. */
+@media (max-width: 720px) {
+  section.block { padding: 4.5rem 0; }
+  .section-head { margin-bottom: 2rem; }
+}
+
+/* ───── card base ─────
+   Shared visual recipe for every "card" surface — listing cards,
+   path cards, vendor / domain / RFP cards, jurisdiction cards.
+   Components compose on top by extending this class so individual
+   styles only need to override what's actually different (grid
+   layout, padding, internal structure). */
+.card-base {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  color: var(--color-text);
+  transition: transform var(--duration-base) var(--easing-soft),
+              box-shadow var(--duration-base) var(--easing-soft),
+              border-color var(--duration-base) var(--easing-soft);
+}
+.card-base:hover {
+  border-color: var(--color-cta);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+@media (hover: none) and (pointer: coarse) {
+  .card-base:hover { transform: none; }
+}
+
+/* ───── shared chip ─────
+   Single chip vocabulary for inline metadata tags across cards.
+   Use modifier classes for tone (success / warning / neutral / cta)
+   rather than per-component class names. */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.18rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.chip--neutral {
+  background: var(--color-bg-subtle);
+  color: var(--color-primary);
+  border: 1px solid var(--color-border);
+  text-transform: none;
+  font-weight: 500;
+}
+.chip--success {
+  background: var(--color-success-tint);
+  color: var(--color-success-strong);
+  text-transform: lowercase;
+}
+.chip--warning {
+  background: var(--color-warning-tint);
+  color: var(--color-warning-strong);
+  text-transform: lowercase;
+}
+.chip--muted {
+  background: var(--color-bg-muted);
+  color: var(--color-text-secondary);
+  text-transform: lowercase;
+}
+.chip--cta {
+  background: var(--color-cta-tint);
+  color: var(--color-cta);
+  text-transform: none;
+}
+
+/* ───── buttons ───── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 14.5px;
+  /* Tight line-height so the glyph's optical center matches the button's
+     geometric center. Inherited 1.65 padded the line box ~14px taller than
+     the rendered cap-height, with the baseline at ~80% of that box; the
+     result was text visibly sitting above center. With nowrap (single line)
+     and no overflow:hidden, descenders render safely outside the line box. */
+  line-height: 1;
+  letter-spacing: -0.005em;
+  border-radius: var(--radius-sm);
+  padding: 0.6rem 1.05rem;
+  border: 1px solid transparent;
+  transition: background var(--duration-fast) var(--easing-soft),
+              border-color var(--duration-fast) var(--easing-soft),
+              color var(--duration-fast) var(--easing-soft),
+              transform var(--duration-fast) var(--easing-soft),
+              box-shadow var(--duration-fast) var(--easing-soft);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.btn.lg { padding: 0.78rem 1.25rem; font-size: 15px; }
+.btn.primary {
+  background: var(--color-cta);
+  color: var(--color-on-cta);
+  box-shadow: var(--shadow-sm);
+}
+.btn.primary:hover {
+  background: var(--color-cta-hover);
+  color: var(--color-on-cta);
+  box-shadow: var(--shadow-md);
+}
+.btn.ghost {
+  background: var(--color-bg);
+  color: var(--color-cta);
+  border-color: var(--color-cta);
+}
+.btn.ghost:hover {
+  background: var(--color-cta);
+  color: var(--color-on-cta);
+  border-color: var(--color-cta);
+}
+.btn .arr { transition: transform var(--duration-fast) var(--easing-soft); }
+.btn:hover .arr { transform: translateX(2px); }
+.btn .ext-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  opacity: 0.85;
+  transition: transform var(--duration-fast) var(--easing-soft),
+              opacity var(--duration-fast) var(--easing-soft);
+}
+.btn .ext-icon svg { width: 100%; height: 100%; display: block; }
+.btn:hover .ext-icon { transform: translate(2px, -2px); opacity: 1; }
+
+/* ───── prose (markdown body content) ───── */
+.prose {
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--color-text);
+  max-width: 70ch;
+}
+.prose > * + * { margin-top: 1.1em; }
+.prose h1 {
+  font-family: var(--font-sans);
+  font-size: clamp(1.75rem, 3vw, 2.1rem);
+  font-weight: 700;
+  letter-spacing: -0.022em;
+  line-height: 1.18;
+  color: var(--color-primary);
+}
+.prose h2 {
+  font-family: var(--font-sans);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.018em;
+  line-height: 1.25;
+  color: var(--color-primary);
+  /* Symmetric spacing: equal breathing room above and below the
+     divider line so it reads as a section break, not as crowded
+     against the heading underneath. */
+  margin-top: 2.2em;
+  padding-top: 2.2em;
+  border-top: 1px solid var(--color-border);
+}
+.prose h3 {
+  font-family: var(--font-sans);
+  font-size: 1.2rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--color-primary);
+  margin-top: 1.8em;
+}
+.prose h4 {
+  font-family: var(--font-sans);
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--color-primary-light);
+  margin-top: 1.5em;
+}
+.prose p, .prose li { color: var(--color-text); }
+.prose strong { color: var(--color-primary); font-weight: 600; }
+.prose a {
+  color: var(--color-cta);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--color-cta) 30%, transparent);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1.5px;
+}
+.prose a:hover {
+  color: var(--color-cta-hover);
+  text-decoration-color: var(--color-cta-hover);
+}
+.prose ul, .prose ol { padding-left: 1.4em; }
+.prose ul li { list-style: disc; margin-top: 0.4em; }
+.prose ol li { list-style: decimal; margin-top: 0.4em; }
+.prose code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--color-bg-muted);
+  color: var(--color-primary);
+  padding: 0.15em 0.4em;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+}
+.prose pre {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  line-height: 1.55;
+  background: var(--color-bg-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1.1rem 1.25rem;
+  overflow-x: auto;
+}
+.prose pre code {
+  background: transparent;
+  padding: 0;
+  border: 0;
+  color: inherit;
+}
+.prose blockquote {
+  padding-left: 1.1rem;
+  border-left: 3px solid var(--color-border-strong);
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+.prose hr {
+  border: 0;
+  border-top: 1px solid var(--color-border);
+  margin: 2.5em 0;
+}
+/* Wide comparison tables routinely exceed the prose width (70ch).
+   Make the table itself a horizontally-scrollable block so the page
+   doesn't gain a horizontal scrollbar. Cells still lay out via the
+   default table algorithm because the inner row groups remain
+   table-row-group. */
+.prose table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+  -webkit-overflow-scrolling: touch;
+}
+.prose th, .prose td {
+  border: 1px solid var(--color-border);
+  padding: 0.6rem 0.85rem;
+  text-align: left;
+  vertical-align: top;
+}
+.prose th {
+  background: var(--color-bg-subtle);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+/* ───── protocol-level tag ─────
+   Inline chip rendered by `lib/render.ts#tagifyProtocolSteps()` for
+   the `[user]` / `[contract]` / `[relayer]` markers on pattern
+   `## Protocol` numbered-list items. Each role-kind gets a distinct
+   tint so the reader can scan a long protocol and see who acts at
+   each step. Buckets cover the 30 distinct role names that appear
+   across the pattern catalog as of 2026-05-22:
+       cta blue    user, client  (primary actor)
+       success     contract, enclave, signing-node, prover
+                     (on-chain / deterministic code paths)
+       warning     operator, relayer, relay, sequencer, validator,
+                     mix-node, network, orchestrator, policy-engine
+                     (trust-assumption infrastructure)
+       violet      counterparty, sender, recipient, signer, issuer,
+                     institution, peers, designer, architect,
+                     researcher  (peers / parties)
+       neutral     auditor, regulator, verifier, evaluator, notary
+                     (oversight / observers)
+   Any role we haven't bucketed falls through to the default
+   CTA-blue treatment below — safe fallback. */
+.prose .protocol-tag {
+  display: inline-block;
+  font-family: var(--font-mono);
+  font-size: 0.7em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  color: var(--color-cta);
+  background: var(--color-cta-tint);
+  padding: 0.05em 0.5em;
+  border-radius: var(--radius-sm);
+  margin-right: 0.35em;
+  vertical-align: 1px;
+}
+
+/* On-chain / deterministic code paths — success green */
+.prose .protocol-tag--contract,
+.prose .protocol-tag--enclave,
+.prose .protocol-tag--signing-node,
+.prose .protocol-tag--prover {
+  color: var(--color-success-strong);
+  background: var(--color-success-tint);
+}
+
+/* Trust-assumption infrastructure — warning amber */
+.prose .protocol-tag--operator,
+.prose .protocol-tag--relayer,
+.prose .protocol-tag--relay,
+.prose .protocol-tag--sequencer,
+.prose .protocol-tag--validator,
+.prose .protocol-tag--mix-node,
+.prose .protocol-tag--network,
+.prose .protocol-tag--orchestrator,
+.prose .protocol-tag--policy-engine {
+  color: var(--color-warning-strong);
+  background: var(--color-warning-tint);
+}
+
+/* Peer / party / counterparty — violet */
+.prose .protocol-tag--counterparty,
+.prose .protocol-tag--sender,
+.prose .protocol-tag--recipient,
+.prose .protocol-tag--signer,
+.prose .protocol-tag--issuer,
+.prose .protocol-tag--institution,
+.prose .protocol-tag--peers,
+.prose .protocol-tag--designer,
+.prose .protocol-tag--architect,
+.prose .protocol-tag--researcher {
+  color: var(--color-violet);
+  background: var(--color-violet-tint);
+}
+
+/* Oversight / observer — neutral slate */
+.prose .protocol-tag--auditor,
+.prose .protocol-tag--regulator,
+.prose .protocol-tag--verifier,
+.prose .protocol-tag--evaluator,
+.prose .protocol-tag--notary {
+  color: var(--color-neutral-strong);
+  background: var(--color-neutral-tint);
+}
+
+/* ───── reduced motion ───── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    transition-duration: 0.001ms !important;
+    animation-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

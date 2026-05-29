@@ -1,173 +1,519 @@
 ---
-import Guide from '../layouts/Guide.astro';
+/*
+ * About page — ported from ethereum/iptf-web (`src/pages/about.astro`,
+ * test_guide branch). Light theme + our tokens. Copy adapted to use
+ * "institutional" instead of "enterprise" per Yanis's tweak (already
+ * applied site-wide elsewhere).
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHeader from '../components/PageHeader.astro';
+
+const pageDescription =
+  'The Institutional Privacy Task Force (IPTF) helps onboard institutions onto Ethereum with privacy-preserving solutions.';
 ---
 
-<Guide title="About" description="The Institutional Privacy Task Force (IPTF) helps onboard institutions and enterprises onto Ethereum with privacy-preserving solutions.">
-  <div class="about-page">
+<BaseLayout
+  title="About IPTF"
+  description={pageDescription}
+  current="/about/"
+>
+  <PageHeader
+    breadcrumbs={[
+      { label: 'Home', href: '/' },
+      { label: 'About' },
+    ]}
+    title="Institutional Privacy Task Force"
+    lede="The Institutional Privacy Task Force (IPTF) is a small team that helps onboard institutions onto Ethereum with a focus on privacy needs being met in a performant, secure, usable, and accessible way."
+  />
 
-    <section class="about-hero">
-      <div class="about-eyebrow">Ethereum Foundation initiative</div>
-      <h1>Institutional Privacy Task Force</h1>
-      <p class="about-tagline">Advancing privacy standards for enterprise-grade Ethereum applications.</p>
-    </section>
+  <section class="about-section">
+    <div class="container about-inner">
 
-    <section class="about-body">
-      <p>The Institutional Privacy Task Force (IPTF) is a small team that helps onboard institutions and enterprises onto Ethereum, with a focus on ensuring their privacy needs are met in a performant, secure, usable, and accessible way.</p>
-      <p>We document patterns, use cases, and regulatory frameworks for implementing privacy-preserving financial applications on Ethereum, and prototype the architectures we recommend.</p>
-    </section>
-
-    <section class="about-grid">
-      <a href="https://github.com/ethereum/iptf-map" class="about-card" target="_blank" rel="noopener">
-        <div class="about-card-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
-        </div>
-        <h3>Privacy Map</h3>
-        <p>Patterns, use cases, and regulatory frameworks.</p>
-      </a>
-      <a href="https://github.com/ethereum/iptf-pocs" class="about-card" target="_blank" rel="noopener">
-        <div class="about-card-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
-        </div>
-        <h3>Proof of Concepts</h3>
-        <p>End-to-end implementations and benchmarks.</p>
-      </a>
-      <div class="about-card">
-        <div class="about-card-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-        </div>
-        <h3>Coordination</h3>
-        <p>Bridging vendors, institutions, and regulators.</p>
+      <!-- HOW WE WORK — full-width 5-step pipeline. Replaces the
+           earlier 3-card grid (Privacy Map / Proofs of Concept /
+           Coordination) per 2026-05-22 follow-up — methodology takes
+           the prominent slot now, source repos live in the footer. -->
+      <div class="about-pipeline">
+        <h2>Our own research and prototypes</h2>
+        <p class="about-pipeline-lede">The Privacy Cluster prototypes and tests its own solutions directly with institutions, gathering real insights and best practices along the way.</p>
+        <ol class="about-pipeline-steps">
+          {[
+            ['1', 'Interview', 'Meet institutions under NDA to gather concrete requirements.'],
+            ['2', 'Use case', 'Anonymise the requirements and write them down in plain language.'],
+            ['3', 'Approach', 'Compose one or more building blocks into a working architecture.'],
+            ['4', 'Prototype', 'Build the architecture end-to-end and stress-test it honestly.'],
+            ['5', 'Feedback', 'Feed findings back into the map; entries carry status and last-reviewed dates.'],
+          ].map(([n, h, body]) => (
+            <li class="about-pipeline-step">
+              <span class="about-pipeline-num">{n}</span>
+              <strong>{h}</strong>
+              <p>{body}</p>
+            </li>
+          ))}
+        </ol>
       </div>
-    </section>
 
-    <section class="about-contact">
-      <div class="about-eyebrow">Get in touch</div>
-      <h2>Talk to us</h2>
-      <div class="contact-grid">
-        <a href="mailto:iptf@ethereum.org" class="contact-card">
-          <div class="contact-label">Email</div>
-          <div class="contact-value">iptf@ethereum.org</div>
-        </a>
-        <a href="https://forms.gle/6Za8suF5QHyRamcW7" target="_blank" rel="noopener" class="contact-card">
-          <div class="contact-label">Institutions</div>
-          <div class="contact-value">Contact form →</div>
-        </a>
-        <a href="https://forms.gle/znifD8h9Uw6VEX6Q9" target="_blank" rel="noopener" class="contact-card">
-          <div class="contact-label">Vendors</div>
-          <div class="contact-value">Contact form →</div>
-        </a>
+      <!-- TEAM — 4 people working on IPTF. Twitter handle is the
+           public-facing one. Mo & Aaryamann have dedicated headshots
+           supplied by the team; Oskar & Yanis fall back to their
+           GitHub avatars (GitHub allows referrer-free hotlinks via
+           the `<user>.png` URL; Twitter does not). -->
+      <div class="about-team">
+        <h2>Who is behind IPTF</h2>
+        <ul class="about-team-grid">
+          {[
+            { name: 'Mo Jalil',           handle: 'motypes',     avatar: '/assets/images/team/mo-jalil.jpg',                  linkedin: 'motypes' },
+            { name: 'Oskar Thorén',       handle: 'oskarth',     avatar: '/assets/images/team/oskar-thoren.jpg',              linkedin: null },
+            { name: 'Yanis Meziane',      handle: 'yanis_mezn',  avatar: '/assets/images/team/yanis-meziane.jpg',             linkedin: 'yanism' },
+            { name: 'Aaryamann Challani', handle: 'p1ge0nh8er',  avatar: '/assets/images/team/aaryamann-challani.jpg',        linkedin: 'aaryamannc' },
+          ].map((p) => (
+            <li class="about-team-card">
+              <img
+                class="about-team-avatar"
+                src={p.avatar}
+                alt=""
+                width="80"
+                height="80"
+                loading="lazy"
+              />
+              <div class="about-team-name">{p.name}</div>
+              <div class="about-team-links">
+                <a class="about-team-handle" href={`https://twitter.com/${p.handle}`} target="_blank" rel="noopener" aria-label={`${p.name} on X`}>
+                  <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+                  </svg>
+                  <span>@{p.handle}</span>
+                </a>
+                {p.linkedin && (
+                  <a class="about-team-linkedin" href={`https://www.linkedin.com/in/${p.linkedin}/`} target="_blank" rel="noopener" aria-label={`${p.name} on LinkedIn`}>
+                    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.063 2.063 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                    </svg>
+                  </a>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
       </div>
-    </section>
 
-  </div>
+      <!-- WORKSHOPS — copy stubbed pending final count from team. The
+           two photos render as a stacked, overlapping composition:
+           workshop-1 takes the top-left frame, workshop-2 hangs off
+           the bottom-right corner so the pair reads as a tactile,
+           editorial moment instead of a clean side-by-side grid. -->
+      <div class="about-workshops">
+        <div class="about-workshops-text">
+          <h2>Workshops</h2>
+          <p>The task force travels to meet institutions where they are. Each session is built around the host's actual context: their regulatory environment, in-flight projects, and technical maturity. We've held workshops in Asia, Europe, and online, with sessions on the calendar across more regions.</p>
+          <aside class="about-workshops-cta">
+            <div class="about-workshops-cta-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+                <circle cx="12" cy="10" r="3" />
+              </svg>
+            </div>
+            <div class="about-workshops-cta-body">
+              <strong>Host a session</strong>
+              <p>Institutions, vendors, and regulators who would benefit from a tailored workshop in their region can <a href="mailto:iptf@ethereum.org">get in touch</a>.</p>
+            </div>
+          </aside>
+        </div>
+        <figure class="workshop-photos" aria-hidden="false">
+          {/* Intentionally NO width/height attrs — those would inject
+              UA presentational hints that compete with CSS aspect-ratio
+              and silently force the photos back to their intrinsic
+              tall proportions. CSS below is the single source of truth. */}
+          <img class="workshop-photos__a" src="/assets/images/workshops/workshop-1.jpg" alt="IPTF workshop in session" loading="lazy" />
+          <img class="workshop-photos__b" src="/assets/images/workshops/workshop-2.jpg" alt="IPTF workshop attendees in discussion" loading="lazy" />
+        </figure>
+      </div>
 
-  <style>
-    .about-page {
-      max-width: 880px;
-      margin: 0 auto;
-      padding: 6rem 2rem 5rem;
-    }
-    .about-hero { margin-bottom: 3rem; }
-    .about-eyebrow {
-      font-size: 0.65rem; font-weight: 700; color: #818cf8;
-      letter-spacing: 0.12em; text-transform: uppercase;
-      margin-bottom: 0.75rem;
-    }
-    .about-hero h1 {
-      font-family: 'Newsreader', Georgia, serif;
-      font-size: 2.75rem; font-weight: 400; color: white;
-      letter-spacing: -0.025em; line-height: 1.1;
-      margin-bottom: 1rem;
-    }
-    .about-tagline {
-      font-size: 1.05rem; color: #a1a1aa; line-height: 1.6;
-      max-width: 640px;
-    }
+      <div class="about-contact">
+        <h2>Talk to us</h2>
+        <p class="about-contact-lede">Complete this form so we can understand your request and respond promptly.</p>
+        <div class="contact-row">
+          <a href="https://docs.google.com/forms/d/e/1FAIpQLScK2SW0fxXU_h6SGPiBCRiodWFuv-H1BfA3wXh79RPbOT8OKg/viewform" target="_blank" rel="noopener" class="contact-card">
+            <div class="contact-label">Institutions &amp; vendors</div>
+            <div class="contact-value">Contact form<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M9 7h8v8" /></svg></div>
+          </a>
+          <a href="mailto:iptf@ethereum.org" class="contact-email">iptf@ethereum.org</a>
+        </div>
+      </div>
 
-    .about-body {
-      margin-bottom: 4rem;
-      padding-bottom: 3rem;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-    .about-body p {
-      font-size: 0.95rem; color: #a1a1aa; line-height: 1.75;
-      margin-bottom: 1rem; max-width: 640px;
-    }
-    .about-body p:last-child { margin-bottom: 0; }
+    </div>
+  </section>
+</BaseLayout>
 
-    .about-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1px;
-      background: rgba(255,255,255,0.06);
-      border-radius: 12px;
-      overflow: hidden;
-      margin-bottom: 4rem;
-    }
-    .about-card {
-      background: #18181b;
-      padding: 1.5rem;
-      text-decoration: none; color: inherit;
-      transition: background 0.15s;
-      display: flex; flex-direction: column; gap: 0.5rem;
-    }
-    a.about-card:hover { background: #1c1c20; }
-    .about-card-icon {
-      width: 32px; height: 32px;
-      display: flex; align-items: center; justify-content: center;
-      border-radius: 8px;
-      background: rgba(129,140,248,0.1);
-      color: #a5b4fc;
-      margin-bottom: 0.5rem;
-    }
-    .about-card h3 {
-      font-size: 0.95rem; font-weight: 700; color: white;
-    }
-    .about-card p {
-      font-size: 0.8rem; color: #71717a; line-height: 1.55;
-    }
+<style>
+  .about-section {
+    padding: 2rem 0 5rem;
+  }
+  /* Full-width sections inside the page's 1200px container. The earlier
+     880px readability cap is dropped per 2026-05-22 follow-up so the
+     pipeline + team + workshops sections span the full container width. */
 
-    .about-contact {
-      padding-top: 1rem;
-    }
-    .about-contact h2 {
-      font-family: 'Newsreader', Georgia, serif;
-      font-size: 1.75rem; font-weight: 400; color: white;
-      letter-spacing: -0.02em;
-      margin-bottom: 1.5rem;
-    }
-    .contact-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 1rem;
-    }
-    .contact-card {
-      display: flex; flex-direction: column; gap: 4px;
-      padding: 1.25rem;
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 10px;
-      text-decoration: none;
-      transition: background 0.15s, border-color 0.15s;
-    }
-    .contact-card:hover {
-      background: rgba(129,140,248,0.04);
-      border-color: rgba(129,140,248,0.2);
-    }
-    .contact-label {
-      font-size: 0.65rem; font-weight: 700;
-      letter-spacing: 0.1em; text-transform: uppercase;
-      color: #71717a;
-    }
-    .contact-value {
-      font-size: 0.9rem; font-weight: 500;
-      color: white;
-    }
+  .about-eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--color-cta);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+  }
+  .about-contact h2 {
+    font-family: var(--font-sans);
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.02em;
+    margin: 0 0 1.25rem;
+  }
+  /* Contact card on the left, email-as-link on the right.
+     Card stays at its natural width; email expands to occupy the rest
+     of the row and sits centred vertically next to the card. */
+  .contact-row {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+  }
+  .contact-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 1.1rem 1.2rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg);
+    text-decoration: none;
+    transition: border-color var(--duration-fast) var(--easing-soft),
+      background var(--duration-fast) var(--easing-soft);
+    /* Card sits at its natural content width, no longer in a full
+       column. min-width prevents it from getting weirdly skinny. */
+    min-width: 240px;
+  }
+  .contact-card:hover {
+    border-color: var(--color-cta-border);
+    background: var(--color-cta-tint);
+  }
+  .contact-email {
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-cta);
+    text-decoration: none;
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .contact-email:hover { color: var(--color-cta-hover); }
+  .contact-label {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+  .contact-value {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: var(--font-sans);
+    font-size: 0.92rem;
+    font-weight: 600;
+    color: var(--color-cta);
+  }
+  .contact-value svg { width: 12px; height: 12px; }
+  .about-contact-lede {
+    color: var(--color-text-secondary);
+    font-size: 1rem;
+    line-height: 1.65;
+    margin: 0 0 1.5rem;
+    max-width: 640px;
+  }
 
-    @media (max-width: 720px) {
-      .about-grid { grid-template-columns: 1fr; }
-      .contact-grid { grid-template-columns: 1fr; }
-      .about-hero h1 { font-size: 2rem; }
-      .about-page { padding: 5rem 1.5rem 3rem; }
+  /* HOW WE WORK — text-only block; the visual moved to the homepage
+     FAQ row. */
+  .about-pipeline {
+    margin: 0 0 8rem;
+  }
+  .about-pipeline h2 {
+    font-family: var(--font-sans);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.02em;
+    margin: 0 0 1rem;
+  }
+  .about-pipeline-lede {
+    color: var(--color-text-secondary);
+    font-size: 0.95rem;
+    line-height: 1.65;
+    margin: 0 0 1.75rem;
+    max-width: 56ch;
+  }
+  /* Five-up horizontal pipeline. Each step is a card with its number,
+     title, and one-line body. Collapses to 1-column on phones. */
+  .about-pipeline-steps {
+    list-style: none;
+    margin: 1.5rem 0 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 1rem;
+    align-items: stretch;
+  }
+  @media (max-width: 960px) {
+    .about-pipeline-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 560px) {
+    .about-pipeline-steps { grid-template-columns: 1fr; }
+  }
+  .about-pipeline-step {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    padding: 1.25rem 1.15rem 1.1rem;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    min-width: 0;
+  }
+  .about-pipeline-num {
+    font-family: var(--font-mono);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-cta);
+    line-height: 1;
+  }
+  .about-pipeline-step strong {
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.012em;
+    display: block;
+  }
+  .about-pipeline-step p {
+    font-size: 13.5px;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+    margin: 0;
+  }
+
+  /* TEAM — 4 simple cards in a row showing name + handle. */
+  .about-team {
+    margin: 0 0 8rem;
+  }
+  .about-team h2 {
+    font-family: var(--font-sans);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.02em;
+    margin: 0 0 1.5rem;
+  }
+  .about-team-grid {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+  }
+  @media (max-width: 720px) {
+    .about-team-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  .about-team-card {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1.25rem 1.15rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.3rem;
+  }
+  .about-team-avatar {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: var(--color-bg-subtle);
+    margin-bottom: 0.5rem;
+    border: 1px solid var(--color-border);
+  }
+  .about-team-name {
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.012em;
+    line-height: 1.25;
+  }
+  .about-team-links {
+    margin-top: 0.15rem;
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    flex-wrap: wrap;
+  }
+  .about-team-handle,
+  .about-team-linkedin {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-cta);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .about-team-handle:hover,
+  .about-team-linkedin:hover { color: var(--color-cta-hover); }
+  .about-team-handle svg,
+  .about-team-linkedin svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+  /* WORKSHOPS — two-column on desktop: copy left, stacked photos right.
+     Collapses to a single column on narrow widths so the photos sit
+     under the copy. */
+  .about-workshops {
+    margin: 0 0 8rem;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2.5rem 3rem;
+    align-items: start;
+  }
+  @media (max-width: 720px) {
+    .about-workshops {
+      grid-template-columns: 1fr;
+      gap: 2rem;
     }
-  </style>
-</Guide>
+  }
+  .about-workshops-text { min-width: 0; }
+  .about-workshops h2 {
+    font-family: var(--font-sans);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.02em;
+    margin: 0 0 1rem;
+  }
+  .about-workshops p {
+    color: var(--color-text);
+    font-size: 1rem;
+    line-height: 1.7;
+    margin: 0 0 1rem;
+    max-width: 640px;
+  }
+  /* Decorated CTA inside the workshops copy. Reads as a tinted card
+     with an icon, distinct from regular body prose. */
+  .about-workshops-cta {
+    margin-top: 1.5rem;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0.85rem;
+    align-items: flex-start;
+    padding: 1rem 1.15rem;
+    background: var(--color-cta-tint);
+    border: 1px solid var(--color-cta-border);
+    border-radius: var(--radius-md);
+    max-width: 560px;
+  }
+  .about-workshops-cta-icon {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-cta);
+    flex-shrink: 0;
+  }
+  .about-workshops-cta-icon svg { width: 18px; height: 18px; }
+  .about-workshops-cta-body strong {
+    display: block;
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    margin: 0 0 0.2rem;
+  }
+  .about-workshops-cta-body p {
+    margin: 0 !important;
+    font-size: 0.9rem !important;
+    line-height: 1.55 !important;
+    color: var(--color-text-secondary) !important;
+  }
+  .about-workshops-cta-body a {
+    color: var(--color-cta);
+    font-weight: 600;
+  }
+  .about-workshops-cta-body a:hover { color: var(--color-cta-hover); }
+
+  /* Stacked, overlapping photo composition. Photo A sits flush at
+     the top-left of the frame; Photo B is absolutely positioned at
+     the bottom-right and overhangs A by ~7% so the pair reads as a
+     deliberate editorial pairing instead of a neat grid. Both photos
+     get a thin white inner border + soft shadow for that tactile
+     "printed photo" feel. */
+  .workshop-photos {
+    position: relative;
+    margin: 0;
+    padding-bottom: 2rem;
+    /* Anchor the composition to the right of the column on desktop so
+       the asymmetry leans into the page rhythm. */
+    margin-left: auto;
+    width: 100%;
+    max-width: 100%;
+  }
+  .workshop-photos img {
+    display: block;
+    /* height: auto is essential. Without it, the UA presentational
+       hint from a <img height="..."> attribute (or the intrinsic
+       height for replaced elements) competes with CSS aspect-ratio
+       and silently wins. With width AND height explicit, aspect-ratio
+       is ignored per spec. Setting height: auto keeps it implicit so
+       aspect-ratio computes the actual rendered height. */
+    height: auto;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    background: var(--color-bg);
+    border: 5px solid var(--color-bg);
+    object-fit: cover;
+  }
+  .workshop-photos__a {
+    /* Hero frame: near-full column width, 4:3 portrait-ish so it
+       stretches vertically to roughly match the workshop section's
+       text column height. width=100% × 4:3 gives a tall composition. */
+    width: 100%;
+    aspect-ratio: 4 / 3;
+    /* Counter-rotation so the two frames feel unposed, like they
+       were dropped on top of each other. */
+    transform: rotate(-1.5deg);
+    transform-origin: top left;
+  }
+  .workshop-photos__b {
+    /* Smaller corner accent. Wider aspect (3:2) so it contrasts with
+       A's taller frame and reads as a deliberate secondary plate. */
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    width: 55%;
+    aspect-ratio: 3 / 2;
+    transform: rotate(2deg);
+    transform-origin: bottom right;
+  }
+  @media (max-width: 720px) {
+    .workshop-photos {
+      max-width: 100%;
+      margin-left: 0;
+      padding-bottom: 1.5rem;
+    }
+  }
+
+</style>

@@ -1,57 +1,135 @@
 ---
-import Guide from '../../layouts/Guide.astro';
-import { getNodesByType, getNodeBySlug } from '../../lib/data';
-import { parseSections, getSection, parseSubSections, extractLabelledBlock, extractYamlBlock } from '../../lib/parse-sections';
-import { renderMarkdown } from '../../lib/render';
+/*
+ * Approach detail — section-routed render ported from ethereum/iptf-web.
+ *
+ * Per the iptf-web merge handoff (notes/iptf-web-merge-handoff.md): the
+ * upstream approach markdown has a fixed H2 structure (Problem framing,
+ * Approaches, Comparison, Persona perspectives, Recommendation, Open
+ * questions, Example scenario). Instead of flat-rendering the body, we
+ * parse each named section out and lay them into bespoke UI: persona
+ * tabs, architectural-options grid, comparison table, recommendation
+ * call-out, etc. Styling stays in our light theme + tokens.
+ *
+ * Sub-approach blocks inside `## Approaches` are parsed from labelled
+ * `**Summary:**` paragraphs and a fenced ```yaml block (maturity,
+ * context, crops, uses_patterns, poc_spec, example_vendors).
+ */
+import { getCollection } from 'astro:content';
 import yaml from 'js-yaml';
+import DetailPageLayout from '../../layouts/DetailPageLayout.astro';
+import CropsPie from '../../components/CropsPie.astro';
+import { parseApproachTitle } from '../../lib/parseApproachTitle';
+import { stripTypePrefix } from '../../lib/slugify';
+import { bodyExcerpt } from '../../lib/excerpt';
+import { getReferencedBy } from '../../lib/related';
+import {
+  parseSections,
+  getSection,
+  parseSubSections,
+  extractLabelledBlock,
+  extractYamlBlock,
+} from '../../lib/parse-sections';
+import { renderMarkdown } from '../../lib/render';
 
-export function getStaticPaths() {
-  const approaches = getNodesByType('approach');
-  return approaches.map(a => ({ params: { slug: a.slug } }));
+export async function getStaticPaths() {
+  const entries = await getCollection('approaches');
+  return entries.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry },
+  }));
 }
 
-const { slug } = Astro.params;
-const node = getNodeBySlug('approach', slug!);
-if (!node) return Astro.redirect('/guide');
+const { entry } = Astro.props;
 
-// SOURCE: iptf-map field — do not alter. Body is rendered through renderMarkdown() verbatim.
-const sections = parseSections(node.content);
+// Title precedence: frontmatter > body H1 > slug. parseApproachTitle
+// remains the fallback because upstream's privacy-standards-survey
+// approach currently ships without frontmatter.
+const title = entry.data.title
+  ? stripTypePrefix(entry.data.title)
+  : parseApproachTitle(entry.body) || entry.id;
+// `lede` is assigned below, after we've parsed `pfScenario`, so we can
+// lift the scenario paragraph into the hero and avoid duplicating it
+// further down the page. Falls back to bodyExcerpt for approaches that
+// don't define a `### Scenario` subsection.
+
+// Use-case + domain resolution for header context badge.
+const useCases = await getCollection('useCases');
+const useCaseEntry = entry.data.use_case
+  ? useCases.find((uc) => uc.id === entry.data.use_case)
+  : null;
+const useCaseTitle = useCaseEntry ? stripTypePrefix(useCaseEntry.data.title) : null;
+
+// Title pills removed per IA call — status / domain / use-case were
+// surfaced elsewhere (sidebar's Related use cases, breadcrumb context)
+// and crowded the hero. The variables are kept inline above for
+// breadcrumb labelling and the use-case eyebrow inside the persona
+// header if needed in future.
+
+const lastReviewed = entry.data.last_reviewed
+  ? typeof entry.data.last_reviewed === 'string'
+    ? entry.data.last_reviewed
+    : new Date(entry.data.last_reviewed).toISOString().slice(0, 10)
+  : undefined;
+
+// Section routing — parse body into named H2 sections.
+const sections = parseSections(entry.body);
 const problemFraming = getSection(sections, 'problem-framing') || getSection(sections, 'problem');
 const approachesSec = getSection(sections, 'approaches');
 const comparison = getSection(sections, 'comparison');
 const personas = getSection(sections, 'persona-perspectives') || getSection(sections, 'persona');
 const recommendation = getSection(sections, 'recommendation');
 const openQuestions = getSection(sections, 'open-questions') || getSection(sections, 'open');
-const exampleScenario = getSection(sections, 'example-scenario') || getSection(sections, 'example');
+const exampleScenario =
+  getSection(sections, 'example-scenario') || getSection(sections, 'example');
 
-const displayTitle = node.title;
-const goal = node.summary;
-
-const useCaseNode = node.use_case ? getNodeBySlug('use-case', node.use_case) : null;
-const useCaseDomain = (useCaseNode as any)?.primary_domain || '';
-
-const contextLabel = node.context
-  ? (node.context === 'both' ? 'I2I + I2U' : node.context.toUpperCase())
-  : '';
-
-// Problem framing sub-sections
+// Problem framing → Scenario / Requirements / Constraints
 const pfSubs = problemFraming ? parseSubSections(problemFraming.content) : [];
-const pfScenario = pfSubs.find(s => s.key === 'scenario');
-const pfRequirements = pfSubs.find(s => s.key === 'requirements');
-const pfConstraints = pfSubs.find(s => s.key === 'constraints');
+const pfScenario = pfSubs.find((s) => s.key === 'scenario');
+const pfRequirements = pfSubs.find((s) => s.key === 'requirements');
+const pfConstraints = pfSubs.find((s) => s.key === 'constraints');
 
-// Sub-approach blocks
+// Lift the scenario paragraph into the hero in FULL so it doesn't
+// appear twice (once in the hero, once as a body section). The
+// generic bodyExcerpt truncates at ~220 chars which was clipping the
+// scenario; here we want the whole first paragraph verbatim.
+// Falls back to a generic body excerpt if no scenario section.
+function scenarioParagraph(md: string): string {
+  const para: string[] = [];
+  for (const raw of md.split('\n')) {
+    const line = raw.trim();
+    if (!line) { if (para.length > 0) break; continue; }
+    if (line.startsWith('#') || line.startsWith('-') || line.startsWith('*') ||
+        line.startsWith('>') || /^\d+[).]/.test(line) || line.startsWith('```')) {
+      if (para.length > 0) break; continue;
+    }
+    para.push(line);
+  }
+  return para
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/\*(.+?)\*/g, '$1')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
+    .trim();
+}
+const lede = pfScenario
+  ? scenarioParagraph(pfScenario.content)
+  : bodyExcerpt(entry.body);
+
+interface SubApproachYaml {
+  maturity?: string;
+  context?: string;
+  crops?: { cr?: string; o?: string; p?: string; s?: string };
+  uses_patterns?: string[];
+  poc_spec?: string;
+  example_vendors?: string[];
+}
+
 interface SubApproach {
   name: string;
   id: string;
-  yaml: {
-    maturity?: string;
-    context?: string;
-    crops?: { cr?: string; o?: string; p?: string; s?: string };
-    uses_patterns?: string[];
-    poc_spec?: string;
-    example_vendors?: string[];
-  };
+  yaml: SubApproachYaml;
   summary: string;
   howItWorks: string;
   trustAssumptions: string;
@@ -63,14 +141,20 @@ interface SubApproach {
 }
 
 function slugify(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '');
 }
 
 function parseSubApproach(name: string, content: string): SubApproach {
   const yamlText = extractYamlBlock(content);
-  let yamlData: any = {};
-  try { yamlData = yamlText ? (yaml.load(yamlText) || {}) : {}; }
-  catch { yamlData = {}; }
+  let yamlData: SubApproachYaml = {};
+  try {
+    yamlData = yamlText ? (yaml.load(yamlText) as SubApproachYaml) || {} : {};
+  } catch {
+    yamlData = {};
+  }
   const withoutYaml = content.replace(/```yaml\s*\n[\s\S]*?\n```/, '').trim();
   const benchMatch = withoutYaml.match(/#### Benchmarks\s*\n([\s\S]*?)(?=\n####|\n###|$)/);
   return {
@@ -89,734 +173,1167 @@ function parseSubApproach(name: string, content: string): SubApproach {
 }
 
 const subApproaches = approachesSec
-  ? parseSubSections(approachesSec.content).map(s => parseSubApproach(s.heading, s.content))
+  ? parseSubSections(approachesSec.content).map((s) => parseSubApproach(s.heading, s.content))
   : [];
 
-// Personas
+// Persona tabs — keep heading text minus trailing "perspective".
 const personaSubs = personas ? parseSubSections(personas.content) : [];
-const personaList = personaSubs.map(s => ({
+const personaList = personaSubs.map((s) => ({
   key: s.key,
   label: s.heading.replace(/\s*perspective\s*$/i, '').trim(),
   content: s.content,
 }));
 
-// Recommendation sub-sections — extract Default for the highlighted box,
-// keep Decision factors and Hybrid as regular sub-sections.
+// Recommendation → Default / Decision factors / Hybrid
 const recSubs = recommendation ? parseSubSections(recommendation.content) : [];
-const recDefault = recSubs.find(s => s.key === 'default');
-const recDecision = recSubs.find(s => s.key === 'decision-factors');
-const recHybrid = recSubs.find(s => s.key === 'hybrid');
+const recDefault = recSubs.find((s) => s.key === 'default');
+const recDecision = recSubs.find((s) => s.key === 'decision-factors');
+const recHybrid = recSubs.find((s) => s.key === 'hybrid');
 
-// Pattern lookup
-const allPatterns = getNodesByType('pattern');
+// Sidebar data — primary/supporting patterns and vendors from sub-approach yaml
+const allPatterns = await getCollection('patterns');
+const allVendors = await getCollection('vendors');
+const allUseCases = useCases;
+
 function patternBySlug(slug: string) {
-  return allPatterns.find(p => p.file === `patterns/${slug}.md`);
+  const stripped = slug.startsWith('pattern-') ? slug.slice('pattern-'.length) : slug;
+  return allPatterns.find(
+    (p) => p.id === stripped || p.id === slug || p.id === `pattern-${stripped}`,
+  );
 }
-const primaryPatterns = (node.primary_patterns || []).map(patternBySlug).filter(Boolean) as any[];
-const supportingPatterns = (node.supporting_patterns || []).map(patternBySlug).filter(Boolean) as any[];
 
-// Vendor lookup (from sub-approach example_vendors)
-const allVendors = getNodesByType('vendor');
-const vendorRoles: Record<string, { role: string; node: any }> = {};
+const primaryPatternList = (entry.data.primary_patterns ?? [])
+  .map(patternBySlug)
+  .filter(Boolean) as typeof allPatterns;
+
+const supportingPatternList = (entry.data.supporting_patterns ?? [])
+  .map(patternBySlug)
+  .filter(Boolean) as typeof allPatterns;
+
+const vendorRoles: Record<string, { role: string; title: string; slug: string }> = {};
 for (const sub of subApproaches) {
-  for (const v of sub.yaml.example_vendors || []) {
-    const target = allVendors.find(vn => vn.slug === v);
+  for (const v of sub.yaml.example_vendors ?? []) {
+    const target = allVendors.find((vn) => vn.id === v);
     if (target && !vendorRoles[v]) {
-      vendorRoles[v] = { role: sub.name, node: target };
+      vendorRoles[v] = {
+        role: sub.name,
+        title: stripTypePrefix(target.data.title),
+        slug: target.id,
+      };
     }
   }
 }
 
-// Related use cases
-const relatedUseCases = (node.related_use_cases || [])
-  .map(s => getNodeBySlug('use-case', s))
-  .filter(Boolean) as any[];
+const relatedUseCases = (entry.data.related_use_cases ?? [])
+  .map((slug) => allUseCases.find((uc) => uc.id === slug))
+  .filter(Boolean) as typeof allUseCases;
 
-// Color helpers
-const cropsColor = (val?: string) => {
-  if (!val) return '#52525b';
-  if (['high', 'yes', 'full'].includes(val)) return '#34d399';
-  if (['medium', 'partial'].includes(val)) return '#fbbf24';
-  return '#f87171';
-};
-const maturityClass = (m?: string) => {
-  switch (m) {
-    case 'production': case 'benchmarked': return 'mat-prod';
-    case 'prototyped': case 'implemented': return 'mat-proto';
-    case 'documented': case 'spec-only': return 'mat-doc';
-    case 'concept': return 'mat-concept';
-    default: return 'mat-default';
-  }
-};
+// Rail-only data. The cross-graph ArticleFooter ("Continue reading"
+// cards) was removed on approach detail to reduce link duplication —
+// the sidebar's frontmatter-driven Building blocks / Vendors / Use
+// cases + Referenced by panels already cover navigation needs for
+// this content type.
+const referencedBy = await getReferencedBy('approaches', entry.id);
+
+// Maturity tone → reuse our variant maturity vocabulary.
+function maturityTone(m?: string): 'strong' | 'mid' | 'plain' | 'muted' {
+  if (!m) return 'muted';
+  const v = m.toLowerCase();
+  if (v === 'production' || v === 'benchmarked') return 'strong';
+  if (v === 'prototyped' || v === 'implemented') return 'mid';
+  if (v === 'documented' || v === 'spec-only') return 'plain';
+  return 'muted';
+}
+
 ---
 
-<Guide
-  title={displayTitle}
-  description={goal}
-  activeSection="approaches"
-  image={`/assets/images/approaches/${slug}.png`}
-  ogType="article"
+<DetailPageLayout
+  title={title}
+  pageTitle={title}
+  description={lede}
+  current="/approaches/"
+  breadcrumbs={[
+    { label: 'Home', href: '/' },
+    { label: 'Approaches', href: '/approaches/' },
+    { label: title },
+  ]}
+  lede={lede}
 >
-  <div class="page">
-    <div class="main">
+  <div class="approach-main">
 
-      <!-- Breadcrumb -->
-      <nav class="breadcrumb">
-        <a href={`/`}>Guide</a>
-        <span class="sep">/</span>
-        <a href={`/approaches`}>Case Studies</a>
-        <span class="sep">/</span>
-        <span>{displayTitle}</span>
-      </nav>
-
-      <!-- Header -->
-      <div class="cs-header">
-        {useCaseNode && (
-          <a href={`/use-cases/${useCaseNode.slug}`} class="cs-use-case">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
-            Use case: {useCaseNode.title}
-          </a>
-        )}
-        <h1 class="cs-title">{displayTitle}</h1>
-        {/* SOURCE: iptf-map field — do not alter */}
-        {goal && <p class="cs-goal">{goal}</p>}
-        <div class="cs-meta">
-          {useCaseDomain && <span class="cs-badge cs-badge-domain">{useCaseDomain}</span>}
-          {contextLabel && <span class="cs-badge cs-badge-context">{contextLabel}</span>}
-          {node.maturity && <span class="cs-badge cs-badge-maturity">{node.maturity}</span>}
-        </div>
-      </div>
-
-      <!-- Persona tabs at TOP, single color -->
-      {personaList.length > 0 && (
-        <div class="persona-block">
-          <div class="persona-tabs" role="tablist">
-            {personaList.map((p, i) => (
-              <button
-                class={`persona-tab ${i === 0 ? 'active' : ''}`}
-                data-persona={p.key}
-                role="tab"
-                aria-selected={i === 0 ? 'true' : 'false'}
-              >{p.label}</button>
-            ))}
-          </div>
+    {personaList.length > 0 && (
+      <div class="persona-block">
+        <div class="persona-tabs" role="tablist">
           {personaList.map((p, i) => (
-            <div
-              class={`persona-panel ${i === 0 ? 'active' : ''}`}
+            <button
+              type="button"
+              class={`persona-tab ${i === 0 ? 'active' : ''}`}
               data-persona={p.key}
-            >
-              {/* SOURCE: iptf-map field — do not alter */}
-              <div class="prose" set:html={renderMarkdown(p.content)} />
-            </div>
+              role="tab"
+              aria-selected={i === 0 ? 'true' : 'false'}
+            >{p.label}</button>
           ))}
         </div>
-      )}
-
-      <!-- Problem framing -->
-      {(pfRequirements || pfConstraints || pfScenario) && (
-        <div class="section">
-          <div class="section-label">Problem framing</div>
-          {pfScenario && (
-            <Fragment>
-              <h2>Scenario</h2>
-              {/* SOURCE: iptf-map field — do not alter */}
-              <div class="prose" set:html={renderMarkdown(pfScenario.content)} />
-            </Fragment>
-          )}
-          {pfRequirements && (
-            <Fragment>
-              <h2>Requirements</h2>
-              {/* SOURCE: iptf-map field — do not alter */}
-              <div class="prose" set:html={renderMarkdown(pfRequirements.content)} />
-            </Fragment>
-          )}
-          {pfConstraints && (
-            <Fragment>
-              <h2>Constraints</h2>
-              {/* SOURCE: iptf-map field — do not alter */}
-              <div class="prose" set:html={renderMarkdown(pfConstraints.content)} />
-            </Fragment>
-          )}
-        </div>
-      )}
-
-      <!-- Architectural options — compact cards in a grid -->
-      {subApproaches.length > 0 && (
-        <div class="section">
-          <div class="section-label">Architecture</div>
-          <h2>Architectural options</h2>
-
-          <div class="approach-grid">
-            {subApproaches.map(sub => (
-              <a class="approach-card" href={`#${sub.id}`}>
-                <div class="approach-card-head">
-                  <h4>{sub.name}</h4>
-                  {sub.yaml.maturity && <span class={`mat-pill ${maturityClass(sub.yaml.maturity)}`}>{sub.yaml.maturity}</span>}
-                </div>
-                {/* SOURCE: iptf-map sub-approach Summary line — do not alter */}
-                {sub.summary && <p>{sub.summary}</p>}
-                {sub.yaml.crops && (
-                  <div class="approach-card-crops">
-                    {(['cr','o','p','s'] as const).map(k => {
-                      const v = (sub.yaml.crops as any)?.[k];
-                      if (!v) return null;
-                      const c = cropsColor(v);
-                      return <span class="crops-pill" style={`background:${c}14; color:${c};`}>{k.toUpperCase()}: {v}</span>;
-                    })}
-                  </div>
-                )}
-              </a>
-            ))}
-          </div>
-
-          {/* Recommended (Default sub-section of Recommendation) */}
-          {recDefault && (
-            <div class="recommended">
-              <h4>Recommended</h4>
-              {/* SOURCE: iptf-map field — do not alter */}
-              <div class="prose" set:html={renderMarkdown(recDefault.content)} />
-            </div>
-          )}
-        </div>
-      )}
-
-      <!-- Per-architecture detail (collapsibles, anchored) -->
-      {subApproaches.length > 0 && (
-        <div class="section">
-          <div class="section-label">Detail</div>
-          <h2>How each option works</h2>
-          {subApproaches.map(sub => (
-            <details class="collapsible" id={sub.id}>
-              <summary>
-                <span class="coll-summary-name">{sub.name}</span>
-                {sub.yaml.maturity && <span class={`mat-pill ${maturityClass(sub.yaml.maturity)}`}>{sub.yaml.maturity}</span>}
-              </summary>
-              <div class="collapsible-content">
-                {sub.howItWorks && (
-                  <div class="block">
-                    <h5>How it works</h5>
-                    {/* SOURCE: iptf-map sub-approach body — do not alter */}
-                    <div class="prose" set:html={renderMarkdown(sub.howItWorks)} />
-                  </div>
-                )}
-                <div class="block-grid">
-                  {sub.trustAssumptions && (
-                    <div class="block">
-                      <h5>Trust assumptions</h5>
-                      <div class="prose" set:html={renderMarkdown(sub.trustAssumptions)} />
-                    </div>
-                  )}
-                  {sub.threatModel && (
-                    <div class="block">
-                      <h5>Threat model</h5>
-                      <div class="prose" set:html={renderMarkdown(sub.threatModel)} />
-                    </div>
-                  )}
-                  {sub.worksBestWhen && (
-                    <div class="block block-good">
-                      <h5>Works best when</h5>
-                      <div class="prose" set:html={renderMarkdown(sub.worksBestWhen)} />
-                    </div>
-                  )}
-                  {sub.avoidWhen && (
-                    <div class="block block-bad">
-                      <h5>Avoid when</h5>
-                      <div class="prose" set:html={renderMarkdown(sub.avoidWhen)} />
-                    </div>
-                  )}
-                </div>
-                {sub.implementationNotes && (
-                  <div class="block">
-                    <h5>Implementation notes</h5>
-                    <div class="prose" set:html={renderMarkdown(sub.implementationNotes)} />
-                  </div>
-                )}
-                {sub.benchmarksContent && (
-                  <div class="block">
-                    <h5>Benchmarks</h5>
-                    <div class="prose table-wrap" set:html={renderMarkdown(sub.benchmarksContent)} />
-                  </div>
-                )}
-              </div>
-            </details>
-          ))}
-        </div>
-      )}
-
-      <!-- Comparison table -->
-      {comparison && (
-        <div class="section">
-          <div class="section-label">Comparison</div>
-          <h2>Side-by-side</h2>
-          {/* SOURCE: iptf-map field — rendered verbatim, except the CROPS row
-              is stripped because it's already shown as colored pills on the
-              architecture cards above. */}
+        {personaList.map((p, i) => (
           <div
-            class="prose table-wrap"
-            set:html={String(renderMarkdown(comparison.content)).replace(
-              /<tr>\s*<td><strong>CROPS<\/strong><\/td>[\s\S]*?<\/tr>/i,
-              ''
-            )}
-          />
-        </div>
-      )}
-
-      <!-- Decision factors / Hybrid -->
-      {(recDecision || recHybrid) && (
-        <div class="section">
-          <div class="section-label">When to deviate</div>
-          {recDecision && (
-            <Fragment>
-              <h2>Decision factors</h2>
-              {/* SOURCE: iptf-map field — do not alter */}
-              <div class="prose" set:html={renderMarkdown(recDecision.content)} />
-            </Fragment>
-          )}
-          {recHybrid && (
-            <Fragment>
-              <h2>Hybrid composition</h2>
-              {/* SOURCE: iptf-map field — do not alter */}
-              <div class="prose" set:html={renderMarkdown(recHybrid.content)} />
-            </Fragment>
-          )}
-        </div>
-      )}
-
-      <!-- Open questions (collapsible) -->
-      {openQuestions && (
-        <details class="collapsible">
-          <summary><span class="coll-summary-name">Open questions</span></summary>
-          <div class="collapsible-content">
-            {/* SOURCE: iptf-map field — do not alter */}
-            <div class="prose" set:html={renderMarkdown(openQuestions.content)} />
+            class={`persona-panel ${i === 0 ? 'active' : ''}`}
+            data-persona={p.key}
+          >
+            <div class="prose" set:html={renderMarkdown(p.content)} />
           </div>
+        ))}
+      </div>
+    )}
+
+    {/* Scenario is lifted into the hero lede above, so don't render it
+        again here. Requirements + Constraints still belong in the body
+        because they're bullet lists, not narrative paragraphs. */}
+    {(pfRequirements || pfConstraints) && (
+      <section class="approach-section">
+        {pfRequirements && (
+          <>
+            <h2>Requirements</h2>
+            <div class="prose" set:html={renderMarkdown(pfRequirements.content)} />
+          </>
+        )}
+        {pfConstraints && (
+          <>
+            <h2>Constraints</h2>
+            <div class="prose" set:html={renderMarkdown(pfConstraints.content)} />
+          </>
+        )}
+      </section>
+    )}
+
+    {subApproaches.length > 0 && (
+      <section class="approach-section">
+        <h2>Architectural options</h2>
+
+        {recDefault && (
+          <div class="recommended">
+            <h4>Recommended</h4>
+            <div class="prose" set:html={renderMarkdown(recDefault.content)} />
+          </div>
+        )}
+
+        <div class="approach-options">
+          {subApproaches.map((sub) => {
+            const hasDetail =
+              sub.howItWorks ||
+              sub.trustAssumptions ||
+              sub.threatModel ||
+              sub.worksBestWhen ||
+              sub.avoidWhen ||
+              sub.implementationNotes ||
+              sub.benchmarksContent;
+
+            const headerInner = (
+              <>
+                <div class="approach-option-head">
+                  <div class="approach-option-titlecol">
+                    <h4>{sub.name}</h4>
+                    {sub.yaml.maturity && (
+                      <span class={`mat-pill mat-${maturityTone(sub.yaml.maturity)}`}>
+                        {sub.yaml.maturity}
+                      </span>
+                    )}
+                  </div>
+                  {sub.yaml.crops && (
+                    <CropsPie profile={sub.yaml.crops} size={52} />
+                  )}
+                  {hasDetail && <span class="approach-option-toggle" aria-hidden="true"></span>}
+                </div>
+                {sub.summary && <p class="approach-option-summary">{sub.summary}</p>}
+              </>
+            );
+
+            return hasDetail ? (
+              <details class="approach-option" id={sub.id}>
+                <summary>{headerInner}</summary>
+                <div class="approach-option-body">
+                  {sub.howItWorks && (
+                    <div class="block">
+                      <h5>How it works</h5>
+                      <div class="prose" set:html={renderMarkdown(sub.howItWorks)} />
+                    </div>
+                  )}
+                  <div class="block-grid">
+                    {sub.trustAssumptions && (
+                      <div class="block">
+                        <h5>Trust assumptions</h5>
+                        <div class="prose" set:html={renderMarkdown(sub.trustAssumptions)} />
+                      </div>
+                    )}
+                    {sub.threatModel && (
+                      <div class="block">
+                        <h5>Threat model</h5>
+                        <div class="prose" set:html={renderMarkdown(sub.threatModel)} />
+                      </div>
+                    )}
+                    {sub.worksBestWhen && (
+                      <div class="block block-good">
+                        <h5>Works best when</h5>
+                        <div class="prose" set:html={renderMarkdown(sub.worksBestWhen)} />
+                      </div>
+                    )}
+                    {sub.avoidWhen && (
+                      <div class="block block-bad">
+                        <h5>Avoid when</h5>
+                        <div class="prose" set:html={renderMarkdown(sub.avoidWhen)} />
+                      </div>
+                    )}
+                  </div>
+                  {sub.implementationNotes && (
+                    <div class="block">
+                      <h5>Implementation notes</h5>
+                      <div class="prose" set:html={renderMarkdown(sub.implementationNotes)} />
+                    </div>
+                  )}
+                  {sub.benchmarksContent && (
+                    <div class="block">
+                      <h5>Benchmarks</h5>
+                      <div class="prose table-wrap" set:html={renderMarkdown(sub.benchmarksContent)} />
+                    </div>
+                  )}
+                </div>
+              </details>
+            ) : (
+              <article class="approach-option approach-option--flat" id={sub.id}>
+                {headerInner}
+              </article>
+            );
+          })}
+        </div>
+      </section>
+    )}
+
+    {comparison && (
+      <section class="approach-section">
+        <h2>Side-by-side</h2>
+        {/* Strip the redundant CROPS table row — already shown as pills above. */}
+        <div
+          class="prose table-wrap"
+          set:html={String(renderMarkdown(comparison.content)).replace(
+            /<tr>\s*<td><strong>CROPS<\/strong><\/td>[\s\S]*?<\/tr>/i,
+            '',
+          )}
+        />
+      </section>
+    )}
+
+    {(recDecision || recHybrid) && (
+      <section class="approach-section">
+        {recDecision && (
+          <>
+            <h2>Decision factors</h2>
+            <div class="prose" set:html={renderMarkdown(recDecision.content)} />
+          </>
+        )}
+        {recHybrid && (
+          <>
+            <h2>Hybrid composition</h2>
+            <div class="prose" set:html={renderMarkdown(recHybrid.content)} />
+          </>
+        )}
+      </section>
+    )}
+
+    {openQuestions && (
+      <details class="approach-collapsible open-questions">
+        <summary><span class="coll-name">Open questions</span></summary>
+        <div class="coll-content">
+          <div class="prose" set:html={renderMarkdown(openQuestions.content)} />
+        </div>
+      </details>
+    )}
+
+    {exampleScenario && exampleScenario.key !== 'problem-framing' && (
+      <section class="approach-section">
+        <div class="prose" set:html={renderMarkdown(exampleScenario.content)} />
+      </section>
+    )}
+
+    {referencedBy.length > 0 && (
+      <section class="approach-backrefs">
+        <h4 class="backref-title">Referenced by</h4>
+        <div class="backref-grid">
+          {referencedBy.map((group) => {
+            const subheading = group.heading.replace(/^Referenced by /, '');
+            return (
+              <div class="backref-group">
+                <h5>{subheading}</h5>
+                <ul>
+                  {group.items.map((it) => (
+                    <li><a href={it.href}>{it.label}</a></li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+    )}
+
+    {lastReviewed && (
+      <p class="approach-last-reviewed">
+        <span>Last reviewed</span>
+        <time>{lastReviewed}</time>
+      </p>
+    )}
+  </div>
+
+  <Fragment slot="rail">
+    <aside class="approach-rail">
+      {(primaryPatternList.length > 0 || supportingPatternList.length > 0) && (
+        <details class="rail-section" open>
+          <summary class="rail-label">
+            <span>Building blocks</span>
+            <span class="rail-count">{primaryPatternList.length + supportingPatternList.length}</span>
+          </summary>
+          {primaryPatternList.length > 0 && (
+            <>
+              <div class="rail-sublabel">Primary</div>
+              {primaryPatternList.map((p) => (
+                <a href={`/patterns/${p.id}/`} class="rail-pattern">
+                  <span class="rail-dot rail-dot-core" aria-hidden="true"></span>
+                  <span class="rail-pattern-name">{stripTypePrefix(p.data.title)}</span>
+                </a>
+              ))}
+            </>
+          )}
+          {supportingPatternList.length > 0 && (
+            <>
+              <div class="rail-sublabel">Supporting</div>
+              {supportingPatternList.slice(0, 5).map((p) => (
+                <a href={`/patterns/${p.id}/`} class="rail-pattern">
+                  <span class="rail-dot rail-dot-support" aria-hidden="true"></span>
+                  <span class="rail-pattern-name">{stripTypePrefix(p.data.title)}</span>
+                </a>
+              ))}
+              {supportingPatternList.length > 5 && (
+                <details class="rail-more">
+                  <summary>+{supportingPatternList.length - 5} more</summary>
+                  {supportingPatternList.slice(5).map((p) => (
+                    <a href={`/patterns/${p.id}/`} class="rail-pattern">
+                      <span class="rail-dot rail-dot-support" aria-hidden="true"></span>
+                      <span class="rail-pattern-name">{stripTypePrefix(p.data.title)}</span>
+                    </a>
+                  ))}
+                </details>
+              )}
+            </>
+          )}
         </details>
       )}
 
-      <!-- Example scenario -->
-      {exampleScenario && exampleScenario.key !== 'problem-framing' && (
-        <div class="section" style="margin-top:2rem;">
-          <div class="section-label">Example</div>
-          {/* SOURCE: iptf-map field — do not alter */}
-          <div class="prose" set:html={renderMarkdown(exampleScenario.content)} />
-        </div>
+      {Object.keys(vendorRoles).length > 0 && (
+        <details class="rail-section">
+          <summary class="rail-label">
+            <span>Vendors</span>
+            <span class="rail-count">{Object.keys(vendorRoles).length}</span>
+          </summary>
+          {Object.values(vendorRoles).map((vr) => (
+            <a class="rail-vendor" href={`/vendors/${vr.slug}/`}>
+              <div class="rail-vendor-name">{vr.title}</div>
+              <div class="rail-vendor-role">{vr.role}</div>
+            </a>
+          ))}
+        </details>
       )}
 
-    </div>
+      {relatedUseCases.length > 0 && (
+        <details class="rail-section">
+          <summary class="rail-label">
+            <span>Related use cases</span>
+            <span class="rail-count">{relatedUseCases.length}</span>
+          </summary>
+          {relatedUseCases.map((uc) => (
+            <a href={`/use-cases/${uc.id}/`} class="rail-link">
+              {stripTypePrefix(uc.data.title)}
+            </a>
+          ))}
+        </details>
+      )}
 
-    <!-- Sidebar -->
-    <aside class="sidebar">
-      <div class="sidebar-sticky">
+      {entry.data.iptf_pocs && Array.isArray(entry.data.iptf_pocs.pocs) && entry.data.iptf_pocs.pocs.length > 0 && (
+        <details class="rail-section">
+          <summary class="rail-label">
+            <span>IPTF prototypes</span>
+            <span class="rail-count">{entry.data.iptf_pocs.pocs.length}</span>
+          </summary>
+          {entry.data.iptf_pocs.pocs.map((poc: any) => (
+            <div class="rail-poc">
+              <div class="rail-poc-name">{poc.name}</div>
+              {poc.sub_approach && (
+                <div class="rail-poc-sub">For: {poc.sub_approach}</div>
+              )}
+              {poc.status && (
+                <span class={`rail-poc-pill mat-${maturityTone(poc.status)}`}>{poc.status}</span>
+              )}
+            </div>
+          ))}
+        </details>
+      )}
 
-        {primaryPatterns.length > 0 && (
-          <div class="sidebar-section">
-            <div class="sidebar-label">Building blocks</div>
-            {primaryPatterns.map(p => (
-              <a href={`/patterns/${p.slug}`} class="pattern-card">
-                <span class="pattern-dot dot-core"></span>
-                <span class="pattern-name">{p.title}</span>
-              </a>
-            ))}
-            {supportingPatterns.map(p => (
-              <a href={`/patterns/${p.slug}`} class="pattern-card">
-                <span class="pattern-dot dot-supporting"></span>
-                <span class="pattern-name">{p.title}</span>
-              </a>
-            ))}
-          </div>
-        )}
-
-        {node.iptf_pocs && Array.isArray(node.iptf_pocs.pocs) && node.iptf_pocs.pocs.length > 0 && (
-          <div class="sidebar-section">
-            <div class="sidebar-label">IPTF prototypes</div>
-            {node.iptf_pocs.pocs.map(poc => (
-              <div class="poc-row">
-                <div class="poc-name">{poc.name}</div>
-                {poc.sub_approach && <div class="poc-sub">For: {poc.sub_approach}</div>}
-                {poc.status && <span class={`mat-pill ${maturityClass(poc.status)}`} style="margin-top:4px; display:inline-block;">{poc.status}</span>}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {node.open_source_implementations && node.open_source_implementations.length > 0 && (
-          <div class="sidebar-section">
-            <div class="sidebar-label">Open-source</div>
-            {node.open_source_implementations.map(impl => (
-              <a href={impl.url} target="_blank" rel="noopener noreferrer" class="oss-link">
-                <div class="oss-desc">{impl.description || impl.url}</div>
-                {impl.language && <div class="oss-lang">{impl.language}</div>}
-              </a>
-            ))}
-          </div>
-        )}
-
-        {Object.keys(vendorRoles).length > 0 && (
-          <div class="sidebar-section">
-            <div class="sidebar-label">Vendors</div>
-            {Object.values(vendorRoles).map(vr => (
-              <a class="vendor-card" href={`/vendors/${vr.node.slug}`}>
-                <div class="vendor-name">{vr.node.title}</div>
-                <div class="vendor-role">{vr.role}</div>
-              </a>
-            ))}
-          </div>
-        )}
-
-        {relatedUseCases.length > 0 && (
-          <div class="sidebar-section">
-            <div class="sidebar-label">Related use cases</div>
-            {relatedUseCases.map(uc => (
-              <a href={`/use-cases/${uc.slug}`} class="sidebar-link">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M17 7H7M17 7V17"/></svg>
-                {uc.title}
-              </a>
-            ))}
-          </div>
-        )}
-
-      </div>
+      {entry.data.open_source_implementations && entry.data.open_source_implementations.length > 0 && (
+        <details class="rail-section">
+          <summary class="rail-label">
+            <span>Open-source</span>
+            <span class="rail-count">{entry.data.open_source_implementations.length}</span>
+          </summary>
+          {entry.data.open_source_implementations.map((impl: any) => (
+            <a href={impl.url} target="_blank" rel="noopener noreferrer" class="rail-oss">
+              <div class="rail-oss-desc">{impl.description || impl.url}</div>
+              {impl.language && <div class="rail-oss-lang">{impl.language}</div>}
+            </a>
+          ))}
+        </details>
+      )}
     </aside>
-  </div>
+  </Fragment>
+</DetailPageLayout>
 
-  {personaList.length > 0 && (
-    <script is:inline>
-      document.addEventListener('DOMContentLoaded', function() {
-        const tabs = document.querySelectorAll('.persona-tab');
-        const panels = document.querySelectorAll('.persona-panel');
-        tabs.forEach(function(tab) {
-          tab.addEventListener('click', function() {
-            const target = this.getAttribute('data-persona');
-            tabs.forEach(function(t) { t.classList.remove('active'); t.setAttribute('aria-selected', 'false'); });
-            this.classList.add('active');
-            this.setAttribute('aria-selected', 'true');
-            panels.forEach(function(p) {
-              p.classList.toggle('active', p.getAttribute('data-persona') === target);
-            });
+{personaList.length > 0 && (
+  <script is:inline>
+    document.addEventListener('DOMContentLoaded', function () {
+      var tabs = document.querySelectorAll('.persona-tab');
+      var panels = document.querySelectorAll('.persona-panel');
+      tabs.forEach(function (tab) {
+        tab.addEventListener('click', function () {
+          var target = this.getAttribute('data-persona');
+          tabs.forEach(function (t) {
+            t.classList.remove('active');
+            t.setAttribute('aria-selected', 'false');
+          });
+          this.classList.add('active');
+          this.setAttribute('aria-selected', 'true');
+          panels.forEach(function (p) {
+            p.classList.toggle('active', p.getAttribute('data-persona') === target);
           });
         });
       });
-    </script>
-  )}
+    });
+  </script>
+)}
 
-  <style>
-    .page {
-      max-width: 1120px;
-      margin: 0 auto;
-      padding: 5rem 2rem 4rem;
-      display: grid;
-      grid-template-columns: 1fr 300px;
-      gap: 4rem;
-    }
-    .main { min-width: 0; }
-    .sidebar { position: relative; }
-    .sidebar-sticky { position: sticky; top: 80px; }
+<style>
+  .approach-main { min-width: 0; }
 
-    .breadcrumb {
-      display: flex; align-items: center; gap: 6px;
-      font-size: 0.75rem; color: #71717a;
-      margin-bottom: 2rem;
-    }
-    .breadcrumb a { color: #71717a; text-decoration: none; transition: color 0.15s; }
-    .breadcrumb a:hover { color: #a5b4fc; }
-    .sep { color: #3f3f46; }
+  /* Incoming "Referenced by" — moved out of the sidebar (locked rail
+     IA change) to a single dashed-border block at the end of the
+     article. Multi-column when there are >1 group so case-studies /
+     use-cases / patterns sit side by side rather than stacking. */
+  .approach-backrefs {
+    margin-top: 3rem;
+    padding: 1.1rem 1.25rem 1.2rem;
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg);
+  }
+  .backref-title {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin: 0 0 0.85rem;
+  }
+  .backref-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1.25rem;
+  }
+  .backref-group h5 {
+    font-family: var(--font-sans);
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--color-text-secondary);
+    margin: 0 0 0.45rem;
+    text-transform: lowercase;
+    letter-spacing: 0;
+  }
+  .backref-group ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .backref-group li::marker { content: ''; }
+  .backref-group a {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    font-size: 0.86rem;
+    font-weight: 500;
+    color: var(--color-primary);
+    text-decoration: none;
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .backref-group a::before {
+    content: '→';
+    color: var(--color-cta);
+    font-weight: 700;
+  }
+  .backref-group a:hover { color: var(--color-cta); }
 
-    /* Header */
-    .cs-header { margin-bottom: 2.5rem; }
-    .cs-use-case {
-      display: inline-flex; align-items: center; gap: 6px;
-      font-size: 0.7rem; font-weight: 600; color: #818cf8;
-      letter-spacing: 0.08em; text-transform: uppercase;
-      margin-bottom: 1rem;
-      text-decoration: none; transition: color 0.15s;
-    }
-    .cs-use-case:hover { color: #a5b4fc; }
-    .cs-title {
-      font-family: 'Newsreader', Georgia, serif;
-      font-size: 2.5rem; font-weight: 400; color: white;
-      line-height: 1.15; letter-spacing: -0.025em;
-      margin-bottom: 1rem;
-    }
-    .cs-goal {
-      font-size: 1rem; color: #a1a1aa; line-height: 1.7;
-      max-width: 640px;
-    }
-    .cs-meta { display: flex; gap: 8px; margin-top: 1.25rem; flex-wrap: wrap; }
-    .cs-badge {
-      font-size: 0.65rem; font-weight: 600; padding: 3px 8px;
-      border-radius: 4px; letter-spacing: 0.02em;
-    }
-    .cs-badge-context { background: rgba(251,191,36,0.12); color: #fbbf24; }
-    .cs-badge-domain { background: rgba(129,140,248,0.12); color: #a5b4fc; }
-    .cs-badge-maturity { background: rgba(52,211,153,0.12); color: #34d399; }
+  /* Tiny end-of-article timestamp where the cross-graph footer used
+     to sit. Kept deliberately quiet — the sidebar carries the heavy
+     navigation. */
+  .approach-last-reviewed {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--color-border);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    letter-spacing: 0.04em;
+  }
+  .approach-last-reviewed span {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-weight: 600;
+  }
+  .approach-last-reviewed time {
+    color: var(--color-text-secondary);
+  }
 
-    /* Persona block — at top, single indigo color */
-    .persona-block { margin-bottom: 3rem; }
-    .persona-tabs {
-      display: flex; gap: 2px;
-      background: #1c1c20;
-      border-radius: 10px;
-      padding: 3px;
-      margin-bottom: 1rem;
-    }
-    .persona-tab {
-      flex: 1;
-      padding: 0.65rem 1rem;
-      border-radius: 8px;
-      font-size: 0.8rem; font-weight: 600;
-      color: #71717a;
-      text-align: center;
-      cursor: pointer; border: none; background: none;
-      transition: all 0.15s;
-    }
-    .persona-tab:hover { color: #d4d4d8; }
-    .persona-tab.active {
-      background: #27272a;
-      color: white;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-    }
-    .persona-panel {
-      display: none;
-      padding: 1.25rem 1.5rem;
-      border-radius: 10px;
-      border: 1px solid rgba(129,140,248,0.15);
-      background: rgba(99,102,241,0.04);
-      font-size: 0.9rem;
-      color: #d4d4d8;
-      line-height: 1.65;
-    }
-    .persona-panel.active { display: block; }
+  /* ─── Persona tabs ─────────────────────────────────────────── */
+  /* Single connected card: tabs row + active panel share one
+     outer border with rounded corners. The active tab's bg matches
+     the panel (white) and a cta-blue 2px accent at its bottom
+     visually "joins" it to the panel below. Inactive tabs sit on a
+     recessed bg-subtle so the active/inactive state reads as
+     foreground vs. background, not coloured vs. plain. */
+  .persona-block {
+    margin-bottom: 2.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-cta-tint);
+    overflow: hidden;
+  }
+  .persona-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--color-cta-border);
+  }
+  .persona-tab {
+    flex: 1;
+    padding: 0.85rem 1rem;
+    border: none;
+    /* Inactive tabs sit on the outer card's panel tint, slightly
+       lifted via a brightness multiplier so the recessed feel reads
+       without a third color. */
+    background: var(--color-bg);
+    font-family: var(--font-sans);
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-text-secondary);
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    transition: color var(--duration-fast) var(--easing-soft),
+      background var(--duration-fast) var(--easing-soft);
+  }
+  /* 1px divider between adjacent tabs — sits flush against the
+     outer card's border-radius because of overflow: hidden. */
+  .persona-tab + .persona-tab {
+    border-left: 1px solid var(--color-border);
+  }
+  .persona-tab:hover {
+    color: var(--color-text);
+    background: var(--color-bg-subtle);
+  }
+  .persona-tab.active {
+    /* Active tab matches the panel background so the "joined" feel
+       reads — no visible seam between tab and panel below it. */
+    background: var(--color-cta-tint);
+    color: var(--color-text);
+    font-weight: 700;
+  }
+  /* Blue accent line at the bottom of the active tab. The -1px pulls
+     it down over the row's border-bottom so the line replaces the
+     gray divider under just the active tab — same trick browsers use
+     for chrome tabs. */
+  .persona-tab.active::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+    background: var(--color-cta);
+  }
 
-    /* Section */
-    .section { margin-bottom: 3rem; }
-    .section-label {
-      font-size: 0.6rem; font-weight: 700; color: #818cf8;
-      letter-spacing: 0.12em; text-transform: uppercase;
-      margin-bottom: 0.5rem;
-    }
-    .section h2 {
-      font-family: 'Newsreader', Georgia, serif;
-      font-size: 1.5rem; font-weight: 500; color: white;
-      letter-spacing: -0.02em; margin: 1.25rem 0 0.75rem;
-    }
-    .section h2:first-of-type { margin-top: 0; }
+  .persona-panel {
+    display: none;
+    padding: 1.5rem 1.6rem 1.65rem;
+  }
+  .persona-panel.active {
+    display: block;
+  }
+  /* Typography for the markdown body inside the panel. Prose fills
+     the full panel width — the reader gets the same available
+     line-length as the rest of the article body. Line-height bumped
+     for breathing room on dense upstream paragraphs, leading <p>
+     emphasized so the reader has a clear anchor. */
+  :global(.persona-panel .prose) {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    color: var(--color-text);
+  }
+  :global(.persona-panel .prose p) {
+    margin: 0 0 0.95rem;
+  }
+  :global(.persona-panel .prose p:last-child) {
+    margin-bottom: 0;
+  }
+  :global(.persona-panel .prose p:first-child) {
+    font-size: 1.02rem;
+    font-weight: 500;
+    color: var(--color-primary);
+    letter-spacing: -0.01em;
+  }
+  :global(.persona-panel .prose strong) {
+    color: var(--color-primary);
+    font-weight: 700;
+  }
 
-    /* Architectural options grid */
-    .approach-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1px;
-      background: rgba(255,255,255,0.04);
-      border-radius: 10px;
-      overflow: hidden;
-      margin: 1.5rem 0;
-    }
-    .approach-card {
-      background: #18181b;
-      padding: 1.25rem;
-      text-decoration: none; color: inherit;
-      display: flex; flex-direction: column; gap: 0.5rem;
-      transition: background 0.15s;
-    }
-    .approach-card:hover { background: #1c1c20; }
-    .approach-card-head {
-      display: flex; align-items: baseline; justify-content: space-between;
-      gap: 0.5rem; flex-wrap: wrap;
-    }
-    .approach-card h4 {
-      font-size: 0.95rem; font-weight: 700; color: white;
-    }
-    .approach-card p {
-      font-size: 0.82rem; color: #a1a1aa; line-height: 1.55;
-      margin: 0;
-    }
-    .approach-card-crops {
-      display: flex; gap: 4px; flex-wrap: wrap;
-      margin-top: 0.25rem;
-    }
-    .crops-pill {
-      font-size: 0.6rem; font-weight: 700; letter-spacing: 0.04em;
-      padding: 2px 6px; border-radius: 3px;
-    }
+  /* ─── Section frame ────────────────────────────────────────── */
+  .approach-section {
+    margin-bottom: 3rem;
+  }
+  .approach-section h2 {
+    font-family: var(--font-sans);
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.02em;
+    margin: 1.5rem 0 0.75rem;
+    line-height: 1.25;
+  }
+  .approach-section h2:first-of-type {
+    margin-top: 0;
+  }
 
-    /* Maturity pill — single shape, color encodes the state */
-    .mat-pill {
-      font-size: 0.6rem; font-weight: 600; padding: 2px 7px;
-      border-radius: 4px; letter-spacing: 0.02em;
-      flex-shrink: 0;
-    }
-    .mat-prod    { background: rgba(52,211,153,0.12); color: #34d399; }
-    .mat-proto   { background: rgba(251,191,36,0.12); color: #fbbf24; }
-    .mat-doc     { background: rgba(165,180,252,0.12); color: #a5b4fc; }
-    .mat-concept { background: rgba(255,255,255,0.06); color: #a1a1aa; }
-    .mat-default { background: rgba(255,255,255,0.06); color: #a1a1aa; }
+  /* ─── Architectural options (combined overview + detail) ──── */
+  /* Each option is one block: an always-visible header (name +
+     maturity + CROPS pizza) plus an inline-expandable body. Combines
+     what used to be two separate sections (a grid of summary cards
+     plus a list of detail collapsibles) into one. Closed by default
+     so the page reads as a clean comparable list; click to drill in. */
+  .approach-options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+    margin: 1.5rem 0 0;
+  }
+  .approach-option {
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    /* No `overflow: hidden` — would clip the CROPS pizza tooltip
+       that drops below the header when hovered. Border-radius still
+       renders cleanly because the body is the only block-level child
+       and it's clipped by the parent's box; the summary's hover
+       state uses a recessed inset instead of an edge-to-edge bg. */
+    scroll-margin-top: 5rem;
+    position: relative;
+    transition: border-color var(--duration-fast) var(--easing-soft),
+      box-shadow var(--duration-fast) var(--easing-soft);
+  }
+  .approach-option[open],
+  .approach-option:hover {
+    border-color: var(--color-cta-border);
+  }
+  .approach-option[open] {
+    box-shadow: var(--shadow-md);
+  }
+  /* Native disclosure arrow off — we draw our own + / − affordance. */
+  .approach-option > summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 1.1rem 1.25rem 1.15rem;
+    border-radius: var(--radius-md);
+    transition: background var(--duration-fast) var(--easing-soft);
+  }
+  .approach-option[open] > summary {
+    /* When open, the bottom is no longer a rounded corner — straighten
+       it so the summary's bg blends into the body block above the
+       internal divider. */
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  .approach-option > summary::-webkit-details-marker { display: none; }
+  .approach-option > summary:hover {
+    background: var(--color-bg-subtle);
+  }
+  .approach-option--flat {
+    padding: 1.1rem 1.25rem 1.15rem;
+  }
+  .approach-option-head {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 1rem;
+    align-items: center;
+  }
+  /* Title first, maturity pill on its own row below — matches the
+     site-wide "tags under headline" rule used by every listing card. */
+  .approach-option-titlecol {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+    min-width: 0;
+  }
+  .approach-option-head h4 {
+    font-family: var(--font-sans);
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.015em;
+    margin: 0;
+    line-height: 1.25;
+  }
+  /* + / − affordance — uses the same vocabulary as our other
+     collapsibles for consistency. Aligns right of the pizza. */
+  .approach-option-toggle {
+    width: 14px;
+    height: 14px;
+    position: relative;
+    flex-shrink: 0;
+    color: var(--color-text-muted);
+    transition: color var(--duration-fast) var(--easing-soft),
+      transform var(--duration-base) var(--easing-soft);
+  }
+  .approach-option-toggle::before,
+  .approach-option-toggle::after {
+    content: '';
+    position: absolute;
+    background: currentColor;
+  }
+  .approach-option-toggle::before {
+    top: 50%; left: 0; right: 0;
+    height: 2px;
+    transform: translateY(-50%);
+  }
+  .approach-option-toggle::after {
+    left: 50%; top: 0; bottom: 0;
+    width: 2px;
+    transform: translateX(-50%);
+  }
+  .approach-option[open] > summary .approach-option-toggle {
+    transform: rotate(45deg);
+    color: var(--color-cta);
+  }
+  .approach-option > summary:hover .approach-option-toggle {
+    color: var(--color-primary);
+  }
+  .approach-option-summary {
+    margin: 0.55rem 0 0;
+    font-size: 0.9rem;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+  }
+  .approach-option-body {
+    padding: 0 1.25rem 1.4rem;
+    border-top: 1px solid var(--color-border);
+    padding-top: 1.25rem;
+  }
 
-    /* Recommended box */
-    .recommended {
-      border: 1px solid rgba(129,140,248,0.2);
-      border-radius: 12px;
-      padding: 1.5rem;
-      background: rgba(99,102,241,0.03);
-      margin: 1.5rem 0 0;
-    }
-    .recommended h4 {
-      font-size: 0.85rem; font-weight: 700; color: #a5b4fc;
-      margin-bottom: 0.75rem;
-      letter-spacing: 0.04em; text-transform: uppercase;
-    }
+  /* ─── Maturity pill ────────────────────────────────────────── */
+  .mat-pill {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
+  }
+  .mat-strong {
+    background: var(--color-success-tint);
+    color: var(--color-success-strong);
+  }
+  .mat-mid {
+    background: var(--color-warning-tint);
+    color: var(--color-warning-strong);
+  }
+  .mat-plain {
+    background: var(--color-cta-tint);
+    color: var(--color-cta);
+  }
+  .mat-muted {
+    background: var(--color-bg-muted);
+    color: var(--color-text-muted);
+  }
 
-    /* Collapsibles */
-    .collapsible {
-      border: 1px solid rgba(255,255,255,0.06);
-      border-radius: 10px;
-      margin-bottom: 0.75rem;
-      overflow: hidden;
-      background: #111113;
-    }
-    .collapsible[open] { background: #18181b; }
-    .collapsible summary {
-      padding: 1rem 1.25rem;
-      font-size: 0.9rem; font-weight: 600;
-      color: #d4d4d8;
-      cursor: pointer; list-style: none;
-      display: flex; align-items: center; gap: 0.75rem;
-      transition: background 0.15s;
-    }
-    .collapsible summary:hover { background: #18181b; }
-    .collapsible[open] summary { border-bottom: 1px solid rgba(255,255,255,0.05); }
-    .coll-summary-name { flex: 1; }
-    .collapsible summary::after {
-      content: '+'; font-size: 1.1rem; color: #71717a;
-      transition: transform 0.2s; flex-shrink: 0;
-    }
-    .collapsible[open] summary::after { content: '−'; }
-    .collapsible-content {
-      padding: 1.25rem;
-    }
+  /* ─── Recommended call-out ─────────────────────────────────── */
+  .recommended {
+    border: 1px solid var(--color-cta-border);
+    border-radius: var(--radius-lg);
+    padding: 1.25rem 1.5rem;
+    background: var(--color-cta-tint);
+    margin: 1.25rem 0 0;
+  }
+  .recommended h4 {
+    font-family: var(--font-sans);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--color-cta);
+    letter-spacing: -0.01em;
+    margin: 0 0 0.75rem;
+  }
 
-    .block { margin-bottom: 1.5rem; }
-    .block:last-child { margin-bottom: 0; }
-    .block h5 {
-      font-size: 0.65rem; font-weight: 700;
-      letter-spacing: 0.1em; text-transform: uppercase;
-      color: #a1a1aa;
-      margin-bottom: 0.5rem;
-    }
-    .block-grid {
-      display: grid; grid-template-columns: 1fr 1fr;
-      gap: 1rem;
-      margin-bottom: 1.5rem;
-    }
-    .block-good h5 { color: #34d399; }
-    .block-bad h5 { color: #f87171; }
+  /* ─── Collapsibles (per-option detail + open questions) ────── */
+  .approach-collapsible {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    margin-bottom: 0.75rem;
+    overflow: hidden;
+    background: var(--color-bg);
+  }
+  .approach-collapsible[open] {
+    box-shadow: var(--shadow-sm);
+  }
+  .approach-collapsible summary {
+    padding: 0.95rem 1.2rem;
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    transition: background var(--duration-fast) var(--easing-soft);
+  }
+  .approach-collapsible summary::-webkit-details-marker { display: none; }
+  .approach-collapsible summary:hover {
+    background: var(--color-bg-subtle);
+  }
+  .approach-collapsible[open] summary {
+    border-bottom: 1px solid var(--color-border);
+  }
+  .coll-name { flex: 1; }
+  .approach-collapsible summary::after {
+    content: '+';
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    line-height: 1;
+    color: var(--color-text-muted);
+    flex-shrink: 0;
+  }
+  .approach-collapsible[open] summary::after { content: '−'; }
+  .coll-content {
+    padding: 1.25rem 1.4rem;
+  }
 
-    /* Tables — make every markdown table render as a real table */
-    .table-wrap {
-      overflow-x: auto;
-      margin: 1rem 0;
-      border-radius: 10px;
-      border: 1px solid rgba(255,255,255,0.06);
-    }
-    /* Astro scoped CSS doesn't reach into set:html output without :global. */
-    :global(.prose table) {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.8rem;
-      margin: 0;
-    }
-    :global(.prose th) {
-      text-align: left;
-      padding: 0.75rem 1rem;
-      font-weight: 600;
-      color: #a1a1aa;
-      background: #1c1c20;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-      font-size: 0.72rem;
-      letter-spacing: 0.02em;
-      white-space: nowrap;
-    }
-    :global(.prose td) {
-      padding: 0.6rem 1rem;
-      color: #a1a1aa;
-      border-bottom: 1px solid rgba(255,255,255,0.03);
-      vertical-align: top;
-      line-height: 1.5;
-    }
-    :global(.prose tr:last-child td) { border-bottom: none; }
-    :global(.prose td:first-child) { color: #d4d4d8; font-weight: 500; }
+  .block { margin-bottom: 1.5rem; }
+  .block:last-child { margin-bottom: 0; }
+  .block h5 {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    margin: 0 0 0.5rem;
+  }
+  .block-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .block-good h5 { color: var(--color-success-strong); }
+  .block-bad h5  { color: var(--color-warning-strong); }
 
-    /* Sidebar */
-    .sidebar-section { margin-bottom: 2.5rem; }
-    .sidebar-label {
-      font-size: 0.6rem; font-weight: 700; color: #71717a;
-      letter-spacing: 0.12em; text-transform: uppercase;
-      margin-bottom: 0.75rem;
-      padding-bottom: 0.5rem;
-      border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-    .pattern-card {
-      display: flex; align-items: center; gap: 10px;
-      padding: 0.6rem 0;
-      border-bottom: 1px solid rgba(255,255,255,0.03);
-      text-decoration: none; transition: all 0.15s;
-    }
-    .pattern-card:last-child { border-bottom: none; }
-    .pattern-card:hover .pattern-name { color: #a5b4fc; }
-    .pattern-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-    .dot-core { background: #818cf8; }
-    .dot-supporting { background: #52525b; }
-    .pattern-name {
-      font-size: 0.8rem; font-weight: 500; color: #d4d4d8;
-      transition: color 0.15s;
-    }
+  /* ─── Tables (scoped CSS can't pierce set:html, use :global) ─ */
+  .table-wrap {
+    overflow-x: auto;
+    margin: 1rem 0;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+  :global(.approach-main .prose table) {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+    margin: 0;
+  }
+  :global(.approach-main .prose th) {
+    text-align: left;
+    padding: 0.7rem 1rem;
+    font-family: var(--font-sans);
+    font-weight: 600;
+    color: var(--color-primary);
+    background: var(--color-bg-subtle);
+    border-bottom: 1px solid var(--color-border);
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  :global(.approach-main .prose td) {
+    padding: 0.6rem 1rem;
+    color: var(--color-text);
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: top;
+    line-height: 1.55;
+  }
+  :global(.approach-main .prose tr:last-child td) { border-bottom: none; }
+  :global(.approach-main .prose td:first-child) {
+    color: var(--color-primary);
+    font-weight: 600;
+  }
 
-    .vendor-card {
-      display: block; padding: 0.6rem 0;
-      border-bottom: 1px solid rgba(255,255,255,0.03);
-      text-decoration: none; transition: all 0.15s;
-    }
-    .vendor-card:last-child { border-bottom: none; }
-    .vendor-card:hover .vendor-name { color: #a5b4fc; }
-    .vendor-name { font-size: 0.8rem; font-weight: 600; color: #d4d4d8; transition: color 0.15s; }
-    .vendor-role { font-size: 0.7rem; color: #71717a; }
+  /* Prose link styling — markdown links rendered via marked. */
+  :global(.approach-main .prose a) {
+    color: var(--color-cta);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: color var(--duration-fast) var(--easing-soft),
+      border-color var(--duration-fast) var(--easing-soft);
+  }
+  :global(.approach-main .prose a:hover) {
+    color: var(--color-cta-hover);
+    border-bottom-color: currentColor;
+  }
+  :global(.approach-main .prose code) {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: var(--color-bg-subtle);
+    padding: 0.05em 0.4em;
+    border-radius: var(--radius-sm);
+    color: var(--color-primary);
+  }
+  :global(.approach-main .prose ul),
+  :global(.approach-main .prose ol) {
+    margin: 0.5rem 0 1rem 1.25rem;
+    color: var(--color-text);
+    line-height: 1.65;
+  }
+  :global(.approach-main .prose li) { margin-bottom: 0.25rem; }
+  :global(.approach-main .prose p) {
+    color: var(--color-text);
+    line-height: 1.65;
+    margin: 0.5rem 0 0.85rem;
+  }
 
-    .sidebar-link {
-      display: flex; align-items: center; gap: 6px;
-      font-size: 0.8rem; font-weight: 500; color: #a1a1aa;
-      text-decoration: none; padding: 0.4rem 0;
-      transition: color 0.15s;
-    }
-    .sidebar-link:hover { color: #a5b4fc; }
-    .sidebar-link svg { width: 12px; height: 12px; flex-shrink: 0; }
+  /* ─── Right rail ───────────────────────────────────────────── */
+  .approach-rail {
+    position: sticky;
+    top: 80px;
+    font-family: var(--font-sans);
+  }
+  /* Rail sections are <details> — open by default for the first three
+     (Building blocks / Vendors / Related use cases) and closed for the
+     reference-style ones (POCs / Open-source). Toggle is the section
+     header itself; the count chip telegraphs density before expanding. */
+  .rail-section {
+    margin-bottom: 1.4rem;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 0.85rem;
+  }
+  .rail-section[open] {
+    padding-bottom: 1.1rem;
+  }
+  .rail-section:last-child {
+    border-bottom: none;
+  }
+  .rail-label {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.55rem 0 0.5rem;
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .rail-label::-webkit-details-marker { display: none; }
+  .rail-label:hover {
+    color: var(--color-primary);
+  }
+  .rail-label::after {
+    content: '+';
+    color: var(--color-text-faint);
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .rail-section[open] > .rail-label::after {
+    content: '−';
+  }
+  .rail-count {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--color-bg-subtle);
+    color: var(--color-text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-left: auto;
+    margin-right: 0.4rem;
+  }
+  /* Primary / Supporting sub-headers inside Building blocks. */
+  .rail-sublabel {
+    font-family: var(--font-sans);
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    letter-spacing: 0.04em;
+    margin: 0.5rem 0 0.15rem;
+    text-transform: uppercase;
+  }
+  .rail-sublabel:first-of-type { margin-top: 0.35rem; }
+  /* Nested "+N more" supporting expander. */
+  .rail-more {
+    margin-top: 0.4rem;
+  }
+  .rail-more > summary {
+    list-style: none;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--color-cta);
+    letter-spacing: 0.04em;
+    padding: 0.45rem 0;
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .rail-more > summary::-webkit-details-marker { display: none; }
+  .rail-more > summary:hover { color: var(--color-cta-hover); }
+  .rail-pattern {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--color-border);
+    text-decoration: none;
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .rail-pattern:last-child { border-bottom: none; }
+  .rail-pattern:hover .rail-pattern-name { color: var(--color-cta); }
+  .rail-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .rail-dot-core { background: var(--color-cta); }
+  .rail-dot-support { background: var(--color-text-faint); }
+  .rail-pattern-name {
+    font-size: 0.83rem;
+    font-weight: 500;
+    color: var(--color-text);
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
 
-    .poc-row {
-      padding: 0.6rem 0;
-      border-bottom: 1px solid rgba(255,255,255,0.03);
-    }
-    .poc-row:last-child { border-bottom: none; }
-    .poc-name { font-size: 0.8rem; font-weight: 600; color: #d4d4d8; }
-    .poc-sub { font-size: 0.7rem; color: #71717a; margin-top: 2px; }
+  .rail-vendor {
+    display: block;
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--color-border);
+    text-decoration: none;
+  }
+  .rail-vendor:last-child { border-bottom: none; }
+  .rail-vendor-name {
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: var(--color-text);
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .rail-vendor:hover .rail-vendor-name { color: var(--color-cta); }
+  .rail-vendor-role {
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    margin-top: 2px;
+  }
 
-    .oss-link {
-      display: block;
-      padding: 0.6rem 0;
-      border-bottom: 1px solid rgba(255,255,255,0.03);
-      text-decoration: none; transition: color 0.15s;
-    }
-    .oss-link:last-child { border-bottom: none; }
-    .oss-link:hover .oss-desc { color: #a5b4fc; }
-    .oss-desc { font-size: 0.78rem; color: #d4d4d8; line-height: 1.45; transition: color 0.15s; }
-    .oss-lang { font-size: 0.68rem; color: #71717a; margin-top: 2px; }
+  .rail-link {
+    display: block;
+    padding: 0.4rem 0;
+    font-size: 0.83rem;
+    color: var(--color-text);
+    text-decoration: none;
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .rail-link:hover { color: var(--color-cta); }
 
-    @media (max-width: 1024px) {
-      .page { grid-template-columns: 1fr; gap: 2rem; }
-      .sidebar-sticky { position: static; }
-      .approach-grid { grid-template-columns: 1fr; }
-      .block-grid { grid-template-columns: 1fr; }
+  /* IPTF prototypes — one row per POC, compact. */
+  .rail-poc {
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .rail-poc:last-child { border-bottom: none; }
+  .rail-poc-name {
+    font-size: 0.83rem;
+    font-weight: 600;
+    color: var(--color-primary);
+  }
+  .rail-poc-sub {
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    margin-top: 2px;
+  }
+  .rail-poc-pill {
+    display: inline-block;
+    margin-top: 4px;
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 2px 7px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Open-source implementations — link rows. */
+  .rail-oss {
+    display: block;
+    padding: 0.55rem 0;
+    border-bottom: 1px solid var(--color-border);
+    text-decoration: none;
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .rail-oss:last-child { border-bottom: none; }
+  .rail-oss:hover .rail-oss-desc { color: var(--color-cta); }
+  .rail-oss-desc {
+    font-size: 0.8rem;
+    color: var(--color-text);
+    line-height: 1.45;
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .rail-oss-lang {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--color-text-muted);
+    margin-top: 2px;
+    letter-spacing: 0.02em;
+  }
+
+  /* ─── Responsive ──────────────────────────────────────────── */
+  @media (max-width: 900px) {
+    .block-grid { grid-template-columns: 1fr; }
+    .approach-rail { position: static; }
+    /* On narrow viewports the pizza in the option header eats the
+       title row. Tuck it under the title instead. */
+    .approach-option-head {
+      grid-template-columns: 1fr auto;
     }
-    @media (max-width: 640px) {
-      .cs-title { font-size: 1.75rem; }
-      .page { padding: 4.5rem 1.5rem 3rem; }
-    }
-  </style>
-</Guide>
+  }
+</style>

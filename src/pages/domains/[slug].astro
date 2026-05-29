@@ -1,237 +1,208 @@
 ---
-import Guide from '../../layouts/Guide.astro';
-import { getNodesByType, getNodeBySlug, getRelated, getNodeById, getApproachesForDomain } from '../../lib/data';
-import { parseSections, getSection } from '../../lib/parse-sections';
+/*
+ * Domain detail — refactored per the iptf-web merge handoff
+ * (locked 2026-05-19, "theirs structure exactly + our card visuals").
+ *
+ * Adds three new structural pieces above the existing body prose:
+ *   1) Inter-domain pill row (active = cta-blue filled, others gray-bordered).
+ *   2) "Building blocks for {domain}" — PatternCard grid filtered by domain.
+ *   3) "Who builds {domain} tooling" — vendor card grid filtered by domain.
+ *
+ * Domain membership comes from graph.json's in-domain edges (generated
+ * by scripts/build-graph.mjs from upstream body links). Patterns are
+ * rendered with our PatternCard; vendors with a card structure matched
+ * to PatternCard's idiom (no dedicated VendorCard yet — kept simple).
+ */
+import { getCollection } from 'astro:content';
+import DetailPageLayout from '../../layouts/DetailPageLayout.astro';
+import PatternCard from '../../components/PatternCard.astro';
+import { stripTypePrefix } from '../../lib/slugify';
+import { bodyBulletList, popSection } from '../../lib/excerpt';
 import { renderMarkdown } from '../../lib/render';
+import graphData from '../../data/graph.json';
 
-export function getStaticPaths() {
-  const domains = getNodesByType('domain');
-  return domains.map(d => ({ params: { slug: d.slug } }));
+interface GraphEdge {
+  source: string;
+  target: string;
+  type: string;
 }
 
-const { slug } = Astro.params;
-const node = getNodeBySlug('domain', slug!);
-if (!node) return Astro.redirect('/guide');
+export async function getStaticPaths() {
+  const entries = await getCollection('domains');
+  return entries.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry },
+  }));
+}
 
-const related = getRelated(node.id);
-const base = import.meta.env.BASE_URL;
-const allDomains = getNodesByType('domain');
+const { entry } = Astro.props;
+const title = stripTypePrefix(entry.data.title);
 
-// Parse content into sections
-const sections = parseSections(node.content);
-const tldr = getSection(sections, 'tldr');
-const useCases = getSection(sections, 'primary-use-cases') || getSection(sections, 'primary');
-const shortestPath = getSection(sections, 'shortest-path-patterns') || getSection(sections, 'shortest');
-const adjacentVendors = getSection(sections, 'adjacent-vendors') || getSection(sections, 'adjacent');
+// Lift the `## TLDR` bullets into the hero (rendered as a list under
+// the title). The body always renders without TLDR so the same content
+// doesn't appear twice and the literal "TLDR" heading never shows.
+const tldrBullets = bodyBulletList(entry.body, 'TLDR');
+// Strip body sections that the card grids below re-render with
+// richer metadata, to avoid showing the same list twice:
+//   - "Shortest-path patterns" → "Building blocks for {domain}" grid
+//   - "Adjacent vendors"       → "Who builds {domain} tooling" grid
+// Sections are popped sequentially because popSection only knows about
+// one heading at a time. Each call returns the body with that section
+// excised; we thread the result through.
+let stripped = entry.body;
+for (const heading of ['TLDR', 'Shortest-path patterns', 'Adjacent vendors']) {
+  stripped = popSection(stripped, heading).bodyWithout;
+}
+const bodyHtml = renderMarkdown(stripped);
 
-// Count related items. Case-study count is transitive via use-cases.
-const domainApproaches = getApproachesForDomain(node.id);
-const approachCount = domainApproaches.length;
-const patternCount = related.patterns.length;
-const vendorCount = related.vendors.length;
+const allDomains = await getCollection('domains');
 
-// CROPS color helpers
-const cropsColor = (val: string) => {
-  if (['high', 'yes', 'full'].includes(val)) return 'green';
-  if (['medium', 'partial'].includes(val)) return 'amber';
-  return 'red';
-};
-const cropsColorMap: Record<string, {bg: string, fg: string}> = {
-  green: { bg: 'rgba(52,211,153,0.1)', fg: '#34d399' },
-  amber: { bg: 'rgba(251,191,36,0.1)', fg: '#fbbf24' },
-  red:   { bg: 'rgba(248,113,113,0.1)', fg: '#f87171' },
-};
+// Graph-driven domain membership. The build-graph "in-domain" edges
+// flow from body markdown — direction can go either way, so we accept
+// both ends.
+const edges = graphData.edges as GraphEdge[];
+const domainNodeId = `domain/${entry.id}`;
+const inDomainIds = new Set<string>();
+for (const e of edges) {
+  if (e.type !== 'in-domain') continue;
+  if (e.source === domainNodeId) inDomainIds.add(e.target);
+  if (e.target === domainNodeId) inDomainIds.add(e.source);
+}
 
-const S = {
-  page: 'max-width:1120px; margin:0 auto; padding:5rem 2rem 4rem;',
-  breadcrumb: 'display:flex; align-items:center; gap:6px; font-size:0.75rem; color:#71717a; margin-bottom:2rem;',
-  bcLink: 'color:#71717a; text-decoration:none;',
-  bcSep: 'color:#3f3f46;',
-  domLabel: 'font-size:0.65rem; font-weight:700; color:#818cf8; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.5rem;',
-  title: "font-family:'Newsreader',Georgia,serif; font-size:2.75rem; font-weight:400; color:white; line-height:1.1; letter-spacing:-0.025em; margin-bottom:1rem;",
-  tldr: 'font-size:1rem; color:#a1a1aa; line-height:1.7; max-width:640px;',
-  stats: 'display:flex; gap:2rem; margin-top:1.5rem;',
-  statNum: 'font-size:1.5rem; font-weight:700; color:white;',
-  statLabel: 'font-size:0.7rem; color:#71717a; letter-spacing:0.04em; text-transform:uppercase;',
-  domNav: 'display:flex; gap:6px; flex-wrap:wrap; margin-bottom:3.5rem; padding-bottom:2rem; border-bottom:1px solid rgba(255,255,255,0.06);',
-  pill: 'padding:0.4rem 0.9rem; border-radius:100px; font-size:0.75rem; font-weight:600; text-decoration:none; border:1px solid rgba(255,255,255,0.08); color:#71717a;',
-  pillActive: 'padding:0.4rem 0.9rem; border-radius:100px; font-size:0.75rem; font-weight:600; text-decoration:none; background:#6366f1; border:1px solid #6366f1; color:white;',
-  sLabel: 'font-size:0.6rem; font-weight:700; color:#818cf8; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.5rem;',
-  sTitle: "font-family:'Newsreader',Georgia,serif; font-size:1.5rem; font-weight:500; color:white; letter-spacing:-0.02em; margin-bottom:1.5rem;",
-};
+const allPatterns = await getCollection('patterns');
+const allVendors = await getCollection('vendors');
+
+const domainPatterns = allPatterns
+  .filter((p) => inDomainIds.has(`pattern/${p.id.replace(/^pattern-/, '')}`))
+  .sort((a, b) => a.data.title.localeCompare(b.data.title));
+
+const domainVendors = allVendors
+  .filter((v) => inDomainIds.has(`vendor/${v.id}`))
+  .sort((a, b) => a.data.title.localeCompare(b.data.title));
+
+const lowerTitle = title.toLowerCase();
 ---
 
-<Guide title={node.title} description={node.summary} activeSection="domains">
-  <div style={S.page}>
+<DetailPageLayout
+  title={`${title} · Domain`}
+  pageTitle={title}
+  description={tldrBullets.join(' ')}
+  current="/domains/"
+  breadcrumbs={[
+    { label: 'Home', href: '/' },
+    { label: 'Domains', href: '/domains/' },
+    { label: title },
+  ]}
+  ledeBullets={tldrBullets}
+>
+  <div class="prose domain-prose" set:html={bodyHtml} />
 
-    <!-- Breadcrumb -->
-    <nav style={S.breadcrumb}>
-      <a href={`/`} style={S.bcLink}>Guide</a>
-      <span style={S.bcSep}>/</span>
-      <a href={`/domains`} style={S.bcLink}>Domains</a>
-      <span style={S.bcSep}>/</span>
-      <span>{node.title}</span>
-    </nav>
-
-    <!-- Header -->
-    <div style="margin-bottom:3.5rem;">
-      <div style={S.domLabel}>Domain</div>
-      <h1 style={S.title}>{node.title}</h1>
-      {tldr ? (
-        /* SOURCE: iptf-map ## TLDR section, rendered verbatim. */
-        <div class="prose domain-tldr" set:html={renderMarkdown(tldr.content)} />
-      ) : (
-        node.summary && <p style={S.tldr}>{node.summary}</p>
-      )}
-      <div style={S.stats}>
-        <div>
-          <div style={S.statNum}>{approachCount}</div>
-          <div style={S.statLabel}>{approachCount === 1 ? 'Case Study' : 'Case Studies'}</div>
-        </div>
-        <div>
-          <div style={S.statNum}>{patternCount}</div>
-          <div style={S.statLabel}>{patternCount === 1 ? 'Pattern' : 'Patterns'}</div>
-        </div>
-        <div>
-          <div style={S.statNum}>{vendorCount}</div>
-          <div style={S.statLabel}>{vendorCount === 1 ? 'Vendor' : 'Vendors'}</div>
-        </div>
+  {domainPatterns.length > 0 && (
+    <section class="domain-block">
+      <h2>Building blocks for {lowerTitle}</h2>
+      <div class="card-grid">
+        {domainPatterns.map((p) => (
+          <PatternCard
+            href={`/patterns/${p.id}/`}
+            title={p.data.title}
+            privacyGoal={p.data.privacy_goal}
+            layer={p.data.layer}
+            maturity={p.data.maturity}
+            cropsProfile={
+              p.data.crops_profile && typeof p.data.crops_profile === 'object'
+                ? (p.data.crops_profile as Record<string, string>)
+                : null
+            }
+          />
+        ))}
       </div>
-    </div>
+    </section>
+  )}
 
-    <!-- Domain nav pills -->
-    <div style={S.domNav}>
-      {allDomains.map(d => (
-        <a
-          href={`/domains/${d.slug}`}
-          style={d.slug === slug ? S.pillActive : S.pill}
-        >
-          {d.title}
-        </a>
-      ))}
-    </div>
-
-    <!-- Primary use cases -->
-    {related.approaches.length > 0 && (
-      <div style="margin-bottom:4rem;">
-        <div style={S.sLabel}>Case Studies</div>
-        <h2 style={S.sTitle}>Solution architectures for {node.title.toLowerCase()}</h2>
-        <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:1px; background:rgba(255,255,255,0.04); border-radius:12px; overflow:hidden;">
-          {related.approaches.map(a => (
-            <a href={`/approaches/${a.slug}`} style="background:#18181b; padding:1.75rem; text-decoration:none; color:inherit; display:flex; flex-direction:column;">
-              <div style="font-size:0.6rem; font-weight:700; color:#71717a; letter-spacing:0.08em; text-transform:uppercase; margin-bottom:0.75rem;">Case study</div>
-              <h3 style="font-family:'Newsreader',Georgia,serif; font-size:1.15rem; font-weight:500; color:white; letter-spacing:-0.01em; margin-bottom:0.5rem;">{a.title}</h3>
-              {a.summary && <p style="font-size:0.82rem; color:#71717a; line-height:1.55; flex:1;">{a.summary}</p>}
-              {a.context && (
-                <span style="display:inline-flex; font-size:0.6rem; font-weight:600; padding:2px 6px; border-radius:4px; margin-top:1rem; width:fit-content; background:rgba(129,140,248,0.1); color:#a5b4fc;">
-                  {a.context === 'both' ? 'I2I + I2U' : a.context.toUpperCase()}
-                </span>
-              )}
-            </a>
-          ))}
-        </div>
+  {domainVendors.length > 0 && (
+    <section class="domain-block">
+      <h2>Who builds {lowerTitle} tooling</h2>
+      <div class="vendor-grid">
+        {domainVendors.map((v) => (
+          <a class="vendor-card" href={`/vendors/${v.id}/`}>
+            <h3>{stripTypePrefix(v.data.title)}</h3>
+            {v.data.maturity && (
+              <span class="vendor-maturity">{v.data.maturity}</span>
+            )}
+          </a>
+        ))}
       </div>
-    )}
+    </section>
+  )}
 
-    <!-- Shortest-path patterns -->
-    {related.patterns.length > 0 && (
-      <div style="margin-bottom:4rem;">
-        <div style={S.sLabel}>Shortest-path Patterns</div>
-        <h2 style={S.sTitle}>Building blocks for {node.title.toLowerCase()} privacy</h2>
-        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:1px; background:rgba(255,255,255,0.04); border-radius:12px; overflow:hidden;">
-          {related.patterns.map(p => (
-            <a href={`/patterns/${p.slug}`} style="background:#18181b; padding:1.25rem; text-decoration:none; color:inherit;">
-              <h4 style="font-size:0.85rem; font-weight:600; color:white; margin-bottom:0.35rem;">{p.title}</h4>
-              {p.summary && <p style="font-size:0.7rem; color:#71717a; line-height:1.4; margin-bottom:0.75rem;">{p.summary}</p>}
-              {typeof p.crops_profile === 'object' && p.crops_profile && (
-                <div style="display:flex; gap:4px;">
-                  {Object.entries(p.crops_profile).map(([key, val]) => {
-                    const c = cropsColor(val as string);
-                    const { bg, fg } = cropsColorMap[c];
-                    const abbr = key === 'cr' ? 'CR' : key === 'o' ? 'OS' : key === 'p' ? 'P' : 'S';
-                    return (
-                      <span style={`font-size:0.55rem; font-weight:700; letter-spacing:0.04em; text-transform:uppercase; padding:2px 5px; border-radius:3px; background:${bg}; color:${fg};`}>
-                        {abbr}: {(val as string).charAt(0).toUpperCase() + (val as string).slice(1)}
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-            </a>
-          ))}
-        </div>
-      </div>
-    )}
+</DetailPageLayout>
 
-    <!-- Adjacent vendors -->
-    {related.vendors.length > 0 && (
-      <div style="margin-bottom:4rem;">
-        <div style={S.sLabel}>Vendors</div>
-        <h2 style={S.sTitle}>Who builds {node.title.toLowerCase()} privacy tooling</h2>
-        <div style="display:flex; flex-direction:column;">
-          {related.vendors.map(v => (
-            <a href={`/vendors/${v.slug}`} style="display:flex; align-items:center; justify-content:space-between; padding:1rem 0; border-bottom:1px solid rgba(255,255,255,0.05); text-decoration:none; color:inherit;">
-              <div>
-                <div style="font-size:0.9rem; font-weight:600; color:white;">{v.title}</div>
-                {v.summary && <div style="font-size:0.8rem; color:#71717a;">{v.summary}</div>}
-              </div>
-              <svg style="width:14px; height:14px; color:#52525b; flex-shrink:0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5l7 7-7 7"/></svg>
-            </a>
-          ))}
-        </div>
-      </div>
-    )}
+<style>
+  /* The body's first `## ` heading is the first content under the
+     page header on domain pages, so its top divider would read as
+     a stray hairline directly under the title. The `.domain-prose`
+     class scopes this strip to domains only — pattern / approach
+     pages still keep the first-h2 divider where it's intentional. */
+  :global(.domain-prose > h2:first-child) {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+  }
 
-    <!-- Jurisdictions -->
-    {related.jurisdictions.length > 0 && (
-      <div style="margin-bottom:3rem;">
-        <div style={S.sLabel}>Regulatory Context</div>
-        <h2 style={S.sTitle}>Jurisdictions with {node.title.toLowerCase()} guidance</h2>
-        <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:12px;">
-          {related.jurisdictions.map(j => (
-            <a href={`/jurisdictions/${j.slug}`} style="padding:1.25rem; border:1px solid rgba(255,255,255,0.06); border-radius:10px; text-decoration:none; color:inherit;">
-              <h4 style="font-size:0.85rem; font-weight:600; color:white; margin-bottom:0.25rem;">{j.title}</h4>
-              {j.summary && <p style="font-size:0.75rem; color:#71717a; line-height:1.4;">{j.summary}</p>}
-            </a>
-          ))}
-        </div>
-      </div>
-    )}
+  .domain-block {
+    margin: 3rem 0 0;
+  }
+  .domain-block h2 {
+    font-family: var(--font-sans);
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.02em;
+    margin: 0 0 1.25rem;
+    line-height: 1.25;
+  }
 
-    <!-- Fallback: render remaining content sections not covered above -->
-    {sections.filter(s => !['tldr', 'primary-use-cases', 'primary', 'shortest-path-patterns', 'shortest', 'adjacent-vendors', 'adjacent'].includes(s.key)).length > 0 && (
-      <div style="margin-bottom:2.5rem;">
-        {sections
-          .filter(s => !['tldr', 'primary-use-cases', 'primary', 'shortest-path-patterns', 'shortest', 'adjacent-vendors', 'adjacent'].includes(s.key))
-          .map(s => (
-            <div style="margin-bottom:2.5rem;">
-              <div style={S.sLabel}>{s.heading}</div>
-              {/* SOURCE: iptf-map field — do not alter. Domain section bodies are rendered verbatim. */}
-              <div set:html={renderMarkdown(s.content)} class="prose" />
-            </div>
-          ))
-        }
-      </div>
-    )}
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 1rem;
+  }
 
-  </div>
-
-  <style>
-    .domain-tldr {
-      max-width: 720px;
-      font-size: 0.95rem;
-      color: #a1a1aa;
-      line-height: 1.65;
-    }
-    .domain-tldr :global(ul) {
-      margin: 0;
-      padding-left: 1.1rem;
-    }
-    .domain-tldr :global(li) {
-      margin-bottom: 0.35rem;
-    }
-    .domain-tldr :global(p) {
-      margin: 0 0 0.5rem;
-    }
-  </style>
-</Guide>
+  .vendor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.75rem;
+  }
+  .vendor-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    padding: 1rem 1.1rem;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    transition: border-color var(--duration-fast) var(--easing-soft),
+      box-shadow var(--duration-fast) var(--easing-soft);
+  }
+  .vendor-card:hover {
+    border-color: var(--color-cta-border);
+    box-shadow: var(--shadow-md);
+  }
+  .vendor-card h3 {
+    font-family: var(--font-sans);
+    font-size: 0.98rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .vendor-maturity {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+</style>

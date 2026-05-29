@@ -14,3 +14,4 @@ src/data/graph.json
 
 # Excalidraw source files
 *.excalidraw
+src/data/glossary.json

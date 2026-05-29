@@ -1,42 +1,78 @@
 ---
-import Guide from '../../layouts/Guide.astro';
-import { getNodesByType } from '../../lib/data';
+import { getCollection } from 'astro:content';
+import ListPageLayout from '../../layouts/ListPageLayout.astro';
+import AnchorNav from '../../components/AnchorNav.astro';
+import SectionHeading from '../../components/SectionHeading.astro';
+import JurisdictionCard from '../../components/JurisdictionCard.astro';
+import { jurisdictionCode, regionBucket, REGION_ORDER, stripTypePrefix } from '../../lib/slugify';
+import { bodyExcerpt } from '../../lib/excerpt';
 
-const jurisdictions = getNodesByType('jurisdiction').sort((a, b) => a.title.localeCompare(b.title));
-const base = import.meta.env.BASE_URL;
+const items = await getCollection('jurisdictions');
 
-// Group by region
-const byRegion = new Map<string, typeof jurisdictions>();
-for (const j of jurisdictions) {
-  const region = j.region || 'Other';
-  if (!byRegion.has(region)) byRegion.set(region, []);
-  byRegion.get(region)!.push(j);
+const grouped = new Map<string, typeof items>();
+for (const r of REGION_ORDER) grouped.set(r, []);
+for (const it of items) grouped.get(regionBucket(it.data.region))!.push(it);
+
+const orderedRegions = REGION_ORDER.filter((r) => grouped.get(r)!.length > 0);
+
+function anchor(region: string): string {
+  return region.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
 }
+
+const tabs = orderedRegions.map((r) => ({
+  href: `#${anchor(r)}`,
+  label: r,
+  count: grouped.get(r)!.length,
+}));
+
 ---
 
-<Guide title="Jurisdictions" description="Regulatory frameworks relevant to institutional privacy" activeSection="jurisdictions">
-  <div style="max-width:1000px; margin:0 auto; padding:6rem 2rem 4rem;">
+<ListPageLayout
+  title="Jurisdictions"
+  pageTitle="Jurisdictions"
+  description="Jurisdictions"
+  current="/jurisdictions/"
+>
+  <Fragment slot="anchor-nav">
+    <AnchorNav tabs={tabs} ariaLabel="Region navigation" />
+  </Fragment>
 
-    <div style="margin-bottom:3rem;">
-      <div style="font-size:0.65rem; font-weight:700; color:#818cf8; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.5rem;">Jurisdictions</div>
-      <h1 style="font-family:'Newsreader',Georgia,serif; font-size:2.5rem; font-weight:400; color:white; letter-spacing:-0.025em; line-height:1.15; margin-bottom:0.75rem;">Regulatory context</h1>
-      <p style="font-size:1rem; color:#a1a1aa; line-height:1.7; max-width:640px;">{jurisdictions.length} jurisdictions covered. Each summarizes compliance expectations, enforcement posture, and actionable guidance by business domain.</p>
-    </div>
-
-    <!-- Grouped by region -->
-    {Array.from(byRegion.entries()).map(([region, items]) => (
-      <div style="margin-bottom:3rem;">
-        <div style="font-size:0.6rem; font-weight:700; color:#71717a; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:1rem; padding-bottom:0.5rem; border-bottom:1px solid rgba(255,255,255,0.06);">{region}</div>
-        <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(280px, 1fr)); gap:1rem;">
-          {items.map(j => (
-            <a href={`/jurisdictions/${j.slug}`} style="padding:1.25rem; border:1px solid rgba(255,255,255,0.06); border-radius:10px; background:#18181b; text-decoration:none; color:inherit; transition:all 0.15s;" onmouseover="this.style.borderColor='rgba(129,140,248,0.25)'; this.style.background='#1c1c20';" onmouseout="this.style.borderColor='rgba(255,255,255,0.06)'; this.style.background='#18181b';">
-              <div style="font-family:'Newsreader',Georgia,serif; font-size:1.1rem; font-weight:500; color:white; letter-spacing:-0.01em; margin-bottom:0.4rem;">{j.title}</div>
-              {j.summary && <div style="font-size:0.78rem; color:#71717a; line-height:1.5;">{j.summary.slice(0, 140)}{j.summary.length > 140 ? '…' : ''}</div>}
-            </a>
-          ))}
+  <div class="container">
+    {orderedRegions.map((region) => (
+      <section class="region-section">
+        <SectionHeading
+          id={anchor(region)}
+          title={region}
+        />
+        <div class="jx-list">
+          {grouped.get(region)!.map((j) => {
+            const gloss = bodyExcerpt(j.body, 'At a Glance') ?? bodyExcerpt(j.body);
+            return (
+              <JurisdictionCard
+                href={`/jurisdictions/${j.id}/`}
+                code={jurisdictionCode(j.id)}
+                title={stripTypePrefix(j.data.title)}
+                status={j.data.status}
+                gloss={gloss}
+                keyRegulations={j.data['key-regulations']}
+                scopeEntities={j.data.scope?.entities ?? []}
+                scopeActivities={j.data.scope?.activities ?? []}
+              />
+            );
+          })}
         </div>
-      </div>
+      </section>
     ))}
 
   </div>
-</Guide>
+</ListPageLayout>
+
+<style>
+  .region-section { margin-top: 3rem; margin-bottom: 4rem; }
+  .region-section:last-of-type { margin-bottom: 1rem; }
+  .jx-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+</style>

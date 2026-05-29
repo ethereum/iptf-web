@@ -1,0 +1,128 @@
+---
+/**
+ * Renders the `post_quantum` frontmatter block — risk classification,
+ * the vector by which CRQC would break the pattern, and the proposed
+ * mitigation. Present on 62/66 patterns; the most consequential
+ * forward-looking signal in the map.
+ */
+
+import { inlineMd } from '../lib/inlineMarkdown';
+
+interface Props {
+  risk?: string;
+  vector?: string;
+  mitigation?: string;
+}
+
+const { risk, vector, mitigation } = Astro.props;
+if (!risk && !vector && !mitigation) return null;
+
+function riskTone(r?: string): 'high' | 'med' | 'low' | 'none' {
+  if (!r) return 'none';
+  const v = r.toLowerCase();
+  if (v === 'high') return 'high';
+  if (v === 'medium' || v === 'partial') return 'med';
+  if (v === 'low' || v === 'none') return 'low';
+  return 'none';
+}
+
+const tone = riskTone(risk);
+---
+
+<section class="pq">
+  <header class="head">
+    <h3>Post-quantum exposure</h3>
+    {risk && <span class:list={['risk', `risk-${tone}`]}>Risk · {risk}</span>}
+  </header>
+  <dl>
+    {vector && (
+      <div class="row">
+        <dt>Vector</dt>
+        <dd set:html={inlineMd(vector)} />
+      </div>
+    )}
+    {mitigation && (
+      <div class="row">
+        <dt>Mitigation</dt>
+        <dd set:html={inlineMd(mitigation)} />
+      </div>
+    )}
+  </dl>
+</section>
+
+<style>
+  .pq {
+    margin: 2rem 0;
+    padding: 1.1rem 1.25rem;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+  .head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.85rem;
+  }
+  .head h3 {
+    font-family: var(--font-sans);
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.018em;
+  }
+  .risk {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.55rem;
+    border-radius: var(--radius-sm);
+  }
+  .risk-high { background: var(--color-warning-tint-strong); color: var(--color-warning-strong); }
+  .risk-med  { background: var(--color-warning-tint); color: var(--color-warning-strong); }
+  .risk-low  { background: var(--color-success-tint); color: var(--color-success-strong); }
+  .risk-none { background: var(--color-bg-muted); color: var(--color-text-secondary); }
+
+  dl {
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 7rem 1fr;
+    gap: 1rem;
+    align-items: baseline;
+  }
+  @media (max-width: 600px) {
+    .row { grid-template-columns: 1fr; gap: 0.2rem; }
+  }
+  dt {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+  dd {
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--color-text-secondary);
+  }
+  dd :global(code) {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 0.05rem 0.35rem;
+    background: var(--color-bg-subtle);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+  }
+  dd :global(a) { color: var(--color-cta); text-decoration: none; font-weight: 600; }
+  dd :global(a:hover) { text-decoration: underline; }
+</style>

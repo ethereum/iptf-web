@@ -1,44 +1,147 @@
 ---
-import Guide from '../../layouts/Guide.astro';
-import { getNodesByType } from '../../lib/data';
+import { getCollection } from 'astro:content';
+import ListPageLayout from '../../layouts/ListPageLayout.astro';
+import { stripTypePrefix } from '../../lib/slugify';
+import { bodyExcerpt } from '../../lib/excerpt';
+import { statusTone, type StatusTone } from '../../lib/statusTone';
 
-const vendors = getNodesByType('vendor').sort((a, b) => a.title.localeCompare(b.title));
-const base = import.meta.env.BASE_URL;
+const items = (await getCollection('vendors')).slice().sort((a, b) =>
+  stripTypePrefix(a.data.title).localeCompare(stripTypePrefix(b.data.title)),
+);
+
+// Map the shared status/maturity tone to the global chip-modifier
+// vocabulary in globals.css. Keeps every listing page using the same
+// tagging language instead of a local .badge variant.
+function chipMod(t: StatusTone): string {
+  if (t === 'strong') return 'chip--success';
+  if (t === 'mid') return 'chip--warning';
+  return 'chip--muted';
+}
+
+// Strip parenthetical clauses and trailing-explainer tails from
+// maturity values so the listing chip stays a short label even when
+// the source frontmatter contains a sentence-form value (e.g. Soda
+// Labs: "mainnet (for integrated privacy) & testnet (for ...) explained below"
+// → "mainnet & testnet"). Source content is preserved on the detail page.
+function shortMaturity(s: string | undefined): string | undefined {
+  if (!s) return s;
+  const trimmed = s
+    .replace(/\s*\([^)]*\)/g, '')
+    .replace(/\s+explained\b.*$/i, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return trimmed.length > 0 ? trimmed : s;
+}
 ---
 
-<Guide title="Vendors" description="Neutral assessments of privacy infrastructure providers" activeSection="vendors">
-  <div style="max-width:1200px; margin:0 auto; padding:6rem 2rem 4rem;">
-
-    <div style="margin-bottom:3rem;">
-      <div style="font-size:0.65rem; font-weight:700; color:#818cf8; letter-spacing:0.12em; text-transform:uppercase; margin-bottom:0.5rem;">Vendors</div>
-      <h1 style="font-family:'Newsreader',Georgia,serif; font-size:2.5rem; font-weight:400; color:white; letter-spacing:-0.025em; line-height:1.15; margin-bottom:0.75rem;">Privacy infrastructure providers</h1>
-      <p style="font-size:1rem; color:#a1a1aa; line-height:1.7; max-width:640px;">{vendors.length} vendor assessments. Neutral and factual — no ranking, no endorsement. Each entry describes what the vendor builds, what it fits with, and what trade-offs to consider.</p>
-    </div>
-
-    <!-- Neutral disclaimer -->
-    <div style="display:flex; align-items:center; gap:10px; padding:0.75rem 1rem; border-radius:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.05); margin-bottom:3rem; font-size:0.75rem; color:#71717a;">
-      <svg style="width:16px; height:16px; flex-shrink:0; color:#52525b;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-      IPTF vendor assessments are neutral and factual. Evaluate based on your own requirements.
-    </div>
-
-    <!-- Editorial list -->
-    <div>
-      {vendors.map((v, i) => {
-        const isLast = i === vendors.length - 1;
+<ListPageLayout
+  title="Vendors"
+  pageTitle="Vendors"
+  description="Vendors"
+  current="/vendors/"
+>
+  <div class="container">
+    <div class="vendor-grid">
+      {items.map((v) => {
+        const title = stripTypePrefix(v.data.title);
+        const gloss = bodyExcerpt(v.body, 'What it is') ?? bodyExcerpt(v.body);
         return (
-          <a href={`/vendors/${v.slug}`} style={`display:grid; grid-template-columns:1fr auto; gap:2rem; align-items:center; padding:1.35rem 0; border-top:1px solid rgba(255,255,255,0.06); ${isLast ? 'border-bottom:1px solid rgba(255,255,255,0.06);' : ''} text-decoration:none; color:inherit; transition:all 0.15s;`} onmouseover="this.style.paddingLeft='0.75rem'; this.querySelector('.name').style.color='#a5b4fc';" onmouseout="this.style.paddingLeft='0'; this.querySelector('.name').style.color='white';">
-            <div>
-              <div class="name" style="font-family:'Newsreader',Georgia,serif; font-size:1.2rem; font-weight:500; color:white; letter-spacing:-0.01em; margin-bottom:0.25rem; transition:color 0.15s;">{v.title}</div>
-              <div style="font-size:0.82rem; color:#71717a; line-height:1.5;">{v.summary}</div>
-            </div>
-            <div style="display:flex; gap:6px; align-items:center; flex-shrink:0;">
-              {v.maturity && <span style="font-size:0.65rem; font-weight:600; padding:3px 8px; border-radius:4px; background:rgba(52,211,153,0.1); color:#34d399;">{v.maturity}</span>}
-              {v.category && <span style="font-size:0.65rem; font-weight:600; padding:3px 8px; border-radius:4px; background:rgba(255,255,255,0.06); color:#a1a1aa;">{v.category}</span>}
-            </div>
+          <a class="vendor-card" href={`/vendors/${v.id}/`}>
+            <h3>{title}</h3>
+            {(v.data.maturity || v.data.status) && (
+              <div class="meta">
+                {v.data.maturity ? <span class:list={['chip', chipMod(statusTone(v.data.maturity))]}>{shortMaturity(v.data.maturity)}</span> : null}
+                {v.data.status ? <span class:list={['chip', chipMod(statusTone(v.data.status))]}>{v.data.status}</span> : null}
+              </div>
+            )}
+            {gloss && <p>{gloss}</p>}
           </a>
         );
       })}
     </div>
-
   </div>
-</Guide>
+</ListPageLayout>
+
+<style>
+  .vendor-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    /* Equalise every card in a row so a long gloss on one doesn't
+       make its neighbour look visually smaller. */
+    grid-auto-rows: 1fr;
+    gap: 1rem;
+    margin-top: 2.5rem;
+  }
+  @media (max-width: 720px) {
+    .vendor-grid {
+      /* minmax(0, 1fr) — without the 0 lower bound the track grows
+         to the widest card's min-content (long chip + long title),
+         forcing horizontal page scroll on mobile. */
+      grid-template-columns: minmax(0, 1fr);
+      grid-auto-rows: auto;
+    }
+    .vendor-card .meta .chip {
+      /* On mobile, allow long status pills like
+         "production (Ignition Chain)" to wrap instead of forcing
+         the card past the viewport. */
+      white-space: normal;
+    }
+  }
+  .vendor-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 1.4rem 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg);
+    box-shadow: var(--shadow-sm);
+    text-decoration: none;
+    color: var(--color-text);
+    transition: transform var(--duration-base) var(--easing-soft),
+                box-shadow var(--duration-base) var(--easing-soft),
+                border-color var(--duration-base) var(--easing-soft);
+  }
+  .vendor-card:hover {
+    border-color: var(--color-cta);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+  .vendor-card h3 {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: 1.15rem;
+    letter-spacing: -0.018em;
+    line-height: 1.25;
+    color: var(--color-primary);
+    margin: 0;
+  }
+  .vendor-card .meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem 0.4rem;
+    margin-top: 0.1rem;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+  }
+  .vendor-card p {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+    margin: 0;
+  }
+  .vendor-link {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-cta);
+    margin-top: 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .vendor-link .arr { transition: transform var(--duration-fast) var(--easing-soft); }
+  .vendor-card:hover .vendor-link .arr { transform: translateX(3px); }
+</style>

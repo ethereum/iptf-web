@@ -1,0 +1,108 @@
+---
+// Mobile-only full-screen nav overlay. Replaces nav.js — script is inlined
+// at the bottom and uses the same hamburger button defined in NavBar.astro.
+---
+
+<div class="nav-overlay" id="navOverlay" role="dialog" aria-modal="true" aria-label="Site navigation">
+  <button class="nav-close" aria-label="Close menu">&times;</button>
+  <nav class="nav-overlay-menu">
+    <a href="/">Home</a>
+    <a href="/approaches/">Approaches</a>
+    <a href="/use-cases/">Use cases</a>
+    <a href="/patterns/">Building blocks</a>
+    <a href="/blog/">Blog</a>
+    <a href="/about/">About</a>
+    <a href="https://docs.google.com/forms/d/e/1FAIpQLScK2SW0fxXU_h6SGPiBCRiodWFuv-H1BfA3wXh79RPbOT8OKg/viewform" class="cta" target="_blank" rel="noopener">Contact us</a>
+  </nav>
+</div>
+
+<style>
+  .nav-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    z-index: 100;
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+  .nav-overlay.open { display: flex; }
+  .nav-close {
+    position: absolute;
+    top: 1.25rem;
+    right: 1.25rem;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    border: 1px solid var(--color-border-strong);
+    background: transparent;
+    color: var(--color-primary);
+    font-size: 28px;
+    line-height: 1;
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    transition: border-color var(--duration-fast) var(--easing-soft),
+                background var(--duration-fast) var(--easing-soft);
+  }
+  .nav-close:hover { border-color: var(--color-primary); background: var(--color-bg-subtle); }
+  .nav-overlay-menu {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.6rem;
+    width: 100%;
+    max-width: 320px;
+  }
+  .nav-overlay-menu a {
+    font-family: var(--font-sans);
+    font-size: 1.4rem;
+    font-weight: 600;
+    letter-spacing: -0.018em;
+    color: var(--color-primary);
+    text-decoration: none;
+    text-align: center;
+    padding: 0.4rem 0;
+    width: 100%;
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .nav-overlay-menu a:hover { color: var(--color-cta); }
+  .nav-overlay-menu a.cta {
+    margin-top: 1rem;
+    padding: 0.85rem 1.5rem;
+    background: var(--color-cta);
+    color: var(--color-on-cta);
+    border-radius: var(--radius-sm);
+    font-size: 1rem;
+  }
+  .nav-overlay-menu a.cta:hover { background: var(--color-cta-hover); color: var(--color-on-cta); }
+</style>
+
+<script>
+  // Wired to .nav-toggle and .nav-overlay rendered by NavBar + this component.
+  const toggle = document.querySelector<HTMLButtonElement>('.nav-toggle');
+  const overlay = document.querySelector<HTMLDivElement>('#navOverlay');
+  const close = overlay?.querySelector<HTMLButtonElement>('.nav-close');
+  const links = overlay?.querySelectorAll<HTMLAnchorElement>('a');
+
+  function open() {
+    if (!overlay) return;
+    overlay.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    toggle?.setAttribute('aria-expanded', 'true');
+  }
+  function dismiss() {
+    if (!overlay) return;
+    overlay.classList.remove('open');
+    document.body.style.overflow = '';
+    toggle?.setAttribute('aria-expanded', 'false');
+  }
+  toggle?.addEventListener('click', open);
+  close?.addEventListener('click', dismiss);
+  links?.forEach((a) => a.addEventListener('click', dismiss));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') dismiss(); });
+</script>
