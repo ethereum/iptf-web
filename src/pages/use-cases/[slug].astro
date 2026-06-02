@@ -1,0 +1,66 @@
+---
+import { getCollection } from 'astro:content';
+import DetailPageLayout from '../../layouts/DetailPageLayout.astro';
+import RailConnections from '../../components/RailConnections.astro';
+import ArticleFooter from '../../components/ArticleFooter.astro';
+import { buildDomainIndex } from '../../lib/domain';
+import { bodyExcerpt, popSection } from '../../lib/excerpt';
+import { extractRelated, getReferencedBy } from '../../lib/related';
+import { renderMarkdown } from '../../lib/render';
+
+export async function getStaticPaths() {
+  const entries = await getCollection('useCases');
+  return entries.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+
+// Pop the `## 1) Use Case` section out — full paragraph becomes the
+// lede, body renders without it so the same prose doesn't appear twice.
+//
+// Upstream use-case markdown numbers its H2 headings (## 1) Use Case,
+// ## 2) Additional Business Context, ## 3) Actors, ...). With section 1
+// lifted to the hero, the rendered body would otherwise start at
+// "2) Additional Business Context" — strip the numeric prefix from
+// every remaining H2 so the body reads as a clean unnumbered outline.
+const { content: useCaseContent, bodyWithout } = popSection(entry.body, '1) Use Case');
+const cleanedBody = (useCaseContent ? bodyWithout : entry.body).replace(
+  /^(##\s+)\d+\)\s+/gm,
+  '$1',
+);
+const lede = useCaseContent || bodyExcerpt(entry.body);
+const bodyHtml = renderMarkdown(cleanedBody);
+
+const domainIndex = buildDomainIndex(await getCollection('domains'));
+const domain = domainIndex.resolve(entry.data.primary_domain) ?? entry.data.primary_domain ?? null;
+
+const related = await extractRelated(entry.body, 'useCases', entry.id, entry.data);
+const referencedBy = await getReferencedBy('useCases', entry.id);
+const sibling = domain ? { href: '/use-cases/', label: `More use cases in ${domain}` } : null;
+---
+
+<DetailPageLayout
+  title={entry.data.title}
+  pageTitle={entry.data.title}
+  description={lede}
+  current="/use-cases/"
+  breadcrumbs={[
+    { label: 'Home', href: '/' },
+    { label: 'Use cases', href: '/use-cases/' },
+    { label: entry.data.title },
+  ]}
+  lede={lede}
+>
+  <div class="prose" set:html={bodyHtml} />
+
+  <Fragment slot="after-content">
+    <ArticleFooter related={related} sibling={sibling} />
+  </Fragment>
+
+  <Fragment slot="rail">
+    <RailConnections referencedBy={referencedBy} />
+  </Fragment>
+</DetailPageLayout>

@@ -1,0 +1,175 @@
+---
+import { getCollection } from 'astro:content';
+import ListPageLayout from '../../layouts/ListPageLayout.astro';
+import AnchorNav from '../../components/AnchorNav.astro';
+import SectionHeading from '../../components/SectionHeading.astro';
+import ApproachCard from '../../components/ApproachCard.astro';
+import { parseApproachTitle } from '../../lib/parseApproachTitle';
+import { stripTypePrefix } from '../../lib/slugify';
+import { bodyExcerpt, bodyBulletList } from '../../lib/excerpt';
+import { buildDomainIndex, type Domain } from '../../lib/domain';
+import { domainIcon } from '../../lib/icons';
+import { inlineMd } from '../../lib/inlineMarkdown';
+
+/*
+ * Listing buckets approaches by canonical domain, derived from each
+ * approach's `use_case → primary_domain`. Domains themselves are
+ * data-driven from the `domains` collection (add/remove upstream is
+ * reflected here automatically). Editorial overrides are gone — what an
+ * approach addresses lives in its frontmatter.
+ *
+ * Approaches whose use_case slug can't be resolved (or whose use-case
+ * has no/unknown primary_domain) fall into an "unbucketed" group that's
+ * rendered last rather than silently dropped.
+ */
+
+const approaches = await getCollection('approaches');
+const useCases = await getCollection('useCases');
+const domains = await getCollection('domains');
+const useCaseById = new Map(useCases.map((uc) => [uc.id, uc]));
+const domainIndex = buildDomainIndex(domains);
+
+// Per-domain primer is the domain's frontmatter `description` (a curated
+// one-liner, iptf-map PR #173). Falls back to the first ## TLDR bullet
+// where no description exists yet. Links to the domain detail page.
+function domainPrimer(d: Domain): { html: string; href: string } | undefined {
+  const entry = domainIndex.entryFor(d) as
+    | { id: string; data: { description?: string }; body?: string }
+    | undefined;
+  if (!entry) return undefined;
+  const text = entry.data.description?.trim() || bodyBulletList(entry.body, 'TLDR')[0];
+  if (!text) return undefined;
+  return { html: `<p>${inlineMd(text)}</p>`, href: `/domains/${entry.id}/` };
+}
+
+interface ApproachView {
+  id: string;
+  title: string;
+  goal: string;
+  status?: string;
+  useCaseTitle?: string;
+  useCaseSlug?: string;
+  domain: Domain | null;
+  buildingBlocks: number;
+}
+
+const items: ApproachView[] = approaches.map((entry) => {
+  const useCase = entry.data.use_case ? useCaseById.get(entry.data.use_case) : null;
+  const domain = useCase ? domainIndex.resolve(useCase.data.primary_domain) : null;
+  const primary = (entry.data.primary_patterns ?? []).length;
+  const supporting = (entry.data.supporting_patterns ?? []).length;
+  return {
+    id: entry.id,
+    title: entry.data.title ? stripTypePrefix(entry.data.title) : parseApproachTitle(entry.body) || entry.id,
+    goal: bodyExcerpt(entry.body),
+    status: entry.data.status
+      ? entry.data.status.charAt(0).toUpperCase() + entry.data.status.slice(1)
+      : undefined,
+    useCaseTitle: useCase ? stripTypePrefix(useCase.data.title) : undefined,
+    useCaseSlug: entry.data.use_case ?? undefined,
+    domain,
+    buildingBlocks: primary + supporting,
+  };
+});
+
+// Bucket by canonical domain. Approaches without a resolvable domain
+// fall into an "unbucketed" group that's rendered last (rather than
+// silently dropped, so reviewers can see what's missing data).
+const buckets = new Map<Domain | 'unbucketed', ApproachView[]>();
+for (const d of domainIndex.names) buckets.set(d, []);
+buckets.set('unbucketed', []);
+for (const it of items) {
+  const key = it.domain ?? 'unbucketed';
+  buckets.get(key)!.push(it);
+}
+
+const orderedDomains = domainIndex.names.filter((d) => (buckets.get(d) ?? []).length > 0);
+const unbucketed = buckets.get('unbucketed') ?? [];
+
+function anchor(domain: string): string {
+  return domain.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+const tabs = orderedDomains.map((d) => ({
+  href: `#${anchor(d)}`,
+  label: d,
+  count: buckets.get(d)!.length,
+  iconSvg: domainIcon(domainIndex.idFor(d)),
+}));
+
+---
+
+<ListPageLayout
+  title="Approaches"
+  pageTitle="Approaches"
+  description="Approaches"
+  current="/approaches/"
+>
+  <Fragment slot="anchor-nav">
+    <AnchorNav tabs={tabs} ariaLabel="Domain navigation" />
+  </Fragment>
+
+  <div class="container">
+    {orderedDomains.map((domain) => {
+      const primer = domainPrimer(domain);
+      return (
+      <section class="domain-section">
+        <SectionHeading
+          id={anchor(domain)}
+          title={domain}
+          iconSvg={domainIcon(domainIndex.idFor(domain))}
+          primer={primer?.html}
+          readMoreHref={primer?.href}
+        />
+        <div class="cs-list">
+          {buckets.get(domain)!.map((it) => (
+            <ApproachCard
+              href={`/approaches/${it.id}/`}
+              title={it.title}
+              goal={it.goal}
+              status={it.status}
+              useCase={it.useCaseTitle}
+              useCaseHref={it.useCaseSlug ? `/use-cases/${it.useCaseSlug}/` : undefined}
+            />
+          ))}
+        </div>
+      </section>
+      );
+    })}
+
+    {unbucketed.length > 0 && (
+      <section class="domain-section">
+        <SectionHeading
+          id="unbucketed"
+          title="Unbucketed"
+        />
+        <div class="cs-list">
+          {unbucketed.map((it) => (
+            <ApproachCard
+              href={`/approaches/${it.id}/`}
+              title={it.title}
+              goal={it.goal}
+              status={it.status}
+              useCase={it.useCaseTitle}
+              useCaseHref={it.useCaseSlug ? `/use-cases/${it.useCaseSlug}/` : undefined}
+            />
+          ))}
+        </div>
+      </section>
+    )}
+
+  </div>
+</ListPageLayout>
+
+<style>
+  .domain-section { margin-bottom: 4rem; }
+  .domain-section:last-of-type { margin-bottom: 1rem; }
+  .cs-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.85rem;
+  }
+  @media (max-width: 720px) {
+    .cs-list { grid-template-columns: 1fr; }
+  }
+</style>

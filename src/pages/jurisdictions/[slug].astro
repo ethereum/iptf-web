@@ -1,0 +1,144 @@
+---
+import { getCollection } from 'astro:content';
+import DetailPageLayout from '../../layouts/DetailPageLayout.astro';
+import RailConnections from '../../components/RailConnections.astro';
+import ArticleFooter from '../../components/ArticleFooter.astro';
+import EntryFacts from '../../components/EntryFacts.astro';
+import { regionBucket, stripTypePrefix } from '../../lib/slugify';
+import { bodyExcerpt, popSection } from '../../lib/excerpt';
+import { extractRelated, getReferencedBy } from '../../lib/related';
+import { renderMarkdown } from '../../lib/render';
+
+export async function getStaticPaths() {
+  const entries = await getCollection('jurisdictions');
+  return entries.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const title = stripTypePrefix(entry.data.title);
+
+// Pop `## At a Glance` out — full text becomes the lede; body
+// renders without it to avoid the duplication-with-truncation seen
+// before this pass.
+const { content: atGlance, bodyWithout } = popSection(entry.body, 'At a Glance');
+const lede = atGlance || bodyExcerpt(entry.body);
+const bodyHtml = renderMarkdown(atGlance ? bodyWithout : entry.body);
+
+
+const scopeEntities = (entry.data.scope?.entities as string[] | undefined) ?? [];
+const scopeActivities = (entry.data.scope?.activities as string[] | undefined) ?? [];
+const keyRegs = (entry.data['key-regulations'] as string[] | undefined) ?? [];
+
+const factSections = [
+  ...(keyRegs.length > 0 ? [{ heading: 'Key regulations', items: keyRegs }] : []),
+  ...(scopeEntities.length > 0 ? [{ heading: 'Entities', items: scopeEntities }] : []),
+  ...(scopeActivities.length > 0 ? [{ heading: 'Activities', items: scopeActivities }] : []),
+];
+
+const related = await extractRelated(entry.body, 'jurisdictions', entry.id, entry.data);
+const referencedBy = await getReferencedBy('jurisdictions', entry.id);
+
+const region = regionBucket(entry.data.region);
+const sibling = {
+  href: '/jurisdictions/',
+  label: region === 'Multi-jurisdiction' ? 'Other multi-jurisdictional frameworks' : `More jurisdictions in ${region}`,
+};
+
+// Quick-nav: other jurisdictions in the same region bucket.
+// Excludes the current page, sorts by display title.
+const allJurisdictions = await getCollection('jurisdictions');
+const sameRegion = allJurisdictions
+  .filter((j) => j.id !== entry.id && regionBucket(j.data.region) === region)
+  .map((j) => ({
+    id: j.id,
+    title: stripTypePrefix(j.data.title),
+  }))
+  .sort((a, b) => a.title.localeCompare(b.title));
+
+const regionLabel =
+  region === 'Multi-jurisdiction' ? 'Other multi-jurisdictional' : `Also in ${region}`;
+---
+
+<DetailPageLayout
+  title={`${title} · Jurisdiction`}
+  pageTitle={title}
+  description={lede}
+  current="/jurisdictions/"
+  breadcrumbs={[
+    { label: 'Home', href: '/' },
+    { label: 'Jurisdictions', href: '/jurisdictions/' },
+    { label: title },
+  ]}
+  lede={lede}
+>
+  <EntryFacts sections={factSections} />
+
+  <div class="prose" set:html={bodyHtml} />
+
+  <Fragment slot="after-content">
+    <ArticleFooter related={related} sibling={sibling} />
+  </Fragment>
+
+  <Fragment slot="rail">
+    <aside class="jurisdiction-rail">
+      {sameRegion.length > 0 && (
+        <section class="rail-static">
+          <div class="rail-label-static">{regionLabel}</div>
+          <ul class="rail-quick-list">
+            {sameRegion.map((j) => (
+              <li>
+                <a href={`/jurisdictions/${j.id}/`}>{j.title}</a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      <RailConnections referencedBy={referencedBy} />
+    </aside>
+  </Fragment>
+</DetailPageLayout>
+
+<style>
+  .jurisdiction-rail {
+    font-family: var(--font-sans);
+  }
+  .rail-static {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .rail-label-static {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 0.55rem;
+  }
+  .rail-quick-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+  .rail-quick-list li { list-style: none; }
+  .rail-quick-list a {
+    display: block;
+    padding: 0.2rem 0;
+    text-decoration: none;
+    color: var(--color-primary);
+    font-size: 0.88rem;
+    font-weight: 500;
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .rail-quick-list a:hover {
+    color: var(--color-cta);
+  }
+</style>

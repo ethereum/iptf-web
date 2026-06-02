@@ -1,0 +1,168 @@
+---
+/**
+ * Inline "at a glance" block that renders at the TOP of an article
+ * body (before the markdown prose). Carries content-shaped metadata
+ * that used to live in the rail:
+ *
+ *   - Works best when / Avoid when / Depends on  (Pattern pages)
+ *   - Key regulations / Entities / Activities    (Jurisdiction pages)
+ *
+ * These are decision criteria, not navigation — they want full prose
+ * width, not a 280px rail column.
+ *
+ * Each block renders as its own card with a tone-coded background:
+ * green for "Works best when" (positive criteria), red for
+ * "Avoid when" (warning criteria). Other ("neutral") blocks rotate
+ * through a three-step subtle palette so consecutive neutral cards
+ * read as distinct surfaces rather than one repeated swatch.
+ */
+
+interface FactSection {
+  heading: string;
+  items: string[];
+}
+
+interface Props {
+  sections?: FactSection[];
+}
+
+type Tone = 'good' | 'bad' | 'neutral';
+
+function toneFor(heading: string): Tone {
+  const h = heading.toLowerCase();
+  if (h.includes('works best') || h.includes('use when') || h.includes('best for')) return 'good';
+  if (h.includes('avoid') || h.includes('do not')) return 'bad';
+  return 'neutral';
+}
+
+const { sections = [] } = Astro.props;
+// Assign a tone, then for neutrals also assign a rotating palette index
+// so each consecutive neutral block has a distinct subtle background.
+let neutralIdx = 0;
+const nonEmpty = sections
+  .filter((s) => s.items && s.items.length > 0)
+  .map((s) => {
+    const tone = toneFor(s.heading);
+    const palette = tone === 'neutral' ? (neutralIdx++ % 3) : null;
+    return { ...s, tone, palette };
+  });
+---
+
+{nonEmpty.length > 0 && (
+  <section class="entry-facts">
+    {nonEmpty.map((s) => (
+      <div
+        class:list={[
+          'fact-block',
+          `fact-block--${s.tone}`,
+          s.palette !== null ? `fact-block--n${s.palette}` : null,
+        ]}
+      >
+        <h4>{s.heading}</h4>
+        <ul>
+          {s.items.map((item) => <li>{item}</li>)}
+        </ul>
+      </div>
+    ))}
+  </section>
+)}
+
+<style>
+  .entry-facts {
+    margin: 1.5rem 0 2.5rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0.9rem;
+  }
+  /* Each fact-block is its own tinted card. */
+  .fact-block {
+    padding: 1.1rem 1.25rem 1.2rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+  }
+  /* Strong tones — green for positive criteria, red for warnings. */
+  .fact-block--good {
+    background: var(--color-success-tint);
+    border-color: var(--color-success-tint-strong);
+  }
+  .fact-block--bad {
+    background: var(--color-danger-tint);
+    border-color: var(--color-danger-tint-strong);
+  }
+  /* Neutral palette rotation — three subtle tints that read as
+     distinct cards when shown side-by-side. n0=slate, n1=cta-blue,
+     n2=violet. Saturation kept low so the section header palette
+     decides hierarchy, not the cards. */
+  .fact-block--n0 {
+    background: var(--color-bg-subtle);
+  }
+  .fact-block--n1 {
+    background: var(--color-cta-tint);
+    border-color: var(--color-cta-border);
+  }
+  .fact-block--n2 {
+    background: var(--color-violet-tint);
+    border-color: var(--color-violet-tint-strong);
+  }
+
+  .fact-block h4 {
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin: 0 0 0.7rem;
+  }
+  .fact-block--good h4 {
+    color: var(--color-success-strong);
+  }
+  .fact-block--bad h4 {
+    color: var(--color-danger);
+  }
+  /* Neutral headings pick up the tone-matching accent of their card. */
+  .fact-block--n0 h4 {
+    color: var(--color-text-muted);
+  }
+  .fact-block--n1 h4 {
+    color: var(--color-cta);
+  }
+  .fact-block--n2 h4 {
+    color: var(--color-violet);
+  }
+
+  .fact-block ul {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .fact-block li {
+    padding-left: 1rem;
+    position: relative;
+    font-size: 14px;
+    color: var(--color-text);
+    line-height: 1.55;
+  }
+  .fact-block li::before {
+    content: '·';
+    position: absolute;
+    left: 0.3rem;
+    font-weight: 700;
+  }
+  .fact-block--good li::before {
+    color: var(--color-success-strong);
+  }
+  .fact-block--bad li::before {
+    color: var(--color-danger);
+  }
+  .fact-block--n0 li::before {
+    color: var(--color-text-muted);
+  }
+  .fact-block--n1 li::before {
+    color: var(--color-cta);
+  }
+  .fact-block--n2 li::before {
+    color: var(--color-violet);
+  }
+</style>

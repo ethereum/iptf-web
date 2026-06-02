@@ -1,0 +1,444 @@
+---
+/**
+ * CROPS as a 4-segment pie (L2Beat-style risk rosette).
+ *
+ * Each quadrant of the pie represents one axis. Quadrant arrangement:
+ *   top-left      → CR (Censorship-resistance)
+ *   top-right     → OS (Open-source)
+ *   bottom-right  → P  (Privacy)
+ *   bottom-left   → S  (Security)
+ *
+ * Colour per quadrant is driven by the axis value:
+ *   green  · full / high      (strong)
+ *   amber  · medium / partial (moderate)
+ *   grey   · low / no         (weak)
+ *   muted  · missing          (no rating)
+ *
+ * Hovering a quadrant reveals a small explanatory tooltip card.
+ * Tooltip behaviour is pure CSS (sibling :hover on the absolutely
+ * positioned panel) — no JS needed.
+ */
+
+interface Profile {
+  cr?: string;
+  os?: string;
+  o?: string;
+  privacy?: string;
+  p?: string;
+  security?: string;
+  s?: string;
+  [key: string]: unknown;
+}
+
+import { inlineMd } from '../lib/inlineMarkdown';
+
+/*
+ * `context` carries the per-axis reasoning text from a pattern's
+ * `crops_context` frontmatter (62/66 patterns ship this). When a
+ * context value is present for an axis, it overrides the generic
+ * description in the tooltip — the reader gets "why this pattern got
+ * this rating on this axis" instead of "what this axis means".
+ */
+interface AxisContext {
+  cr?: string;
+  o?: string;
+  p?: string;
+  s?: string;
+  os?: string;
+  privacy?: string;
+  security?: string;
+  [key: string]: unknown;
+}
+
+interface Props {
+  profile?: Profile | string | null;
+  context?: AxisContext | null;
+  /** Render size in px. */
+  size?: number;
+}
+
+const raw = Astro.props.profile;
+const context = (Astro.props.context as AxisContext | null | undefined) ?? null;
+const size = Astro.props.size ?? 56;
+const profile: Profile | null = raw && typeof raw === 'object' ? raw : null;
+
+type Tone = 'full' | 'med' | 'low' | 'none';
+
+function tone(v?: string): Tone {
+  if (!v) return 'none';
+  const k = v.toLowerCase();
+  if (k === 'full' || k === 'yes' || k === 'high') return 'full';
+  if (k === 'medium' || k === 'partial') return 'med';
+  if (k === 'low' || k === 'no') return 'low';
+  return 'none';
+}
+
+/*
+ * Axis names (CR / OS / P / S) are the CROPS framework schema — kept.
+ * Generic axis explanations were removed: when a pattern doesn't ship
+ * `crops_context` for an axis, the tooltip now shows the axis label
+ * and the value only, no fabricated description. Pattern-specific
+ * reasoning still flows in via `context` when present.
+ */
+const axes = [
+  {
+    key: 'CR',
+    name: 'Censorship-resistance',
+    blurb: context?.cr ?? null,
+    value: profile?.cr,
+    /* SVG path = top-left quadrant of a circle (rad 16, centre 16,16).
+       M centre → L west point → A arc clockwise to north point → Z. */
+    path: 'M 16 16 L 2 16 A 14 14 0 0 1 16 2 Z',
+  },
+  {
+    key: 'OS',
+    name: 'Open source',
+    blurb: context?.os ?? context?.o ?? null,
+    value: profile?.os ?? profile?.o,
+    /* Top-right quadrant: centre → north → east. */
+    path: 'M 16 16 L 16 2 A 14 14 0 0 1 30 16 Z',
+  },
+  {
+    key: 'P',
+    name: 'Privacy',
+    blurb: context?.privacy ?? context?.p ?? null,
+    value: profile?.privacy ?? profile?.p,
+    /* Bottom-right quadrant: centre → east → south. */
+    path: 'M 16 16 L 30 16 A 14 14 0 0 1 16 30 Z',
+  },
+  {
+    key: 'S',
+    name: 'Security',
+    blurb: context?.security ?? context?.s ?? null,
+    value: profile?.security ?? profile?.s,
+    /* Bottom-left quadrant: centre → south → west. */
+    path: 'M 16 16 L 16 30 A 14 14 0 0 1 2 16 Z',
+  },
+];
+
+const hasAny = profile !== null;
+---
+
+{hasAny && (
+  <div class="crops-pie" style={`--pie-size: ${size}px;`}>
+    <svg viewBox="0 0 32 32" class="pie-svg" aria-hidden="true">
+      {axes.map((a) => (
+        <g class={`slice slice--${a.key.toLowerCase()} tone-${tone(a.value)}`} data-axis={a.key.toLowerCase()}>
+          <path d={a.path} />
+          <title>{a.name}: {a.value ?? '—'}</title>
+        </g>
+      ))}
+      <!-- Inner ring so it reads as a badge, not a full pie. -->
+      <circle cx="16" cy="16" r="4.5" fill="var(--color-bg)" />
+    </svg>
+
+    <div class="tip-panel" role="tooltip">
+      {axes.map((a) => (
+        <div class={`tip tip--${a.key.toLowerCase()}`}>
+          <div class="tip-head">
+            <span class="tip-key">{a.key}</span>
+            <span class="tip-name">{a.name}</span>
+            <span class={`tip-val tone-${tone(a.value)}`}>{a.value ?? '—'}</span>
+          </div>
+          {a.blurb && <p set:html={inlineMd(a.blurb)} />}
+        </div>
+      ))}
+    </div>
+  </div>
+)}
+
+<style>
+  .crops-pie {
+    position: relative;
+    width: var(--pie-size);
+    height: var(--pie-size);
+    flex-shrink: 0;
+  }
+  /* Elevate the pie above sibling cards whenever its tooltip is open,
+     so the tooltip paints on top of neighbours. z=5 is below the sticky
+     NavBar (z=50) and below the NavOverlay (z=100), so chrome stays
+     reachable. The whole pie becomes a stacking context, scoping the
+     internal tooltip z-index to the elevated level. */
+  .crops-pie:hover,
+  .crops-pie[data-active-axis] {
+    z-index: 5;
+  }
+  .pie-svg {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* Quadrant tones — vibrant traffic-light palette. */
+  .slice path {
+    transition: filter var(--duration-fast) var(--easing-soft),
+                opacity var(--duration-fast) var(--easing-soft);
+    cursor: help;
+  }
+  /* CROPS-specific palette (defined in tokens.css). Brighter than the
+     design-system success/warning/danger so the pie reads as a clear
+     signal panel; tone-low covers both `low` and `no` values. */
+  .slice.tone-full path { fill: var(--color-crops-full); }
+  .slice.tone-med  path { fill: var(--color-crops-med); }
+  .slice.tone-low  path { fill: var(--color-crops-low); }
+  /* "none" is a negative signal (no privacy / no censorship-resistance /
+     etc.), not a neutral absence. Use the warning amber so the pie
+     visually communicates "this axis is failing", not "no rating yet". */
+  /* tone-none = missing/unrecognised value. Treat the same as tone-low
+     so missing data reads as a fail signal (per Yanis's call), not
+     as a neutral absence. */
+  .slice.tone-none path { fill: var(--color-crops-low); }
+
+  /* Thin hair gap between quadrants so the segmentation reads. */
+  .pie-svg .slice path {
+    stroke: var(--color-bg);
+    stroke-width: 0.6;
+  }
+
+  /* Hover state — bring quadrant slightly forward. */
+  .slice:hover path {
+    filter: brightness(1.1) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.12));
+  }
+
+  /* Tooltip card — hidden by default, slides into view when any
+     slice in this pie is hovered. Pure CSS, no JS. */
+  .tip-panel {
+    position: absolute;
+    top: calc(100% + 0.5rem);
+    left: 50%;
+    /* --tip-shift-x is set by JS (repositionTip) to nudge the panel
+       horizontally when its natural centred position would overflow
+       the viewport. Defaults to 0 so on desktop with room to spare
+       the panel stays exactly centred under the pie. */
+    transform: translateX(calc(-50% + var(--tip-shift-x, 0px)));
+    min-width: 240px;
+    /* Cap width so very narrow viewports get a panel that fits with
+       margin, instead of forcing a horizontal scrollbar. */
+    max-width: calc(100vw - 16px);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    padding: 0.65rem 0.85rem;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--color-text);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--duration-fast) var(--easing-soft);
+    z-index: 30;
+  }
+  /* Vertical flip — applied when the panel below the pie would overflow
+     the bottom edge of the viewport. Anchors the panel above the pie
+     instead. JS sets `data-tip-flip` only when there's room above. */
+  .crops-pie[data-tip-flip] .tip-panel {
+    top: auto;
+    bottom: calc(100% + 0.5rem);
+  }
+  .crops-pie:hover .tip-panel,
+  .crops-pie[data-active-axis] .tip-panel {
+    opacity: 1;
+  }
+  .tip {
+    display: none;
+  }
+  /* :has() lets us cross the SVG boundary — when any slice is hovered
+     in the pie's subtree, surface only the matching tip card in the
+     adjacent panel. The [data-active-axis] selectors mirror the same
+     behaviour for touch devices: tapping a slice sets the attribute,
+     tapping outside (or the same slice again) clears it. */
+  .crops-pie:has(.slice--cr:hover) .tip--cr,
+  .crops-pie:has(.slice--os:hover) .tip--os,
+  .crops-pie:has(.slice--p:hover)  .tip--p,
+  .crops-pie:has(.slice--s:hover)  .tip--s,
+  .crops-pie[data-active-axis="cr"] .tip--cr,
+  .crops-pie[data-active-axis="os"] .tip--os,
+  .crops-pie[data-active-axis="p"]  .tip--p,
+  .crops-pie[data-active-axis="s"]  .tip--s {
+    display: block;
+  }
+  .crops-pie:not(:has(.slice:hover)):not([data-active-axis]) .tip-panel { opacity: 0; }
+  /* Match the slice highlight effect on the tapped slice so it reads
+     as the "active" one without needing a hover. */
+  .crops-pie[data-active-axis="cr"] .slice--cr path,
+  .crops-pie[data-active-axis="os"] .slice--os path,
+  .crops-pie[data-active-axis="p"]  .slice--p  path,
+  .crops-pie[data-active-axis="s"]  .slice--s  path {
+    filter: brightness(1.1) drop-shadow(0 1px 2px rgba(0, 0, 0, 0.12));
+  }
+  .tip-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    margin-bottom: 0.3rem;
+  }
+  .tip-key {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+  .tip-name {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    color: var(--color-primary);
+    flex: 1;
+  }
+  .tip-val {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    padding: 0.1rem 0.45rem;
+    border-radius: 999px;
+    letter-spacing: 0.06em;
+  }
+  .tip-val.tone-full { background: var(--color-crops-full-tint); color: var(--color-crops-full-strong); }
+  .tip-val.tone-med  { background: var(--color-crops-med-tint);  color: var(--color-crops-med-strong); }
+  .tip-val.tone-low  { background: var(--color-crops-low-tint);  color: var(--color-crops-low-strong); }
+  /* "none" pill mirrors the slice's warning amber so the tooltip reads
+     consistently with the pie. */
+  .tip-val.tone-none { background: var(--color-crops-low-tint); color: var(--color-crops-low-strong); }
+  .tip p {
+    margin: 0;
+    color: var(--color-text-secondary);
+  }
+</style>
+
+<script>
+  /*
+   * Tap-to-toggle for touch + edge-correction for the tooltip panel.
+   *
+   * The tooltip is anchored under the pie via `top: 100%; left: 50%`
+   * with a CSS-driven centre transform. That's correct in the common
+   * case, but for pies near the viewport edges the panel can extend
+   * past the right, left, or bottom of the visible area. We measure
+   * the panel's bounding rect after each show and either:
+   *   - shift it horizontally via the `--tip-shift-x` custom property,
+   *   - or flip it above the pie via the `data-tip-flip` attribute
+   *     (only when there's room above; otherwise stay below).
+   *
+   * Touch behaviour: tapping a slice sets `data-active-axis` on the
+   * pie. Tapping the same slice again, a different slice, or anywhere
+   * outside the pie clears or switches the active axis. Only one
+   * tooltip can be open across all pies at a time.
+   *
+   * Hover behaviour stays pure CSS for the opacity transition, but we
+   * also call the repositioner on mouseenter so the panel never spills
+   * off-screen on desktop either.
+   */
+  type PieElement = HTMLElement;
+
+  function repositionTip(pie: PieElement): void {
+    const panel = pie.querySelector<HTMLElement>('.tip-panel');
+    if (!panel) return;
+
+    // Reset prior adjustments so we measure the natural centred position.
+    pie.style.removeProperty('--tip-shift-x');
+    pie.removeAttribute('data-tip-flip');
+
+    // Force layout settle on the same frame so getBoundingClientRect is
+    // accurate. opacity:0 doesn't suppress layout, so this works for
+    // both hover (panel becoming visible via CSS) and tap (data-attr).
+    const rect = panel.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth;
+    const vh = document.documentElement.clientHeight;
+    const margin = 8;
+
+    // Horizontal correction — shift just enough to bring the panel
+    // inside the viewport, no more.
+    let shiftX = 0;
+    if (rect.right > vw - margin) {
+      shiftX = vw - margin - rect.right;
+    } else if (rect.left < margin) {
+      shiftX = margin - rect.left;
+    }
+    if (shiftX !== 0) {
+      pie.style.setProperty('--tip-shift-x', `${shiftX}px`);
+    }
+
+    // Vertical flip — only when below overflows AND above has room.
+    if (rect.bottom > vh - margin) {
+      const pieRect = pie.getBoundingClientRect();
+      const flippedTop = pieRect.top - rect.height - 8;
+      if (flippedTop >= margin) {
+        pie.setAttribute('data-tip-flip', '');
+      }
+    }
+  }
+
+  function clearAllExcept(except: PieElement | null): void {
+    document.querySelectorAll<PieElement>('.crops-pie[data-active-axis]').forEach((p) => {
+      if (p !== except) {
+        p.removeAttribute('data-active-axis');
+        p.style.removeProperty('--tip-shift-x');
+        p.removeAttribute('data-tip-flip');
+      }
+    });
+  }
+
+  // Tap / click handling — delegated from document so one listener
+  // covers every pie regardless of render count.
+  document.addEventListener('click', (event) => {
+    const target = event.target as Element | null;
+    if (!target) return;
+    const slice = target.closest('.slice') as HTMLElement | null;
+    const pie = target.closest('.crops-pie') as PieElement | null;
+
+    clearAllExcept(pie);
+
+    if (!pie) return;
+
+    if (!slice) {
+      pie.removeAttribute('data-active-axis');
+      pie.style.removeProperty('--tip-shift-x');
+      pie.removeAttribute('data-tip-flip');
+      return;
+    }
+
+    // Prevent the parent card's <a> from navigating when the user taps
+    // a slice to read its tooltip.
+    event.preventDefault();
+    event.stopPropagation();
+
+    const axis = slice.dataset.axis;
+    if (!axis) return;
+    if (pie.dataset.activeAxis === axis) {
+      pie.removeAttribute('data-active-axis');
+      pie.style.removeProperty('--tip-shift-x');
+      pie.removeAttribute('data-tip-flip');
+    } else {
+      pie.setAttribute('data-active-axis', axis);
+      // Wait one frame so the panel's content (axis-specific) renders
+      // at its real size before we measure.
+      requestAnimationFrame(() => repositionTip(pie));
+    }
+  });
+
+  // Hover handling — attach a reposition call on mouseenter so the
+  // CSS-driven hover tooltip also gets edge-corrected on desktop.
+  // mouseenter doesn't bubble, so we bind per-instance at init.
+  document.querySelectorAll<PieElement>('.crops-pie').forEach((pie) => {
+    pie.addEventListener('mouseenter', () => {
+      requestAnimationFrame(() => repositionTip(pie));
+    });
+    pie.addEventListener('mouseleave', () => {
+      pie.style.removeProperty('--tip-shift-x');
+      pie.removeAttribute('data-tip-flip');
+    });
+  });
+
+  // Reposition any active tip on viewport changes — scrolling and
+  // resizing can move the pie relative to the viewport edge.
+  let scrollFrame = 0;
+  function reflowActive(): void {
+    cancelAnimationFrame(scrollFrame);
+    scrollFrame = requestAnimationFrame(() => {
+      document.querySelectorAll<PieElement>('.crops-pie[data-active-axis]').forEach(repositionTip);
+    });
+  }
+  window.addEventListener('scroll', reflowActive, { passive: true });
+  window.addEventListener('resize', reflowActive);
+</script>

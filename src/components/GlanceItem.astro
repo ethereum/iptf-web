@@ -1,0 +1,89 @@
+---
+interface Props {
+  href: string;
+  num: number | string;
+  label: string;
+  description: string;
+  iconSvg: string;
+}
+
+const { href, num, label, description, iconSvg } = Astro.props;
+---
+
+<a class="glance-item" href={href}>
+  <div class="glance-icon" set:html={iconSvg} />
+  <div class="glance-content">
+    <div class="glance-num">{num}</div>
+    <div class="glance-label">{label}</div>
+    <div class="glance-desc">{description}</div>
+  </div>
+</a>
+
+<style>
+  .glance-item {
+    padding: 1.85rem 1.6rem 1.6rem;
+    border-right: 1px solid var(--color-border);
+    text-decoration: none;
+    color: inherit;
+    transition: background var(--duration-fast) var(--easing-soft);
+    display: grid;
+    grid-template-columns: 56px 1fr;
+    gap: 1rem;
+    align-items: start;
+    min-width: 0;
+  }
+  .glance-item:hover { background: var(--color-bg-subtle); }
+  .glance-item:last-child { border-right: none; }
+
+  .glance-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-md);
+    background: var(--color-cta-tint);
+    color: var(--color-cta);
+    display: grid;
+    place-items: center;
+    transition: background var(--duration-fast) var(--easing-soft),
+                color var(--duration-fast) var(--easing-soft);
+    flex-shrink: 0;
+  }
+  .glance-icon :global(svg) { width: 24px; height: 24px; display: block; }
+  .glance-item:hover .glance-icon { background: var(--color-cta); color: var(--color-on-cta); }
+  .glance-content { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+  .glance-num {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: 1.8rem;
+    line-height: 1;
+    letter-spacing: -0.025em;
+    color: var(--color-primary);
+    font-variant-numeric: tabular-nums;
+    margin-bottom: 0.1rem;
+  }
+  .glance-label {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.015em;
+    line-height: 1.25;
+    margin-bottom: 0.3rem;
+  }
+  .glance-desc {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    line-height: 1.5;
+  }
+
+  @media (max-width: 500px) {
+    .glance-item {
+      grid-template-columns: 1fr;
+      gap: 0.75rem;
+      align-items: stretch;
+    }
+  }
+
+  @media (hover: none) and (pointer: coarse) {
+    .glance-item:hover { background: var(--color-bg); }
+    .glance-item:hover .glance-icon { background: var(--color-cta-tint); color: var(--color-cta); }
+  }
+</style>

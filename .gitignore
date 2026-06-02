@@ -1,13 +1,17 @@
-_site/
-.sass-cache/
-.jekyll-cache/
-.jekyll-metadata
-vendor/
-.bundle/
-Gemfile.lock
+# Dependencies
+node_modules/
 
-# macOS
+# Build artifacts
+dist/
+.astro/
+src/data/graph.json
+
+# Local tooling
+.claude/worktrees/
+
+# OS
 .DS_Store
 
 # Excalidraw source files
 *.excalidraw
+src/data/glossary.json

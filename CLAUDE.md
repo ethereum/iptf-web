@@ -2,116 +2,93 @@
 
 ## Project Overview
 
-This is the IPTF (Institutional Privacy Task Force) website repository. It's a simple Jekyll-based GitHub Pages site deployed at https://iptf.ethereum.org/.
+This is the IPTF (Institutional Privacy Task Force) website repository. Astro static site deployed at https://iptf.ethereum.org/.
+
+Map content (patterns, approaches, use-cases, vendors, domains, jurisdictions) is the projection of the [`iptf-map`](https://github.com/ethereum/iptf-map) repo, pinned as a submodule at `content/`. Blog writeups live in `src/posts/`.
 
 ## Tech Stack
 
-- **Jekyll**: Static site generator
-- **Minima theme**: Minimal Jekyll theme
-- **GitHub Pages**: Hosting and auto-deployment
-- **Markdown**: Content format
+- **Astro** (static site generator, Node 22)
+- **React** islands for the `/explore/*` D3 explorer views
+- **marked** for Markdown rendering
+- **Tailwind CSS v4**
+- **GitHub Pages** for hosting + auto-deploy from `main`
 
 ## Key Files
 
-- `_config.yml`: Site configuration (title, description, theme, blog settings)
-- `index.md`: Homepage content
-- `blog.html`: Blog index page
-- `_posts/`: Published blog posts (filename: `YYYY-MM-DD-title.md`)
-- `_drafts/`: Draft posts not published to live site
-- `_layouts/`: Custom page layouts (post.html, default.html)
-- `_includes/`: Reusable components (head.html with Twitter cards)
-- `assets/images/`: Hero images and media
-- `CNAME`: Custom domain configuration (iptf.ethereum.org)
+- `astro.config.mjs` — Astro config (site URL, integrations).
+- `content/` — iptf-map submodule.
+- `scripts/build-graph.mjs` — Reads iptf-map → `src/data/graph.json`.
+- `src/posts/` — Blog post markdown (filename: `YYYY-MM-DD-slug.md`).
+- `src/pages/` — Routes. `blog/[slug].astro` is the post detail page.
+- `src/layouts/` — `Guide.astro` (default), `Post.astro` (writeups).
+- `src/lib/` — Data access (`data.ts`), post loader (`posts.ts`), markdown renderer (`render.ts`).
+- `public/` — Static assets served verbatim (`assets/`, `CNAME`, `robots.txt`, `tee-protocol-page.html`).
+- `.github/workflows/deploy.yml` — GH Pages build + deploy.
 
-## Development Guidelines
+## Development
 
-### Content Editing
-
-- Main content is in `index.md` (Markdown format)
-- Keep content focused on IPTF mission and contact information
-- Maintain professional, concise tone
-
-### Configuration
-
-- Site settings in `_config.yml`
-- Changes require Jekyll server restart when testing locally
-- Do not modify `CNAME` unless changing domain
-
-### Testing Locally
-
-Run Jekyll server before committing changes:
 ```bash
-bundle exec jekyll serve
+npm install
+npm run dev        # http://localhost:4321
+npm run build      # → ./dist
+npm test
 ```
-View at `http://localhost:4000`
 
-### Commit Conventions
+Requires Node 22.
 
-Use semantic commit messages following conventional commits format:
+## Source-of-truth rule
 
-- `feat:` New features or content additions
-- `fix:` Bug fixes or corrections
-- `docs:` Documentation changes
-- `chore:` Maintenance tasks, dependencies
-- `refactor:` Code restructuring without behavior changes
-- `style:` Formatting, whitespace changes
+iptf-map main is the only source of truth for map content. Anything sourced from the submodule renders verbatim. Render sites are marked with `SOURCE: iptf-map field — do not alter` comments.
 
-Examples:
-- `docs: add README and CLAUDE.md`
-- `feat: add new initiative section`
-- `fix: correct contact email`
+UI chrome (landing copy, FAQ, blog index, post layout) is the site's own and stays curated.
 
-### Deployment
+## Commit conventions
 
-- **Branch**: We deploy from `main` branch only (legacy `gh_pages` branch removed)
-- **Auto-deploy**: GitHub Pages automatically deploys on push to `main`
-- **Timeline**: Changes go live within 1-3 minutes
-- **No manual steps**: Simply push to `main` or merge PR
-- **Live site**: https://iptf.ethereum.org/
+Semantic / conventional commits:
 
-## Typical Tasks
+- `feat:` new features or content
+- `fix:` bug fixes
+- `docs:` documentation
+- `chore:` maintenance, dependencies
+- `refactor:` reorganization without behaviour change
 
-- **Update homepage**: Edit `index.md`
-- **Create blog post**: Add `YYYY-MM-DD-title.md` to `_posts/`
-- **Create draft**: Add to `_drafts/` or use `published: false` frontmatter
-- **Add hero image**: Place in `assets/images/`, reference in post frontmatter
-- **Change site settings**: Edit `_config.yml`
+## Blog posts
 
-## Blog Post Guidelines
-
-### Frontmatter Template
+### Frontmatter template
 
 ```yaml
 ---
-layout: post
 title: "Post Title"
-date: YYYY-MM-DD
+description: "Brief description (shown in social cards and the blog index)."
+date: 2026-01-09
 author: "Author Name"
-image: /assets/images/hero-name.jpg
-description: "Brief description for SEO and social cards"
+image: /assets/images/2026-01-09-slug/hero.png
 ---
 ```
 
-### Hero Images
+The published URL derives from the title via Jekyll-compatible slugify. Hero images live under `public/assets/images/`. Set `published: false` to keep a post out of the live site.
 
-- **Size**: 1200x600px (2:1 ratio) for optimal Twitter/X card display
-- **Location**: `assets/images/`
-- **Format**: JPG, PNG, or SVG
-- Always include alt text consideration in design
+### Hero images
 
-### Draft Workflow
+- Recommended size: 1200x600px (2:1 ratio) for OG / Twitter cards.
+- Location: `public/assets/images/<date-slug>/`.
+- Format: JPG, PNG, WEBP, or SVG.
 
-1. Create draft in `_drafts/` folder (no date in filename)
-2. Preview locally: `bundle exec jekyll serve --drafts`
-3. When ready to publish: Move to `_posts/` with date prefix
-4. Alternatively: Use `published: false` in frontmatter
+## Updating iptf-map content
 
-## Important Notes
+```bash
+git submodule update --remote content
+git add content
+git commit -m "chore(content): bump iptf-map submodule"
+```
 
-- This is a public-facing website representing Ethereum Foundation
-- Keep content accurate and professional
-- Test locally before pushing to main
-- Changes to main branch go live immediately
+## Deployment
+
+- Deploy from `main` only.
+- Push or merge → GitHub Actions builds Astro and deploys to GH Pages.
+- Live within a few minutes.
+- Don't modify `public/CNAME` unless changing the domain.
 
 ## License
 

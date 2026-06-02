@@ -1,0 +1,378 @@
+---
+import { getCollection } from 'astro:content';
+import DetailPageLayout from '../../layouts/DetailPageLayout.astro';
+import RailConnections from '../../components/RailConnections.astro';
+import ArticleFooter from '../../components/ArticleFooter.astro';
+import EntryFacts from '../../components/EntryFacts.astro';
+import CropsPie from '../../components/CropsPie.astro';
+import ContextDifferentiation from '../../components/ContextDifferentiation.astro';
+import PostQuantum from '../../components/PostQuantum.astro';
+import VisibilityMatrix from '../../components/VisibilityMatrix.astro';
+import SubPatternsList from '../../components/SubPatternsList.astro';
+import OssImplList from '../../components/OssImplList.astro';
+import { stripTypePrefix } from '../../lib/slugify';
+import { bodyExcerpt, popSection } from '../../lib/excerpt';
+import { extractRelated, getReferencedBy, loadCollectionMaps } from '../../lib/related';
+import { renderMarkdown } from '../../lib/render';
+
+export async function getStaticPaths() {
+  const entries = await getCollection('patterns');
+  return entries.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry, allEntries: entries },
+  }));
+}
+
+const { entry } = Astro.props;
+const title = stripTypePrefix(entry.data.title);
+
+// Pop the `## Intent` section out — its full paragraph becomes the
+// page lede, and the body renders without it so the same prose isn't
+// shown twice (once truncated under the title, once full in the body).
+const { content: intentContent, bodyWithout } = popSection(entry.body, 'Intent');
+const lede =
+  entry.data.privacy_goal ||
+  intentContent ||
+  bodyExcerpt(entry.body);
+const bodyHtml = renderMarkdown(intentContent ? bodyWithout : entry.body);
+
+// Title pills (Layer / Maturity / Context / Type) removed per IA call —
+// the same metadata surfaces in the body when the upstream pattern
+// authors include it, and the rail's count-chipped sections carry the
+// rest. Keeps the hero clean.
+
+const lastReviewed = entry.data.last_reviewed
+  ? typeof entry.data.last_reviewed === 'string'
+    ? entry.data.last_reviewed
+    : new Date(entry.data.last_reviewed).toISOString().slice(0, 10)
+  : undefined;
+
+const dependencies = (entry.data.dependencies as string[] | undefined) ?? [];
+const worksBestWhen = (entry.data['works-best-when'] as string[] | undefined) ?? [];
+const avoidWhen = (entry.data['avoid-when'] as string[] | undefined) ?? [];
+
+const related = await extractRelated(entry.body, 'patterns', entry.id, entry.data);
+const referencedBy = await getReferencedBy('patterns', entry.id);
+
+const factSections = [
+  ...(worksBestWhen.length > 0 ? [{ heading: 'Works best when', items: worksBestWhen }] : []),
+  ...(avoidWhen.length > 0 ? [{ heading: 'Avoid when', items: avoidWhen }] : []),
+  ...(dependencies.length > 0 ? [{ heading: 'Depends on', items: dependencies }] : []),
+];
+
+// Resolve sub_patterns[].pattern slugs → variant entries with hrefs.
+// Slugs that don't resolve are dropped silently (the build-time
+// validator surfaces them).
+type SubPattern = { name: string; pattern: string; crops_summary?: string };
+const subPatternData = (entry.data.sub_patterns as SubPattern[] | undefined) ?? [];
+const maps = subPatternData.length > 0 ? await loadCollectionMaps() : null;
+const subPatterns = maps
+  ? subPatternData
+      .filter((sp) => maps.patterns.has(sp.pattern))
+      .map((sp) => ({
+        name: sp.name,
+        href: `/patterns/${sp.pattern}/`,
+        crops_summary: sp.crops_summary,
+      }))
+  : [];
+
+const layerKey = (entry.data.layer ?? '').toString().toLowerCase();
+const layerLabel = layerKey === 'l1' ? 'L1' : layerKey === 'l2' ? 'L2' : layerKey === 'hybrid' ? 'hybrid' : null;
+const sibling = layerLabel
+  ? { href: '/patterns/', label: `More ${layerLabel} patterns` }
+  : null;
+
+// Optional structured blocks for the renderer.
+const cropsContext = (entry.data.crops_context as Record<string, string> | undefined) ?? null;
+const ctxDiff = entry.data.context_differentiation as { i2i?: string; i2u?: string } | undefined;
+const pq = entry.data.post_quantum as { risk?: string; vector?: string; mitigation?: string } | undefined;
+const standards = (entry.data.standards as string[] | undefined) ?? [];
+const visibility = entry.data.visibility as
+  | { counterparty?: string[]; chain?: string[]; regulator?: string[]; public?: string[] }
+  | undefined;
+const ossImpls = (entry.data.open_source_implementations as Array<{ url: string; description?: string; language?: string }> | undefined) ?? [];
+---
+
+<DetailPageLayout
+  title={`${title} · Pattern`}
+  pageTitle={title}
+  description={lede}
+  current="/patterns/"
+  breadcrumbs={[
+    { label: 'Home', href: '/' },
+    { label: 'Building blocks', href: '/patterns/' },
+    { label: title },
+  ]}
+  lede={lede}
+>
+  <EntryFacts sections={factSections} />
+
+  {ctxDiff && <ContextDifferentiation i2i={ctxDiff.i2i} i2u={ctxDiff.i2u} />}
+
+  {pq && <PostQuantum risk={pq.risk} vector={pq.vector} mitigation={pq.mitigation} />}
+
+  {visibility && (
+    <VisibilityMatrix
+      counterparty={visibility.counterparty}
+      chain={visibility.chain}
+      regulator={visibility.regulator}
+      public={visibility.public}
+    />
+  )}
+
+  <div class="prose pattern-prose" set:html={bodyHtml} />
+
+  <SubPatternsList variants={subPatterns} />
+
+  <OssImplList items={ossImpls} />
+
+  <Fragment slot="after-content">
+    <ArticleFooter related={related} sibling={sibling} lastReviewed={lastReviewed} />
+  </Fragment>
+
+  <Fragment slot="rail">
+    <aside class="pattern-rail">
+      {entry.data.crops_profile && typeof entry.data.crops_profile === 'object' && (
+        <div class="rail-crops">
+          <div class="rail-crops-label">CROPS profile</div>
+          <CropsPie profile={entry.data.crops_profile} context={cropsContext} size={88} />
+        </div>
+      )}
+
+      {standards.length > 0 && (
+        <details class="rail-section" open>
+          <summary class="rail-label">
+            <span>Standards</span>
+            <span class="rail-count">{standards.length}</span>
+          </summary>
+          <ul class="rail-fact-list rail-standards-list">
+            {standards.map((s) => (
+              <li><code>{s}</code></li>
+            ))}
+          </ul>
+        </details>
+      )}
+
+      <RailConnections referencedBy={referencedBy} />
+    </aside>
+  </Fragment>
+</DetailPageLayout>
+
+<style>
+  /* Pattern body now renders via renderMarkdown (marked) instead of
+     Astro's <Content />, because we pop the `## Intent` section out
+     of the markdown before render — the Intent paragraph becomes the
+     page lede so it doesn't show up twice. These prose styles match
+     the look the article had under <Content />. */
+  .pattern-prose :global(h2) {
+    font-family: var(--font-sans);
+    font-size: 1.45rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.02em;
+    margin: 2.25rem 0 0.85rem;
+    line-height: 1.25;
+  }
+  .pattern-prose :global(h3) {
+    font-family: var(--font-sans);
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.015em;
+    margin: 1.5rem 0 0.5rem;
+  }
+  .pattern-prose :global(p) {
+    margin: 0.6rem 0 0.95rem;
+    line-height: 1.65;
+    color: var(--color-text);
+  }
+  .pattern-prose :global(ul),
+  .pattern-prose :global(ol) {
+    padding-left: 1.5rem;
+    margin: 0.6rem 0 0.95rem;
+  }
+  .pattern-prose :global(li) {
+    margin: 0.25rem 0;
+    line-height: 1.6;
+  }
+  .pattern-prose :global(a) {
+    color: var(--color-cta);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: border-color var(--duration-fast) var(--easing-soft);
+  }
+  .pattern-prose :global(a:hover) {
+    border-bottom-color: currentColor;
+  }
+  .pattern-prose :global(code) {
+    font-family: var(--font-mono);
+    font-size: 0.88em;
+    background: var(--color-bg-subtle);
+    padding: 0.05em 0.4em;
+    border-radius: var(--radius-sm);
+    color: var(--color-primary);
+  }
+  .pattern-prose :global(strong) {
+    color: var(--color-primary);
+    font-weight: 700;
+  }
+  .pattern-prose :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+  }
+  .pattern-prose :global(th),
+  .pattern-prose :global(td) {
+    padding: 0.55rem 0.8rem;
+    border-bottom: 1px solid var(--color-border);
+    text-align: left;
+    vertical-align: top;
+  }
+  .pattern-prose :global(th) {
+    background: var(--color-bg-subtle);
+    color: var(--color-primary);
+    font-weight: 700;
+  }
+
+  /* The legacy .crops-card style is no longer used — pizza moved
+     to the rail. Block kept removed to avoid dead CSS. */
+
+  /* CROPS pizza in the rail. Pinned at the top of the sidebar so
+     the at-a-glance signal is always above the fold; tooltip still
+     escapes the card on hover (no overflow:hidden). */
+  .rail-crops {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding: 0.55rem 0 1.25rem;
+    margin-bottom: 0.5rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .rail-crops-label {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+
+  /* ─── Right rail ────────────────────────────────────────────── */
+  /* Mirrors the approach-detail rail vocabulary: each section is a
+     native <details> with a count chip; first section open by
+     default, rest collapsed. Single +/− affordance. */
+  .pattern-rail {
+    position: sticky;
+    top: 80px;
+    font-family: var(--font-sans);
+  }
+  .rail-section {
+    margin-bottom: 1.4rem;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 0.85rem;
+  }
+  .rail-section[open] {
+    padding-bottom: 1.1rem;
+  }
+  .rail-section:last-child {
+    border-bottom: none;
+  }
+  .rail-label {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.55rem 0 0.5rem;
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .rail-label::-webkit-details-marker { display: none; }
+  .rail-label:hover {
+    color: var(--color-primary);
+  }
+  .rail-label::after {
+    content: '+';
+    color: var(--color-text-faint);
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .rail-section[open] > .rail-label::after {
+    content: '−';
+  }
+  .rail-count {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--color-bg-subtle);
+    color: var(--color-text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-left: auto;
+    margin-right: 0.4rem;
+  }
+
+  /* Fact lists — Works best when / Avoid when / Depends on /
+     Standards all share this list shape. */
+  .rail-fact-list {
+    list-style: none;
+    padding: 0;
+    margin: 0.35rem 0 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .rail-fact-list li {
+    font-size: 0.84rem;
+    line-height: 1.5;
+    color: var(--color-text);
+    padding-left: 0.85rem;
+    position: relative;
+  }
+  .rail-fact-list li::before {
+    content: '';
+    position: absolute;
+    top: 0.5rem;
+    left: 0;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--color-cta);
+  }
+  /* Standards render as inline chips that flow horizontally and
+     wrap to a new row only when the rail is too narrow to fit them. */
+  .rail-standards-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+  .rail-standards-list li {
+    padding-left: 0;
+  }
+  .rail-standards-list li::before { content: none; }
+  .rail-standards-list code {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    background: var(--color-bg-subtle);
+    padding: 0.15rem 0.5rem;
+    border-radius: var(--radius-sm);
+    white-space: nowrap;
+  }
+
+  @media (max-width: 900px) {
+    .pattern-rail { position: static; }
+  }
+</style>

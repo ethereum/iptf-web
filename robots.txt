@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://iptf.ethereum.org/sitemap.xml

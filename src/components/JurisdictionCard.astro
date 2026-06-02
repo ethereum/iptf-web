@@ -1,0 +1,214 @@
+---
+interface Props {
+  href: string;
+  code: string;
+  title: string;
+  status?: string;
+  regionDetail?: string;
+  gloss?: string;
+  keyRegulations?: string[];
+  scopeEntities?: string[];
+  scopeActivities?: string[];
+}
+
+const {
+  href,
+  code,
+  title,
+  status,
+  regionDetail,
+  gloss,
+  keyRegulations = [],
+  scopeEntities = [],
+  scopeActivities = [],
+} = Astro.props;
+
+const statusKey = (status ?? '').toLowerCase();
+const statusKind = statusKey.includes('review')
+  ? 'review'
+  : 'draft';
+const statusLabel = status ?? 'Draft';
+---
+
+<a class="jx-card" href={href}>
+  <div class="jx-body">
+    <h3>{title}</h3>
+    <p class="jx-tag-row">
+      <span class="code">{code}</span>
+      {regionDetail && <span class="region-detail">{regionDetail}</span>}
+    </p>
+    {gloss && <p class="gloss">{gloss}</p>}
+    {keyRegulations.length > 0 && (
+      <div class="key-regs">
+        {keyRegulations.map((r) => <span>{r}</span>)}
+      </div>
+    )}
+  </div>
+  {(scopeEntities.length > 0 || scopeActivities.length > 0) && (
+    <aside class="jx-aside">
+      <h4>Scope</h4>
+      {scopeEntities.length > 0 && (
+        <div class="scope-row">
+          <strong>Entities</strong>
+          {scopeEntities.join(', ')}
+        </div>
+      )}
+      {scopeActivities.length > 0 && (
+        <div class="scope-row">
+          <strong>Activities</strong>
+          {scopeActivities.join(', ')}
+        </div>
+      )}
+    </aside>
+  )}
+</a>
+
+<style>
+  .jx-card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg);
+    text-decoration: none;
+    color: var(--color-text);
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    transition: transform var(--duration-base) var(--easing-soft),
+                box-shadow var(--duration-base) var(--easing-soft),
+                border-color var(--duration-base) var(--easing-soft);
+    position: relative;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  @media (max-width: 800px) { .jx-card { grid-template-columns: 1fr; } }
+  .jx-card:hover {
+    border-color: var(--color-cta);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-3px);
+  }
+  .jx-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 3px;
+    width: 0;
+    background: var(--color-cta);
+    transition: width var(--duration-slow) var(--easing-soft);
+  }
+  .jx-card:hover::after { width: 100%; }
+
+  .jx-body {
+    padding: 1.4rem 1.6rem 1.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    min-width: 0;
+  }
+  .jx-tag-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+  }
+  .jx-tag-row .code {
+    background: var(--color-primary);
+    color: var(--color-on-primary);
+    padding: 0.18rem 0.55rem;
+    border-radius: 4px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+  }
+  .jx-tag-row .status {
+    padding: 0.18rem 0.55rem;
+    border-radius: 99px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: 10px;
+  }
+  .jx-tag-row .status.draft { background: var(--color-bg-muted); color: var(--color-text-muted); }
+  .jx-tag-row .status.review { background: var(--color-cta-tint-strong); color: var(--color-cta); }
+  .jx-tag-row .region-detail { color: var(--color-text-muted); }
+  .jx-tag-row .region-detail::before {
+    content: '· ';
+    color: var(--color-border-strong);
+  }
+
+  .jx-card h3 {
+    font-family: var(--font-sans);
+    font-size: 1.25rem;
+    font-weight: 700;
+    letter-spacing: -0.018em;
+    line-height: 1.25;
+    color: var(--color-primary);
+    min-width: 0;
+  }
+  .gloss {
+    font-size: 14.5px;
+    line-height: 1.6;
+    color: var(--color-text-secondary);
+  }
+  .key-regs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: auto;
+    padding-top: 0.7rem;
+    border-top: 1px dashed var(--color-border);
+    font-family: var(--font-mono);
+    font-size: 11px;
+  }
+  .key-regs span {
+    background: var(--color-bg-subtle);
+    border: 1px solid var(--color-border);
+    padding: 0.2rem 0.55rem;
+    border-radius: 99px;
+    color: var(--color-text-secondary);
+    letter-spacing: 0.02em;
+  }
+
+  .jx-aside {
+    background: var(--color-bg-subtle);
+    border-left: 1px solid var(--color-border);
+    padding: 1.4rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+  }
+  @media (max-width: 800px) {
+    .jx-aside { border-left: none; border-top: 1px solid var(--color-border); }
+  }
+  .jx-aside h4 {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+  .scope-row {
+    font-size: 12.5px;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+    padding-bottom: 0.55rem;
+    border-bottom: 1px dashed var(--color-border);
+  }
+  .scope-row:last-child { border-bottom: none; padding-bottom: 0; }
+  .scope-row strong {
+    font-family: var(--font-mono);
+    display: block;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    margin-bottom: 0.2rem;
+  }
+
+  @media (hover: none) and (pointer: coarse) {
+    .jx-card:hover { transform: none; }
+  }
+</style>

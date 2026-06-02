@@ -1,0 +1,78 @@
+---
+import { getCollection } from 'astro:content';
+import ListPageLayout from '../../layouts/ListPageLayout.astro';
+import AnchorNav from '../../components/AnchorNav.astro';
+import SectionHeading from '../../components/SectionHeading.astro';
+import JurisdictionCard from '../../components/JurisdictionCard.astro';
+import { jurisdictionCode, regionBucket, REGION_ORDER, stripTypePrefix } from '../../lib/slugify';
+import { bodyExcerpt } from '../../lib/excerpt';
+
+const items = await getCollection('jurisdictions');
+
+const grouped = new Map<string, typeof items>();
+for (const r of REGION_ORDER) grouped.set(r, []);
+for (const it of items) grouped.get(regionBucket(it.data.region))!.push(it);
+
+const orderedRegions = REGION_ORDER.filter((r) => grouped.get(r)!.length > 0);
+
+function anchor(region: string): string {
+  return region.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+}
+
+const tabs = orderedRegions.map((r) => ({
+  href: `#${anchor(r)}`,
+  label: r,
+  count: grouped.get(r)!.length,
+}));
+
+---
+
+<ListPageLayout
+  title="Jurisdictions"
+  pageTitle="Jurisdictions"
+  description="Jurisdictions"
+  current="/jurisdictions/"
+>
+  <Fragment slot="anchor-nav">
+    <AnchorNav tabs={tabs} ariaLabel="Region navigation" />
+  </Fragment>
+
+  <div class="container">
+    {orderedRegions.map((region) => (
+      <section class="region-section">
+        <SectionHeading
+          id={anchor(region)}
+          title={region}
+        />
+        <div class="jx-list">
+          {grouped.get(region)!.map((j) => {
+            const gloss = bodyExcerpt(j.body, 'At a Glance') ?? bodyExcerpt(j.body);
+            return (
+              <JurisdictionCard
+                href={`/jurisdictions/${j.id}/`}
+                code={jurisdictionCode(j.id)}
+                title={stripTypePrefix(j.data.title)}
+                status={j.data.status}
+                gloss={gloss}
+                keyRegulations={j.data['key-regulations']}
+                scopeEntities={j.data.scope?.entities ?? []}
+                scopeActivities={j.data.scope?.activities ?? []}
+              />
+            );
+          })}
+        </div>
+      </section>
+    ))}
+
+  </div>
+</ListPageLayout>
+
+<style>
+  .region-section { margin-top: 3rem; margin-bottom: 4rem; }
+  .region-section:last-of-type { margin-bottom: 1rem; }
+  .jx-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+</style>

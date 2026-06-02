@@ -1,0 +1,147 @@
+---
+import { getCollection } from 'astro:content';
+import ListPageLayout from '../../layouts/ListPageLayout.astro';
+import { stripTypePrefix } from '../../lib/slugify';
+import { bodyExcerpt } from '../../lib/excerpt';
+import { statusTone, type StatusTone } from '../../lib/statusTone';
+
+const items = (await getCollection('vendors')).slice().sort((a, b) =>
+  stripTypePrefix(a.data.title).localeCompare(stripTypePrefix(b.data.title)),
+);
+
+// Map the shared status/maturity tone to the global chip-modifier
+// vocabulary in globals.css. Keeps every listing page using the same
+// tagging language instead of a local .badge variant.
+function chipMod(t: StatusTone): string {
+  if (t === 'strong') return 'chip--success';
+  if (t === 'mid') return 'chip--warning';
+  return 'chip--muted';
+}
+
+// Strip parenthetical clauses and trailing-explainer tails from
+// maturity values so the listing chip stays a short label even when
+// the source frontmatter contains a sentence-form value (e.g. Soda
+// Labs: "mainnet (for integrated privacy) & testnet (for ...) explained below"
+// → "mainnet & testnet"). Source content is preserved on the detail page.
+function shortMaturity(s: string | undefined): string | undefined {
+  if (!s) return s;
+  const trimmed = s
+    .replace(/\s*\([^)]*\)/g, '')
+    .replace(/\s+explained\b.*$/i, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  return trimmed.length > 0 ? trimmed : s;
+}
+---
+
+<ListPageLayout
+  title="Vendors"
+  pageTitle="Vendors"
+  description="Vendors"
+  current="/vendors/"
+>
+  <div class="container">
+    <div class="vendor-grid">
+      {items.map((v) => {
+        const title = stripTypePrefix(v.data.title);
+        const gloss = bodyExcerpt(v.body, 'What it is') ?? bodyExcerpt(v.body);
+        return (
+          <a class="vendor-card" href={`/vendors/${v.id}/`}>
+            <h3>{title}</h3>
+            {(v.data.maturity || v.data.status) && (
+              <div class="meta">
+                {v.data.maturity ? <span class:list={['chip', chipMod(statusTone(v.data.maturity))]}>{shortMaturity(v.data.maturity)}</span> : null}
+                {v.data.status ? <span class:list={['chip', chipMod(statusTone(v.data.status))]}>{v.data.status}</span> : null}
+              </div>
+            )}
+            {gloss && <p>{gloss}</p>}
+          </a>
+        );
+      })}
+    </div>
+  </div>
+</ListPageLayout>
+
+<style>
+  .vendor-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    /* Equalise every card in a row so a long gloss on one doesn't
+       make its neighbour look visually smaller. */
+    grid-auto-rows: 1fr;
+    gap: 1rem;
+    margin-top: 2.5rem;
+  }
+  @media (max-width: 720px) {
+    .vendor-grid {
+      /* minmax(0, 1fr) — without the 0 lower bound the track grows
+         to the widest card's min-content (long chip + long title),
+         forcing horizontal page scroll on mobile. */
+      grid-template-columns: minmax(0, 1fr);
+      grid-auto-rows: auto;
+    }
+    .vendor-card .meta .chip {
+      /* On mobile, allow long status pills like
+         "production (Ignition Chain)" to wrap instead of forcing
+         the card past the viewport. */
+      white-space: normal;
+    }
+  }
+  .vendor-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 1.4rem 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg);
+    box-shadow: var(--shadow-sm);
+    text-decoration: none;
+    color: var(--color-text);
+    transition: transform var(--duration-base) var(--easing-soft),
+                box-shadow var(--duration-base) var(--easing-soft),
+                border-color var(--duration-base) var(--easing-soft);
+  }
+  .vendor-card:hover {
+    border-color: var(--color-cta);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+  .vendor-card h3 {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: 1.15rem;
+    letter-spacing: -0.018em;
+    line-height: 1.25;
+    color: var(--color-primary);
+    margin: 0;
+  }
+  .vendor-card .meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem 0.4rem;
+    margin-top: 0.1rem;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+  }
+  .vendor-card p {
+    font-size: 14px;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+    margin: 0;
+  }
+  .vendor-link {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-cta);
+    margin-top: 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .vendor-link .arr { transition: transform var(--duration-fast) var(--easing-soft); }
+  .vendor-card:hover .vendor-link .arr { transform: translateX(3px); }
+</style>

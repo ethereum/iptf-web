@@ -1,0 +1,195 @@
+---
+import { statusTone } from '../lib/statusTone';
+
+/*
+ * Listing card for an approach (case study).
+ *
+ * CROPS pie removed in the frontmatter-source-of-truth pass: no
+ * approach upstream currently carries a `crops_profile` field. If the
+ * content team adds one later, reinstate the pie by reading
+ * `entry.data.crops_profile` here.
+ */
+
+interface Props {
+  href: string;
+  title: string;
+  goal?: string;
+  status?: string;
+  useCase?: string;
+  useCaseHref?: string;
+  /** Number of patterns referenced — computed from frontmatter arrays. */
+  buildingBlocks?: number;
+  /** Per-section index — when provided, renders as a "01" / "02" eyebrow
+   *  per the iptf-web merge handoff's numbered card variant. */
+  ordinal?: number;
+}
+
+const { href, title, goal, status, useCase, useCaseHref, buildingBlocks, ordinal } = Astro.props;
+const ordinalLabel = typeof ordinal === 'number' ? String(ordinal).padStart(2, '0') : null;
+const stone = statusTone(status);
+---
+
+<a class="cs-card card-base" href={href}>
+  {ordinalLabel && <span class="cs-ordinal" aria-hidden="true">{ordinalLabel}</span>}
+  <div class="cs-body">
+    <h3>{title}</h3>
+    <div class="meta">
+      {status && <span class:list={['chip', 'chip--status', `tone-${stone}`]}>{status}</span>}
+      {useCase && (
+        useCaseHref
+          ? (
+            <span class="chip chip--usecase" data-href={useCaseHref}>
+              <span class="arr">↳</span>{useCase}
+            </span>
+          )
+          : (
+            <span class="chip chip--usecase">
+              <span class="arr">↳</span>{useCase}
+            </span>
+          )
+      )}
+      {typeof buildingBlocks === 'number' && buildingBlocks > 0 && (
+        <span class="chip chip--blocks">{buildingBlocks}&nbsp;blocks</span>
+      )}
+    </div>
+    {goal && <p class="goal">{goal}</p>}
+  </div>
+</a>
+
+<style>
+  /* Card-base from globals.css carries border / radius / bg / shadow /
+     hover transition. Component-scoped rules below only carry the
+     approach-specific bits (accent bar pseudo-element on hover). */
+  .cs-card {
+    display: block;
+    padding: 1.4rem 1.5rem 1.3rem;
+    position: relative;
+  }
+
+  /* Numbered card variant — ordinal sits in the top-right corner as a
+     monospace mark. Subtle by default; tightens up the visual hierarchy
+     of multi-card sections without competing with the title. */
+  .cs-ordinal {
+    position: absolute;
+    top: 1.1rem;
+    right: 1.4rem;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--color-text-faint);
+    letter-spacing: 0.04em;
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .cs-card:hover .cs-ordinal {
+    color: var(--color-cta);
+  }
+
+  /* Top accent bar on hover — visual cue that this card is a "case
+     study" / hero content type. Carries its own top-corner radius so it
+     sits flush with the card's rounded edges. */
+  .cs-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 3px;
+    width: 0;
+    background: var(--color-cta);
+    border-top-left-radius: var(--radius-md);
+    border-top-right-radius: var(--radius-md);
+    transition: width var(--duration-slow) var(--easing-soft);
+  }
+  .cs-card:hover::after { width: 100%; }
+
+  .cs-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+    min-width: 0;
+  }
+  .cs-card h3 {
+    font-family: var(--font-sans);
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: -0.018em;
+    line-height: 1.25;
+    color: var(--color-primary);
+    min-width: 0;
+  }
+  .goal {
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--color-text-secondary);
+  }
+
+  /* Chip row — same vocabulary as Pattern cards. */
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.3rem 0.4rem;
+    margin-top: 0.35rem;
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.04em;
+  }
+  .chip {
+    padding: 0.18rem 0.5rem;
+    border-radius: var(--radius-sm);
+    font-weight: 600;
+    line-height: 1.3;
+    text-transform: lowercase;
+  }
+  .chip--status.tone-strong {
+    background: var(--color-success-tint);
+    color: var(--color-success-strong);
+  }
+  .chip--status.tone-mid {
+    background: var(--color-warning-tint-strong);
+    color: var(--color-warning-strong);
+  }
+  .chip--status.tone-plain {
+    background: var(--color-bg-muted);
+    color: var(--color-text-secondary);
+  }
+  /* Use-case chip — distinct CTA-blue tint signals this is a downstream
+     link, the "what problem this case study solves". */
+  .chip--usecase {
+    background: var(--color-cta-tint);
+    color: var(--color-cta);
+    text-transform: none;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.25rem;
+  }
+  .chip--usecase .arr {
+    color: var(--color-cta);
+    opacity: 0.7;
+    font-size: 11px;
+  }
+  .chip--blocks {
+    background: var(--color-bg-subtle);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-secondary);
+    text-transform: lowercase;
+    font-weight: 500;
+  }
+</style>
+
+<script>
+  /*
+   * Use-case chips carry a data-href so a tap on the chip jumps to the
+   * use-case detail page instead of bubbling to the parent card link.
+   * Plain JS click-handler (no Stimulus / React) — just intercept on
+   * elements that have data-href and stopPropagation.
+   */
+  document.querySelectorAll<HTMLElement>('.chip--usecase[data-href]').forEach((chip) => {
+    chip.style.cursor = 'pointer';
+    chip.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const href = chip.dataset.href;
+      if (href) window.location.href = href;
+    });
+  });
+</script>

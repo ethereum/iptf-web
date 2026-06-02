@@ -2,117 +2,102 @@
 
 Static website for the Institutional Privacy Task Force (IPTF), live at [https://iptf.ethereum.org/](https://iptf.ethereum.org/).
 
-## About
+Astro static site. Content for patterns, approaches, use-cases, vendors, domains, and jurisdictions is sourced from the [`iptf-map`](https://github.com/ethereum/iptf-map) repo via a git submodule at `content/`. Writeups (blog posts) live in `src/posts/`.
 
-The IPTF helps onboard institutions and enterprises onto Ethereum, focusing on privacy needs that are performant, secure, usable, and accessible.
+## How it works
 
-## How It Works
+- **Astro** generates every page at build time from data in `content/` (iptf-map) and `src/posts/` (writeups).
+- **GitHub Pages** auto-deploys from `main` via `.github/workflows/deploy.yml`. Changes go live within a few minutes.
+- **CNAME** (`public/CNAME`) points the deployment at `iptf.ethereum.org`.
 
-This is a Jekyll-based GitHub Pages site:
-
-- **Jekyll** with **Minima theme** processes Markdown to HTML
-- **GitHub Pages** auto-deploys on push to `main` branch (we use `main` only, no `gh_pages` branch)
-- **Custom domain** via CNAME file
-- Changes to `main` go live automatically in 1-3 minutes
-
-### Structure
+## Repository layout
 
 ```
 iptf-web/
-├── _config.yml       # Jekyll config (theme, title, description)
-├── _posts/           # Published blog posts (YYYY-MM-DD-title.md)
-├── _drafts/          # Draft posts (not published)
-├── _layouts/         # Custom page layouts
-├── _includes/        # Reusable components (head, header, footer)
-├── assets/images/    # Images and media files
-├── blog.html         # Blog index page
-├── index.md          # Homepage content
-└── CNAME             # Custom domain
+├── astro.config.mjs       Astro configuration (site URL, integrations)
+├── content/               iptf-map submodule (patterns, approaches, etc.)
+├── public/                Static assets served verbatim
+│   ├── assets/images/     Post hero images, diagrams
+│   ├── assets/css/
+│   ├── assets/js/
+│   ├── tee-protocol-page.html  Standalone interactive whiteboard
+│   ├── CNAME
+│   └── robots.txt
+├── scripts/
+│   └── build-graph.mjs    Reads iptf-map → src/data/graph.json
+├── src/
+│   ├── data/              Generated at build (graph.json, glossary.json)
+│   ├── posts/             Blog post markdown
+│   ├── lib/               Data access, markdown rendering, post loader
+│   ├── layouts/           Guide.astro (default), Post.astro (writeups)
+│   ├── components/        React islands for /explore/* (D3, Galaxy)
+│   ├── pages/
+│   │   ├── index.astro    Landing
+│   │   ├── about.astro
+│   │   ├── blog/index.astro       /blog
+│   │   ├── [slug].astro           /<post-slug>/ (writeups)
+│   │   ├── approaches/            Case studies
+│   │   ├── use-cases/
+│   │   ├── patterns/
+│   │   ├── vendors/
+│   │   ├── domains/
+│   │   ├── jurisdictions/
+│   │   ├── explore/{galaxy,tree,browse}.astro   D3 explorer
+│   │   ├── faq.astro
+│   │   ├── glossary.astro
+│   │   └── feed.xml.js    RSS feed
+│   └── styles/
+└── tests/                 vitest suite
 ```
 
-## Running Locally
+## Running locally
 
-### Prerequisites
-
-This site requires Ruby 3.0+. macOS system Ruby (2.6) is too old. Install via Homebrew:
+Requires Node 22.
 
 ```bash
-brew install ruby
+npm install
+npm run dev    # http://localhost:4321
+npm run build  # → ./dist
+npm test
 ```
 
-### Setup
+## Writing a blog post
 
-1. **Install dependencies**
-   ```bash
-   /opt/homebrew/opt/ruby/bin/bundle install
-   ```
-
-2. **Start server**
-
-   Option A - Use helper script:
-   ```bash
-   ./serve.sh
-   ```
-
-   Option B - Direct command:
-   ```bash
-   /opt/homebrew/opt/ruby/bin/bundle exec jekyll serve
-   ```
-
-3. **View at** `http://localhost:4000`
-
-Note: Changes to `_config.yml` require server restart; Markdown changes rebuild automatically.
-
-### Preview Drafts
-
-To preview draft posts locally:
-```bash
-./serve.sh --drafts
-```
-
-## Blog Posts
-
-### Creating a New Post
-
-1. Create a new file in `_posts/` with the format: `YYYY-MM-DD-title.md`
-2. Add YAML frontmatter:
+Drop a file into `src/posts/` named `YYYY-MM-DD-slug.md` with frontmatter:
 
 ```yaml
 ---
-layout: post
-title: "Your Post Title"
-date: 2026-01-09 HH::mm::ss TZ
+title: "Post Title"
+description: "Brief description (shown in social cards and the blog index)."
+date: 2026-01-09
 author: "Author Name"
-image: /assets/images/your-hero.jpg
-description: "Brief description for previews and social cards"
+image: /assets/images/2026-01-09-slug/hero.png   # optional, hero image
 ---
 ```
 
-3. Write content in Markdown below the frontmatter
+The published URL is derived from the title (`/<title-slugified>/`). Hero images live under `public/assets/images/`.
 
-### Hero Images
+Set `published: false` in frontmatter to keep a post out of the deployed site.
 
-- Recommended size: 1200x600px (2:1 ratio for Twitter/X cards)
-- Place images in `assets/images/`
-- Reference in frontmatter: `image: /assets/images/filename.jpg`
+## Updating the iptf-map content
 
-### Draft Posts
+```bash
+git submodule update --remote content
+git add content
+git commit -m "chore(content): bump iptf-map submodule"
+```
 
-Two ways to create drafts:
+## Source-of-truth rule
 
-1. **Using _drafts folder**: Create file in `_drafts/` (no date in filename)
-2. **Using frontmatter**: Add `published: false` to any post
+iptf-map main is the only source of truth for patterns, approaches, vendors, etc. Anything sourced from the submodule renders verbatim. Pages that emit map content mark each render site with `SOURCE: iptf-map field — do not alter`.
 
-Drafts won't appear on live site but can be previewed locally with `--drafts` flag.
+UI chrome (landing copy, FAQ, blog index, post layout) is the site's own and stays curated here.
 
 ## Contributing
 
-1. Create branch from `main`
-2. Make changes and test locally with `./serve.sh`
-3. Create pull request to merge into `main`
-4. Once merged, changes deploy automatically to https://iptf.ethereum.org/
-
-**Note**: We deploy from `main` branch only. The legacy `gh_pages` branch has been removed.
+1. Branch from `main`.
+2. Run `npm install && npm run dev`, verify your change.
+3. Open a PR. Once merged, GH Pages redeploys within a few minutes.
 
 ## Contact
 

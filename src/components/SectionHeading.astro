@@ -1,0 +1,111 @@
+---
+/**
+ * Section heading used inside listing pages (use-cases, approaches,
+ * jurisdictions, patterns). Renders the same icon as the anchor-nav,
+ * inline with the h2 at 1em sizing, plus an optional primer paragraph
+ * passed through as inline HTML.
+ */
+
+interface Props {
+  id: string;
+  title: string;
+  iconSvg?: string;
+  /** May contain inline HTML (<strong>); rendered via set:html. */
+  primer?: string;
+  /** When set, renders a "Read more →" link after the primer (used by
+   *  the use-cases / approaches listings, which truncate the domain
+   *  primer to its first bullet and link to the domain detail page). */
+  readMoreHref?: string;
+}
+
+const { id, title, iconSvg, primer, readMoreHref } = Astro.props;
+---
+
+<header class="section-head" id={id}>
+  <h2>
+    {iconSvg && <span class="ic" set:html={iconSvg} />}
+    <span>{title}</span>
+  </h2>
+  {primer && <div class="primer" set:html={primer} />}
+  {readMoreHref && (
+    <a class="primer-more" href={readMoreHref}>Read more<span class="arr">→</span></a>
+  )}
+</header>
+
+<style>
+  .section-head {
+    margin-bottom: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    scroll-margin-top: 4.5rem;
+  }
+  .section-head h2 {
+    font-family: var(--font-sans);
+    font-size: clamp(1.6rem, 2.6vw, 2rem);
+    font-weight: 700;
+    line-height: 1.18;
+    letter-spacing: -0.022em;
+    color: var(--color-primary);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.7rem;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+  .section-head h2 .ic {
+    display: inline-grid;
+    place-items: center;
+    color: var(--color-cta);
+    flex-shrink: 0;
+  }
+  .section-head h2 .ic :global(svg) {
+    width: 1em;
+    height: 1em;
+    stroke-width: 2;
+  }
+  .primer {
+    font-size: 1rem;
+    color: var(--color-text-secondary);
+    line-height: 1.6;
+    max-width: 70ch;
+    margin-top: 0.4rem;
+  }
+  .primer :global(strong) { color: var(--color-primary); font-weight: 600; }
+  .primer :global(p) {
+    margin: 0 0 0.5rem;
+  }
+  .primer :global(p:last-child) { margin-bottom: 0; }
+  .primer :global(ul) {
+    margin: 0;
+    padding-left: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .primer :global(li) {
+    font-size: 0.95rem;
+    line-height: 1.55;
+  }
+  .primer :global(code) {
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    padding: 0.05rem 0.35rem;
+    background: var(--color-bg-subtle);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+  }
+  .primer-more {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-cta);
+    text-decoration: none;
+    width: fit-content;
+  }
+  .primer-more:hover { color: var(--color-cta-hover); }
+  .primer-more .arr { transition: transform var(--duration-fast) var(--easing-soft); }
+  .primer-more:hover .arr { transform: translateX(3px); }
+</style>

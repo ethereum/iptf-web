@@ -1,0 +1,215 @@
+---
+/**
+ * Right-rail block: incoming back-references only.
+ *
+ * Each category (case studies / use cases / building blocks /
+ * vendors) is a native <details> with a count chip. Only "use cases"
+ * is open by default per the IA call — other categories collapse to
+ * a single line so the rail stays scannable when a pattern is
+ * referenced from many places.
+ *
+ * The "Case studies" subgroup, when present, keeps its green
+ * featured tint as a visual signal that approaches are the canonical
+ * worked-solution content type.
+ */
+
+interface RelatedItem {
+  label: string;
+  href: string;
+}
+
+interface RelatedGroup {
+  heading: string;
+  items: RelatedItem[];
+}
+
+interface Props {
+  referencedBy?: RelatedGroup[];
+}
+
+const { referencedBy = [] } = Astro.props;
+---
+
+{referencedBy.length > 0 && (
+  <aside class="rail-connections">
+    <section class="backrefs">
+      <h4 class="backref-title">Referenced by</h4>
+      {referencedBy.map((group) => {
+        const subheading = group.heading.replace(/^Referenced by /, '');
+        // Approaches keeps its featured (green) treatment as the
+        // primary worked-solution content type. Match either
+        // "approach" or legacy "case study" / "architecture" wording
+        // so a stale data path still gets the right styling.
+        const isArchitectures = /approach|architecture|case stud/i.test(subheading);
+        return (
+          <details
+            class:list={['backref-group', { 'backref-group--featured': isArchitectures }]}
+            open={isArchitectures}
+          >
+            <summary class="backref-summary">
+              <span class="backref-subheading">{subheading}</span>
+              <span class="backref-count">{group.items.length}</span>
+            </summary>
+            <ul class="link-list">
+              {group.items.map((it) => (
+                <li><a href={it.href}>{it.label}</a></li>
+              ))}
+            </ul>
+          </details>
+        );
+      })}
+    </section>
+  </aside>
+)}
+
+<style>
+  .rail-connections {
+    position: sticky;
+    top: 5.5rem;
+    align-self: start;
+    font-size: 14px;
+  }
+  @media (max-width: 900px) {
+    .rail-connections { position: static; }
+  }
+  .backrefs {
+    background: var(--color-bg);
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-md);
+    padding: 1rem 1.1rem;
+  }
+  .backref-title {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    margin-bottom: 0.65rem;
+  }
+
+  /* Each category is now a <details>. Reset native marker, draw our
+     own + / − affordance to match other rail sections on the site. */
+  .backref-group {
+    border-bottom: 1px dashed var(--color-border);
+    padding: 0.45rem 0;
+  }
+  .backref-group:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+  .backref-group:first-of-type {
+    padding-top: 0;
+  }
+  .backref-summary {
+    list-style: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0;
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .backref-summary::-webkit-details-marker { display: none; }
+  .backref-summary:hover {
+    color: var(--color-cta);
+  }
+  .backref-summary::after {
+    content: '+';
+    color: var(--color-text-faint);
+    font-size: 0.9rem;
+    font-weight: 700;
+    line-height: 1;
+    margin-left: 0.1rem;
+  }
+  .backref-group[open] > .backref-summary::after {
+    content: '−';
+  }
+  .backref-subheading {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-secondary);
+  }
+  .backref-count {
+    display: inline-block;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--color-bg-subtle);
+    color: var(--color-text-secondary);
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    margin-left: auto;
+    margin-right: 0.4rem;
+  }
+
+  /* Case studies = canonical worked-solution content type. */
+  .backref-group--featured {
+    background: var(--color-success-tint);
+    border: 1px solid var(--color-success);
+    border-radius: var(--radius-sm);
+    padding: 0.5rem 0.7rem;
+    margin: 0.25rem -0.25rem;
+  }
+  .backref-group--featured + .backref-group,
+  .backref-group + .backref-group--featured {
+    border-top: none;
+  }
+  .backref-group--featured .backref-subheading {
+    color: var(--color-success-strong);
+    font-weight: 700;
+  }
+  .backref-group--featured .backref-count {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--color-success-strong);
+  }
+  .backref-group--featured .link-list a {
+    color: var(--color-primary);
+    font-weight: 600;
+  }
+  .backref-group--featured .link-list a::before {
+    color: var(--color-success-strong);
+  }
+
+  .link-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    list-style: none;
+    margin: 0.4rem 0 0;
+    padding: 0;
+  }
+  .link-list li { list-style: none; }
+  .link-list a {
+    color: var(--color-primary);
+    font-size: 13.5px;
+    font-weight: 500;
+    line-height: 1.4;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    text-decoration: none;
+    transition: color var(--duration-fast) var(--easing-soft),
+                text-decoration-color var(--duration-fast) var(--easing-soft);
+  }
+  .link-list a::before {
+    content: '→';
+    color: var(--color-cta);
+    font-weight: 600;
+    transition: transform var(--duration-fast) var(--easing-soft);
+    flex-shrink: 0;
+  }
+  /* Hover signal: CTA-blue text only. The underline used to draw
+     straight under the ::before arrow because text-decoration applies
+     to inline-flex anchors as a whole. Color-shift keeps the affordance
+     without the visual collision. */
+  .link-list a:hover {
+    color: var(--color-cta);
+  }
+  .link-list a:hover::before {
+    color: var(--color-cta);
+    transform: translateX(2px);
+  }
+</style>

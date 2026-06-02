@@ -1,0 +1,53 @@
+---
+import { getCollection } from 'astro:content';
+import DetailPageLayout from '../../layouts/DetailPageLayout.astro';
+import RailConnections from '../../components/RailConnections.astro';
+import ArticleFooter from '../../components/ArticleFooter.astro';
+import { stripTypePrefix } from '../../lib/slugify';
+import { bodyExcerpt, popSection } from '../../lib/excerpt';
+import { extractRelated, getReferencedBy } from '../../lib/related';
+import { renderMarkdown } from '../../lib/render';
+
+export async function getStaticPaths() {
+  const entries = await getCollection('rfps');
+  return entries.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const title = stripTypePrefix(entry.data.title);
+
+// Pop `## Problem` out — its full text becomes the lede; body
+// renders without it so the same paragraph doesn't appear twice.
+const { content: problem, bodyWithout } = popSection(entry.body, 'Problem');
+const lede = problem || bodyExcerpt(entry.body);
+const bodyHtml = renderMarkdown(problem ? bodyWithout : entry.body);
+
+const related = await extractRelated(entry.body, 'rfps', entry.id, entry.data);
+const referencedBy = await getReferencedBy('rfps', entry.id);
+const sibling = { href: '/rfps/', label: 'More open calls for work' };
+---
+
+<DetailPageLayout
+  title={`${title} · RFP`}
+  pageTitle={title}
+  description={lede}
+  breadcrumbs={[
+    { label: 'Home', href: '/' },
+    { label: 'Open calls for work', href: '/rfps/' },
+    { label: title },
+  ]}
+  lede={lede}
+>
+  <div class="prose" set:html={bodyHtml} />
+
+  <Fragment slot="after-content">
+    <ArticleFooter related={related} sibling={sibling} />
+  </Fragment>
+
+  <Fragment slot="rail">
+    <RailConnections referencedBy={referencedBy} />
+  </Fragment>
+</DetailPageLayout>

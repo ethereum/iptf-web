@@ -1,0 +1,108 @@
+---
+/**
+ * Renders the `context_differentiation` frontmatter — two cards
+ * side-by-side explaining how a pattern behaves between institutions
+ * (I2I) vs. between an institution and end users (I2U). Present on
+ * 56/66 patterns; this is the per-pattern explanation the bare
+ * "Context · both" pill collapses.
+ */
+
+import { inlineMd } from '../lib/inlineMarkdown';
+
+interface Props {
+  i2i?: string;
+  i2u?: string;
+}
+
+const { i2i, i2u } = Astro.props;
+if (!i2i && !i2u) return null;
+---
+
+<section class="ctx-diff">
+  <h3>I2I vs I2U — context differences</h3>
+  <div class="grid">
+    {i2i && (
+      <article class="card card-i2i">
+        <header>
+          <h4>Institution to institution</h4>
+          <span class="tag">I2I</span>
+        </header>
+        <p set:html={inlineMd(i2i)} />
+      </article>
+    )}
+    {i2u && (
+      <article class="card card-i2u">
+        <header>
+          <h4>Institution to end user</h4>
+          <span class="tag">I2U</span>
+        </header>
+        <p set:html={inlineMd(i2u)} />
+      </article>
+    )}
+  </div>
+</section>
+
+<style>
+  .ctx-diff {
+    margin: 2rem 0;
+  }
+  .ctx-diff h3 {
+    font-family: var(--font-sans);
+    font-size: 1.15rem;
+    font-weight: 700;
+    letter-spacing: -0.018em;
+    color: var(--color-primary);
+    margin-bottom: 0.85rem;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.85rem;
+  }
+  @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+  .card {
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg);
+    padding: 1rem 1.15rem 1.1rem;
+  }
+  .card header {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+  }
+  .tag {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 0.15rem 0.5rem;
+    border-radius: var(--radius-sm);
+  }
+  .card-i2i .tag { background: var(--color-i2i-tint); color: var(--color-i2i); }
+  .card-i2u .tag { background: var(--color-i2u-tint); color: var(--color-i2u); }
+  .card h4 {
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-primary);
+    letter-spacing: -0.012em;
+  }
+  .card p {
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--color-text-secondary);
+    margin: 0;
+  }
+  .card p :global(code) {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 0.05rem 0.35rem;
+    background: var(--color-bg-subtle);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+  }
+</style>

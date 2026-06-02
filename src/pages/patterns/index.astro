@@ -1,0 +1,134 @@
+---
+import { getCollection } from 'astro:content';
+import ListPageLayout from '../../layouts/ListPageLayout.astro';
+import AnchorNav from '../../components/AnchorNav.astro';
+import SectionHeading from '../../components/SectionHeading.astro';
+import PatternCard from '../../components/PatternCard.astro';
+import { stripTypePrefix } from '../../lib/slugify';
+import { ICON_LAYER } from '../../lib/icons';
+
+const items = await getCollection('patterns');
+
+/*
+ * Layer buckets are derived from each pattern's `layer:` frontmatter
+ * field. "Other" is the catch-all for patterns whose layer key isn't
+ * one of L1/L2/hybrid — off-chain / network / cryptographic primitives.
+ */
+const BUCKETS = [
+  {
+    key: 'L1',
+    label: 'L1',
+    primer:
+      'Privacy primitives that ship inside Ethereum mainnet itself. Protocol-level features and L1 smart-contract patterns institutions can rely on without leaving the base layer.',
+  },
+  {
+    key: 'L2',
+    label: 'L2',
+    primer:
+      'Patterns implemented at the rollup layer, where private execution and shielded state live off-chain but settle to Ethereum. Where most institutional-grade confidentiality is actually deployable today.',
+  },
+  {
+    key: 'hybrid',
+    label: 'Hybrid',
+    primer:
+      'Architectures that span L1 and L2. Bridges, escape hatches, dual-execution modes, and shared-state primitives that compose protocols across boundaries. The bulk of the catalog lives here because most institutional flows need both layers.',
+  },
+  {
+    key: 'unknown',
+    label: 'Other',
+    primer:
+      'Off-chain and transport-layer building blocks. Cryptographic primitives, network anonymity, and key-management patterns that aren\'t tied to a specific Ethereum layer but are required to make on-chain privacy actually private.',
+  },
+] as const;
+
+const grouped = new Map<string, typeof items>();
+for (const b of BUCKETS) grouped.set(b.key, []);
+for (const it of items) {
+  const layer = (it.data.layer ?? 'unknown').toString().toLowerCase();
+  const key = layer === 'l1' ? 'L1' : layer === 'l2' ? 'L2' : layer === 'hybrid' ? 'hybrid' : 'unknown';
+  grouped.get(key)!.push(it);
+}
+
+const orderedBuckets = BUCKETS.filter((b) => grouped.get(b.key)!.length > 0);
+
+function anchor(key: string): string {
+  return key.toLowerCase();
+}
+
+/*
+ * Sort rank for maturity values. Production-ready patterns surface first,
+ * then testnet / pilot / prototype, then concept / research, then unknown.
+ * Mirrors the tone classification used by PatternCard's maturity chip.
+ */
+function maturityRank(m?: string): number {
+  if (!m) return 3;
+  const v = m.toLowerCase();
+  if (v.includes('production')) return 0;
+  if (v.includes('testnet') || v.includes('pilot') || v.includes('prototyp')) return 1;
+  if (v.includes('concept') || v.includes('research') || v.includes('document')) return 2;
+  return 3;
+}
+
+const tabs = orderedBuckets.map((b) => ({
+  href: `#${anchor(b.key)}`,
+  label: b.label,
+  count: grouped.get(b.key)!.length,
+  iconSvg: ICON_LAYER[b.key],
+}));
+
+---
+
+<ListPageLayout
+  title="Building blocks"
+  pageTitle="Building blocks"
+  description="Building blocks"
+  current="/patterns/"
+>
+  <Fragment slot="anchor-nav">
+    <AnchorNav tabs={tabs} ariaLabel="Layer navigation" />
+  </Fragment>
+
+  <div class="container">
+    {orderedBuckets.map((bucket) => (
+      <section class="bucket-section">
+        <SectionHeading
+          id={anchor(bucket.key)}
+          title={bucket.label}
+          iconSvg={ICON_LAYER[bucket.key]}
+          primer={bucket.primer}
+        />
+        <div class="pt-grid">
+          {grouped.get(bucket.key)!
+            .slice()
+            .sort((a, b) => {
+              const r = maturityRank(a.data.maturity) - maturityRank(b.data.maturity);
+              if (r !== 0) return r;
+              return stripTypePrefix(a.data.title).localeCompare(stripTypePrefix(b.data.title));
+            })
+            .map((p) => (
+              <PatternCard
+                href={`/patterns/${p.id}/`}
+                title={p.data.title}
+                privacyGoal={p.data.privacy_goal}
+                maturity={p.data.maturity}
+                cropsProfile={p.data.crops_profile}
+              />
+            ))}
+        </div>
+      </section>
+    ))}
+  </div>
+</ListPageLayout>
+
+<style>
+  .bucket-section { margin-bottom: 4rem; }
+  .bucket-section:last-of-type { margin-bottom: 1rem; }
+  .pt-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.85rem;
+  }
+  @media (max-width: 1000px) {
+    .pt-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>

@@ -1,0 +1,146 @@
+---
+interface Props {
+  /** Optional active path so the current section can be highlighted. */
+  current?: string;
+}
+
+const { current } = Astro.props;
+
+function isActive(path: string): boolean {
+  if (!current) return false;
+  return current === path || current.startsWith(path === '/' ? '' : path);
+}
+---
+
+<header class="nav-bar">
+  <div class="container nav-inner">
+    <a class="brand" href="/" aria-label="IPTF — Institutional Privacy Task Force, an Ethereum Foundation initiative">
+      <img class="brand-logo" src="/logo.svg" alt="IPTF — Institutional Privacy Task Force" width="219" height="40" />
+    </a>
+    <nav class="nav-primary">
+      <button class="nav-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="navOverlay">
+        <span></span><span></span><span></span>
+      </button>
+      <a href="/approaches/" class:list={[{ active: isActive('/approaches') }]}>Approaches</a>
+      <a href="/use-cases/" class:list={[{ active: isActive('/use-cases') }]}>Use cases</a>
+      <a href="/patterns/" class:list={[{ active: isActive('/patterns') }]}>Building blocks</a>
+      <a href="/blog/" class:list={[{ active: isActive('/blog') }]}>Blog</a>
+      <a href="/about/" class:list={[{ active: isActive('/about') }]}>About</a>
+      <a href="https://docs.google.com/forms/d/e/1FAIpQLScK2SW0fxXU_h6SGPiBCRiodWFuv-H1BfA3wXh79RPbOT8OKg/viewform" class="btn ghost nav-cta" target="_blank" rel="noopener">Contact us<span class="ext-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></span></a>
+    </nav>
+  </div>
+</header>
+
+<style>
+  .nav-bar {
+    border-bottom: 1px solid var(--color-border);
+    background: rgba(255, 255, 255, 0.88);
+    backdrop-filter: saturate(180%) blur(12px);
+    -webkit-backdrop-filter: saturate(180%) blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .nav-inner {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 2rem;
+    padding-top: 0.95rem;
+    padding-bottom: 0.95rem;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    text-decoration: none;
+    color: var(--color-primary);
+    min-width: 0;
+  }
+  .brand-logo {
+    height: 32px;
+    width: auto;
+    flex-shrink: 0;
+  }
+  .brand-text {
+    font-weight: 700;
+    font-size: 14.5px;
+    letter-spacing: -0.005em;
+    line-height: 1.25;
+    color: var(--color-primary);
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .brand-text .org-tag {
+    display: block;
+    font-weight: 400;
+    font-size: 11.5px;
+    color: var(--color-text-muted);
+    margin-top: 1px;
+    letter-spacing: 0;
+  }
+  .nav-primary {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 0;
+  }
+  /* Plain nav links — exclude .btn so the primary CTA keeps its white-on-blue. */
+  .nav-primary > a:not(.btn) {
+    padding: 0.5rem 0.85rem;
+    color: var(--color-text-secondary);
+    font-size: 14px;
+    font-weight: 500;
+    border-radius: var(--radius-sm);
+    transition: color var(--duration-fast) var(--easing-soft),
+                background var(--duration-fast) var(--easing-soft);
+    text-decoration: none;
+  }
+  .nav-primary > a:not(.btn):hover,
+  .nav-primary > a.active {
+    color: var(--color-primary);
+    background: var(--color-bg-subtle);
+  }
+  .nav-primary .sep {
+    width: 1px;
+    height: 18px;
+    background: var(--color-border);
+    margin: 0 0.5rem;
+  }
+
+  /* hamburger toggle */
+  .nav-toggle {
+    display: none;
+    background: transparent;
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-sm);
+    width: 40px;
+    height: 40px;
+    cursor: pointer;
+    padding: 0;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 4px;
+    transition: border-color var(--duration-fast) var(--easing-soft);
+  }
+  .nav-toggle:hover { border-color: var(--color-primary); }
+  .nav-toggle span {
+    display: block;
+    width: 18px;
+    height: 2px;
+    background: var(--color-primary);
+    border-radius: 1px;
+  }
+
+  @media (max-width: 720px) {
+    .nav-toggle { display: flex; }
+    .nav-primary > a { display: none; }
+  }
+  @media (max-width: 500px) {
+    .nav-inner { gap: 0.75rem; padding-top: 0.75rem; padding-bottom: 0.75rem; }
+    .brand { gap: 0.6rem; }
+    .brand-text { font-size: 13px; }
+    .brand-text .org-tag { font-size: 10.5px; }
+  }
+</style>

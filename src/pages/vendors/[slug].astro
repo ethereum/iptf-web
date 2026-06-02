@@ -1,0 +1,161 @@
+---
+/*
+ * Vendor detail — adds a "Used in" reverse-reference sidebar per the
+ * iptf-web merge handoff (locked 2026-05-19, frontmatter-only scope).
+ *
+ * Scans every approach's sub-approach yaml blocks for `example_vendors`
+ * arrays containing this vendor's slug. Surfaces those approach +
+ * sub-approach pairs in the right rail. No body-prose name matching —
+ * structured references only.
+ */
+import { getCollection } from 'astro:content';
+import yaml from 'js-yaml';
+import DetailPageLayout from '../../layouts/DetailPageLayout.astro';
+import RailConnections from '../../components/RailConnections.astro';
+import ArticleFooter from '../../components/ArticleFooter.astro';
+import { stripTypePrefix } from '../../lib/slugify';
+import { bodyExcerpt, popSection } from '../../lib/excerpt';
+import { renderMarkdown } from '../../lib/render';
+import { extractRelated, getReferencedBy } from '../../lib/related';
+import {
+  parseSections,
+  getSection,
+  parseSubSections,
+  extractYamlBlock,
+} from '../../lib/parse-sections';
+
+interface SubApproachYaml {
+  example_vendors?: string[];
+}
+
+export async function getStaticPaths() {
+  const entries = await getCollection('vendors');
+  return entries.map((entry) => ({
+    params: { slug: entry.id },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const title = stripTypePrefix(entry.data.title);
+
+// Pop `## What it is` out so its full text becomes the lede and the
+// body doesn't render the same paragraph twice.
+const { content: whatItIs, bodyWithout } = popSection(entry.body, 'What it is');
+const lede = whatItIs || bodyExcerpt(entry.body);
+const bodyHtml = renderMarkdown(whatItIs ? bodyWithout : entry.body);
+
+const related = await extractRelated(entry.body, 'vendors', entry.id, entry.data);
+const referencedBy = await getReferencedBy('vendors', entry.id);
+const sibling = { href: '/vendors/', label: 'More vendors' };
+
+// "Used in" — find every approach whose sub-approach yaml lists this
+// vendor in `example_vendors`. Frontmatter-only scope: no body-prose
+// name matching, only structured yaml refs.
+const approaches = await getCollection('approaches');
+interface UsedIn {
+  approachId: string;
+  approachTitle: string;
+  subName: string;
+}
+const usedIn: UsedIn[] = [];
+for (const a of approaches) {
+  const sections = parseSections(a.body);
+  const approachesSec = getSection(sections, 'approaches');
+  if (!approachesSec) continue;
+  const subs = parseSubSections(approachesSec.content);
+  for (const sub of subs) {
+    const yamlText = extractYamlBlock(sub.content);
+    if (!yamlText) continue;
+    let parsed: SubApproachYaml = {};
+    try {
+      parsed = (yaml.load(yamlText) as SubApproachYaml) || {};
+    } catch {
+      continue;
+    }
+    if (Array.isArray(parsed.example_vendors) && parsed.example_vendors.includes(entry.id)) {
+      usedIn.push({
+        approachId: a.id,
+        approachTitle: a.data.title ? stripTypePrefix(a.data.title) : a.id,
+        subName: sub.heading,
+      });
+    }
+  }
+}
+// Stable order by approach title.
+usedIn.sort((a, b) => a.approachTitle.localeCompare(b.approachTitle));
+---
+
+<DetailPageLayout
+  title={`${title} · Vendor`}
+  pageTitle={title}
+  description={lede}
+  current="/vendors/"
+  breadcrumbs={[
+    { label: 'Home', href: '/' },
+    { label: 'Vendors', href: '/vendors/' },
+    { label: title },
+  ]}
+  lede={lede}
+>
+  <div class="prose" set:html={bodyHtml} />
+
+  <Fragment slot="after-content">
+    <ArticleFooter related={related} sibling={sibling} />
+  </Fragment>
+
+  <Fragment slot="rail">
+    {usedIn.length > 0 && (
+      <aside class="vendor-used-in">
+        <div class="rail-label">Used in</div>
+        {usedIn.map((u) => (
+          <a class="used-in-row" href={`/approaches/${u.approachId}/#${u.subName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`}>
+            <div class="used-in-approach">{u.approachTitle}</div>
+            <div class="used-in-sub">{u.subName}</div>
+          </a>
+        ))}
+      </aside>
+    )}
+    <RailConnections referencedBy={referencedBy} />
+  </Fragment>
+</DetailPageLayout>
+
+<style>
+  .vendor-used-in {
+    margin-bottom: 1.75rem;
+  }
+  .rail-label {
+    font-family: var(--font-mono);
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: var(--color-cta);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 0.65rem;
+    padding-bottom: 0.45rem;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .used-in-row {
+    display: block;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--color-border);
+    text-decoration: none;
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .used-in-row:last-child { border-bottom: none; }
+  .used-in-approach {
+    font-family: var(--font-sans);
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-primary);
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .used-in-row:hover .used-in-approach {
+    color: var(--color-cta);
+  }
+  .used-in-sub {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    margin-top: 2px;
+  }
+</style>

@@ -1,0 +1,110 @@
+---
+import { getCollection } from 'astro:content';
+import ListPageLayout from '../../layouts/ListPageLayout.astro';
+import { stripTypePrefix } from '../../lib/slugify';
+import { bodyBulletList, bodyExcerpt } from '../../lib/excerpt';
+
+const items = (await getCollection('domains')).slice().sort((a, b) =>
+  stripTypePrefix(a.data.title).localeCompare(stripTypePrefix(b.data.title)),
+);
+---
+
+<ListPageLayout
+  title="Domains"
+  pageTitle="Domains"
+  description="Domains"
+  current="/domains/"
+>
+  <div class="container">
+    <div class="domain-grid">
+      {items.map((d) => {
+        const title = stripTypePrefix(d.data.title);
+        const tldrBullets = bodyBulletList(d.body, 'TLDR');
+        const tldrText = tldrBullets.length === 0 ? bodyExcerpt(d.body, 'TLDR') || bodyExcerpt(d.body) : '';
+        return (
+          <a class="domain-card" href={`/domains/${d.id}/`}>
+            <h3>{title}</h3>
+            {tldrBullets.length > 0 ? (
+              <ul class="domain-tldr">
+                {tldrBullets.map((b) => <li>{b}</li>)}
+              </ul>
+            ) : tldrText ? (
+              <p>{tldrText}</p>
+            ) : null}
+          </a>
+        );
+      })}
+    </div>
+  </div>
+</ListPageLayout>
+
+<style>
+  .domain-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    margin-top: 2.5rem;
+  }
+  @media (max-width: 720px) {
+    .domain-grid { grid-template-columns: 1fr; }
+  }
+  .domain-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    padding: 1.5rem 1.6rem;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg);
+    box-shadow: var(--shadow-sm);
+    text-decoration: none;
+    color: var(--color-text);
+    transition: transform var(--duration-base) var(--easing-soft),
+                box-shadow var(--duration-base) var(--easing-soft),
+                border-color var(--duration-base) var(--easing-soft);
+  }
+  .domain-card:hover {
+    border-color: var(--color-cta);
+    box-shadow: var(--shadow-lg);
+    transform: translateY(-2px);
+  }
+  .domain-card h3 {
+    font-family: var(--font-sans);
+    font-weight: 700;
+    font-size: 1.2rem;
+    letter-spacing: -0.018em;
+    line-height: 1.25;
+    color: var(--color-primary);
+    margin: 0;
+  }
+  .domain-card p {
+    font-size: 14.5px;
+    color: var(--color-text-secondary);
+    line-height: 1.55;
+    margin: 0;
+  }
+  .domain-tldr {
+    margin: 0;
+    padding-left: 1.1rem;
+    color: var(--color-text-secondary);
+    font-size: 14.5px;
+    line-height: 1.55;
+  }
+  .domain-tldr li {
+    list-style: disc;
+    margin-top: 0.3rem;
+  }
+  .domain-tldr li:first-child { margin-top: 0; }
+  .domain-link {
+    font-family: var(--font-sans);
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--color-cta);
+    margin-top: 0.25rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .domain-link .arr { transition: transform var(--duration-fast) var(--easing-soft); }
+  .domain-card:hover .domain-link .arr { transform: translateX(3px); }
+</style>

@@ -1,0 +1,131 @@
+---
+---
+
+<footer class="site">
+  <div class="container">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="/" aria-label="IPTF — Institutional Privacy Task Force, an Ethereum Foundation initiative">
+          <img class="brand-logo" src="/logo-dark.svg" alt="IPTF — Institutional Privacy Task Force" width="219" height="40" />
+        </a>
+        <p>A working knowledge base for institutions arriving at Ethereum with privacy requirements. Maintained by the IPTF team.</p>
+      </div>
+      <div>
+        <h5>The Guide</h5>
+        <ul>
+          <li><a href="/use-cases/">Use cases</a></li>
+          <li><a href="/approaches/">Approaches</a></li>
+          <li><a href="/patterns/">Building blocks</a></li>
+          <li><a href="/vendors/">Vendor profiles</a></li>
+          <li><a href="/jurisdictions/">Jurisdictions</a></li>
+          <li><a href="/domains/">Domains</a></li>
+          <li><a href="/blog/">Blog</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Standing matter</h5>
+        <ul>
+          <li><a href="/about/">About IPTF</a></li>
+          <li><a href="/faq/">FAQ</a></li>
+          <li><a href="https://github.com/ethereum/iptf-map/blob/master/CONTRIBUTING.md">Contributing</a></li>
+          <li><a href="/glossary/">Glossary</a></li>
+          <li><a href="https://github.com/ethereum/iptf-map/blob/master/CHANGELOG.md">Changelog</a></li>
+        </ul>
+      </div>
+      <div>
+        <h5>Source</h5>
+        <ul>
+          <li><a href="https://github.com/ethereum/iptf-map">github · iptf-map</a></li>
+          <li><a href="https://github.com/ethereum/iptf-pocs">github · iptf-pocs</a></li>
+          <li><a href="/rfps/">Request For Proposals (RFPs)</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>© Ethereum Foundation · Institutional Privacy Task Force</span>
+    </div>
+  </div>
+</footer>
+
+<style>
+  footer.site {
+    background: var(--color-primary);
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 14px;
+    padding: 3.75rem 0 2rem;
+  }
+  .foot-grid {
+    display: grid;
+    grid-template-columns: 1.5fr repeat(3, 1fr);
+    gap: 2.25rem;
+    margin-bottom: 2.5rem;
+  }
+  @media (max-width: 800px) {
+    .foot-grid { grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    .foot-grid .foot-brand { grid-column: 1 / -1; }
+  }
+  .foot-brand .brand {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    color: var(--color-on-primary);
+    text-decoration: none;
+  }
+  .foot-brand .brand-logo { height: 44px; width: auto; }
+  .foot-brand .brand-text {
+    font-weight: 700;
+    font-size: 14.5px;
+    letter-spacing: -0.005em;
+    line-height: 1.25;
+    color: var(--color-on-primary);
+  }
+  .foot-brand .brand-text .org-tag {
+    display: block;
+    font-weight: 400;
+    font-size: 11.5px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 1px;
+    letter-spacing: 0;
+  }
+  .foot-brand p {
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.72);
+    line-height: 1.6;
+    margin-top: 1rem;
+    max-width: 32ch;
+  }
+  .foot-grid h5 {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 1rem;
+  }
+  .foot-grid ul {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  .foot-grid a {
+    color: rgba(255, 255, 255, 0.88);
+    font-size: 14px;
+    text-decoration: none;
+    transition: color var(--duration-fast) var(--easing-soft);
+  }
+  .foot-grid a:hover { color: var(--color-on-primary); }
+  .foot-bottom {
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.14);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.5);
+    font-family: var(--font-mono);
+    letter-spacing: 0.02em;
+  }
+  .foot-bottom strong { color: rgba(255, 255, 255, 0.88); font-weight: 600; }
+</style>
