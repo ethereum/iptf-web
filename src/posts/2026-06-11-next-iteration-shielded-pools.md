@@ -3,7 +3,7 @@ title: "The Next Iteration of Shielded Pools"
 description: "What stands between a working shielded pool and private payments people could use every day: on-chain state, getting spends included, the wallet's read and proving load, and post-quantum security. Plus a proof-of-concept that takes on two of them, with private information retrieval and epoch-based nullifiers."
 date: 2026-06-11
 author: "Yanis"
-image: /assets/images/2026-06-11-next-generation-shielded-pools/hero.png
+image: /assets/images/2026-06-11-next-iteration-shielded-pools/hero.png
 published: false
 ---
 
