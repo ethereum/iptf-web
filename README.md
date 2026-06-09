@@ -107,4 +107,6 @@ UI chrome (landing copy, FAQ, blog index, post layout) is the site's own and sta
 
 ## License
 
-[CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/)
+All website content, blog posts, pages, RFPs, writeups, and documentation are made available under [CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/) unless otherwise stated.
+
+Third-party dependencies retain their own licenses.
