@@ -34,7 +34,7 @@ The standard model for on-chain identity follows a three-step dependency chain:
 2. A **holder** presents that credential (or a ZK proof over it) to prove an attribute: age, nationality, sanctions-list status.
 3. A **verifier** (smart contract, institution, dApp) checks the credential's validity, often by querying the issuer's revocation registry.
 
-Every step depends on the issuer being live and cooperative. [ZKPassport](https://zkpassport.id/) verifies passport NFC signatures issued by governments. [Anon Aadhaar](https://github.com/anon-aadhaar) verifies Indian national ID signatures from UIDAI. [ZK Email](https://prove.email/) verifies DKIM signatures from email providers. [TLSNotary](https://tlsnotary.org/) verifies TLS session transcripts from web2 services. All of these produce strong cryptographic proofs of identity attributes. None of them answer the question: what happens when the entity behind the original credential disappears?
+Every step depends on the issuer being live and cooperative. [ZKPassport](https://zkpassport.id/) verifies passport NFC signatures issued by governments. [Anon Aadhaar](https://github.com/anon-aadhaar) verifies Indian national ID signatures from UIDAI. [ZK Email](https://prove.email/) verifies DKIM signatures from email providers. [TLSNotary](https://tlsnotary.org/) verifies TLS session transcripts from web2 services. These systems produce strong cryptographic proofs, while still relying on the original source or issuer model for some trust assumptions.
 
 The issuer can fail in several ways. It can shut down (bankruptcy, sanctions, corporate dissolution). It can turn adversarial (mass-revoke credentials, publish false revocation lists, forge credentials for non-holders, refuse new issuance). It can simply go offline. In every case, the holder is left with a credential that cannot be independently verified.
 
@@ -80,7 +80,7 @@ No issuer endpoint is contacted. No registry is queried. The on-chain root is th
 
 Two proofs from the same holder, one submitted to Verifier A and another to Verifier B, should look unrelated. No on-chain or off-chain observer should be able to tell they came from the same person. This is what separates useful private identity from tokenized surveillance. Most ZK identity systems fall short of it, either because the credential exposes a persistent identifier during presentation (the holder's pubkey, a hash that is deterministic across scopes), or because the issuer accumulates enough metadata during issuance to correlate later verifications back to a person.
 
-This protocol targets unlinkability on two axes. Across verifiers, the scope-bound nullifier makes the same holder look unrelated to different applications. Across issuance and use, the vOPRF sits at the one point where the identity-source credential would otherwise become a correlation handle, so no single party, including any MPC subset below threshold, sees both sides of the mapping. This was the design goal behind [OpenAC](https://eprint.iacr.org/2026/251) and the motivating reason [TACEO](https://core.taceo.io/articles/taceo-oprf/) puts a vOPRF in the identity path. Without it, identity providers can still watch their users on-chain.
+This protocol targets unlinkability on two axes. Across verifiers, the scope-bound nullifier makes the same holder look unrelated to different applications. Across issuance and use, the vOPRF sits at the one point where the identity-source credential would otherwise become a correlation handle, so no single party, including any MPC subset below threshold, sees both sides of the mapping. This was the design goal behind [OpenAC](https://eprint.iacr.org/2026/251) and the motivating reason [TACEO](https://core.taceo.io/articles/taceo-oprf/) puts a vOPRF in the identity path. Without this separation, issuer-side metadata can become a correlation surface.
 
 ## Sybil resistance
 
@@ -161,19 +161,19 @@ This is a proof-of-concept with real limitations.
 
 Several projects tackle private identity on Ethereum from different angles. Here is where this protocol fits.
 
-[Semaphore](https://semaphore.pse.dev/) (PSE) is the most established private membership proof system. Holders commit an identity to a Merkle tree and generate ZK proofs of membership with nullifiers. It provides the core primitive this protocol extends, but does not enforce sybil resistance at the identity layer: nothing prevents one person from inserting multiple commitments.
+[Semaphore](https://semaphore.pse.dev/) (PSE) is the most established private membership proof system. Holders commit an identity to a Merkle tree and generate ZK proofs of membership with nullifiers. It provides the core primitive this protocol extends.
 
-[World ID](https://worldcoin.org/world-id) takes the opposite approach: biometric enrollment via iris scan through a specialized device (the Orb) provides the strongest one-person-one-identity guarantee available. The tradeoff is hardware dependency and centralized enrollment infrastructure, which limits deployment to locations with physical Orb access.
+[World ID](https://worldcoin.org/world-id) takes the opposite approach: biometric enrollment via iris scan through a specialized device (the Orb) provides the strongest one-person-one-identity guarantee available.
 
 [Self](https://self.xyz/), [ZKPassport](https://zkpassport.id/), and [Human](https://human.tech/) verify identity attributes and generate ZK proofs. Self and ZKPassport focus on passport NFC signatures on mobile. Human aggregates multiple identity signals into a unified score. All three produce strong per-session proofs and serve as viable enrollment sources for this protocol, with the vOPRF layer adding sybil resistance and issuer independence on top.
 
-[zk-creds](https://eprint.iacr.org/2022/878) (Rosenberg et al., 2023) shares the Merkle-tree-as-issuance-list paradigm. Holders insert credentials into a public bulletin board and generate ZK proofs of possession. The approach works with existing identity documents without modification. The key difference is sybil resistance: zk-creds delegates duplicate prevention to the issuance list manager, while this protocol enforces it cryptographically via the vOPRF enrollment nullifier.
+[zk-creds](https://eprint.iacr.org/2022/878) (Rosenberg et al., 2023) shares the Merkle-tree-as-issuance-list paradigm. Holders insert credentials into a public bulletin board and generate ZK proofs of possession. The approach works with existing identity documents without modification.
 
 [zk-promises](https://eprint.iacr.org/2024/1260) (Shih et al., 2025) extends anonymous credentials with stateful callbacks: issuers can asynchronously update, suspend, or revoke credentials after issuance, enabling reputation systems and moderation for anonymous users. The design targets interactive platform use cases (downvotes, bans, reputation decay) rather than institutional identity attestation.
 
-[OpenAC](https://eprint.iacr.org/2026/251) (EF/PSE) adds unlinkable presentations over existing verifiable credentials (SD-JWT, mDL) with transparent ZK proofs and no trusted setup, compatible with the EUDI Architecture Reference Framework. It assumes a cooperative issuer for credential issuance, which is the assumption this protocol is designed to remove.
+[OpenAC](https://eprint.iacr.org/2026/251) (EF/PSE) adds unlinkable presentations over existing verifiable credentials (SD-JWT, mDL) with transparent ZK proofs and no trusted setup, compatible with the EUDI Architecture Reference Framework.
 
-[PLUME](https://aayushg.com/thesis.pdf) (ERC-7524) generates deterministic nullifiers from existing ECDSA keys, allowing Ethereum address holders to prove membership and prevent double-actions without new key material. It reuses existing keys (no enrollment ceremony) but does not support attribute predicates or identity-layer sybil resistance.
+[PLUME](https://aayushg.com/thesis.pdf) (ERC-7524) generates deterministic nullifiers from existing ECDSA keys, allowing Ethereum address holders to prove membership and prevent double-actions without new key material.
 
 [TACEO](https://core.taceo.io/articles/taceo-oprf/) already runs a distributed threshold vOPRF in production using MPC across 13 globally distributed servers. Their roadmap explicitly targets preventing identity issuers from tracing on-chain usage by verified individuals. This is the same problem we are working on from the enrollment side, and their infrastructure is a natural deployment target for the vOPRF network this protocol requires.
 
