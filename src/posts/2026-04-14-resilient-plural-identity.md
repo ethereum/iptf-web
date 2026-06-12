@@ -163,7 +163,7 @@ Several projects tackle private identity on Ethereum from different angles. Here
 
 [Semaphore](https://semaphore.pse.dev/) (PSE) is the most established private membership proof system. Holders commit an identity to a Merkle tree and generate ZK proofs of membership with nullifiers. It provides the core primitive this protocol extends, but does not enforce sybil resistance at the identity layer: nothing prevents one person from inserting multiple commitments.
 
-[World ID](https://worldcoin.org/world-id) takes the opposite approach: biometric enrollment via iris scan through a specialized device (the Orb) provides the strongest one-person-one-identity guarantee available. The tradeoff is hardware dependency and centralized enrollment infrastructure, which limits deployment to locations with physical Orb access.
+[World ID](https://worldcoin.org/world-id) takes the opposite approach: biometric enrollment via iris scan through a specialized device (the Orb) provides the strongest one-person-one-identity guarantee available.
 
 [Self](https://self.xyz/), [ZKPassport](https://zkpassport.id/), and [Human](https://human.tech/) verify identity attributes and generate ZK proofs. Self and ZKPassport focus on passport NFC signatures on mobile. Human aggregates multiple identity signals into a unified score. All three produce strong per-session proofs and serve as viable enrollment sources for this protocol, with the vOPRF layer adding sybil resistance and issuer independence on top.
 

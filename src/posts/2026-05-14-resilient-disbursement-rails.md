@@ -25,7 +25,7 @@ The protocol hides the path from funder to off-ramp deposit. At the off-ramp, th
 
 We have run into versions of this in our own work. The [shielded pool](/building-private-transfers-on-ethereum/) and [plasma chain](/private-stablecoins-with-plasma/) we built both treat the depositor and the recipient as the privacy boundary. They make on-chain trace useless to a passive observer. They do not protect a recipient who has to walk to a licensed exchange, hand over a passport, and sell the asset for local currency. Every documented financial-surveillance prosecution pivoted on the KYC'd exchange account, the merchant identifier visible to a domestic bank, or the subpoenaed exchange record. Chain analytics on its own has not deanonymized a specific recipient in any case in the public record.
 
-The constraint set is sharper when recipients live somewhere the authorities are hostile to the funder, the implementing partner, or the recipients themselves. Recipients in Yemen, Afghanistan, Syria, the Rohingya camps, or Russia under the FBK donor crackdown cannot be assumed to have a phone or an internet connection. Implementing partners (NGOs, money transfer operators) get breached, coerced, or inherited by successor regimes. The protocol assumes every party in the path between funder and recipient will eventually be compromised.
+The constraint set is sharper when recipients live somewhere the authorities are hostile to the funder, the implementing partner, or the recipients themselves. Recipients cannot be assumed to have a phone or an internet connection. Implementing partners may get breached, coerced, or inherited by successor regimes. The protocol assumes every party in the path between funder and recipient will eventually be compromised.
 
 The implementation is [open source](https://github.com/ethereum/iptf-pocs/tree/master/pocs/private-payment/resilient-disbursement-rails), with a detailed [specification](https://github.com/ethereum/iptf-pocs/blob/master/pocs/private-payment/resilient-disbursement-rails/SPEC.md).
 
@@ -37,7 +37,7 @@ The state that lets the chain function under good conditions is exactly what mak
 
 **Implementing-partner databases get inherited.** Beneficiary registries have either been seized or shared with adversarial governments without consent. Compelled disclosure has driven most of the documented humanitarian-data prosecutions.
 
-**Off-ramps pivot KYC.** Certain investigations all combined on-chain trace with subpoenaed exchange records to identify specific individuals. Chain analytics on its own was insufficient. The KYC process in the exchange was the crucial input.
+**Off-ramps pivot KYC.** Certain investigations combined on-chain trace with subpoenaed exchange records to identify specific individuals. Chain analytics on its own was insufficient. The KYC process in the exchange was the crucial input.
 
 **Rails get frozen and civil identity gets weaponized.** Account freezes used as political instruments against named protest organisers, and rail de-risking show that traditional rails fail under sustained political pressure. State civil-identity systems collapse when the state is the adversary.
 
