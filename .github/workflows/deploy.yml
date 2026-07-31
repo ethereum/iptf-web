@@ -16,6 +16,7 @@ concurrency:
 
 jobs:
   build:
+    if: github.event_name == 'pull_request' || github.repository == 'ethsystems/web'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -31,13 +32,15 @@ jobs:
       - run: npm run build
 
       - uses: actions/configure-pages@v5
+        if: github.repository == 'ethsystems/web'
       - uses: actions/upload-pages-artifact@v3
+        if: github.repository == 'ethsystems/web'
         with:
           path: dist
 
   deploy:
     # PR runs only validate the build; deploys happen on push to main.
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.repository == 'ethsystems/web'
     runs-on: ubuntu-latest
     needs: build
     environment:
