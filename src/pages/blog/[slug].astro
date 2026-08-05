@@ -139,7 +139,11 @@ const postSchema = blogPostingSchema({
     max-width: 100%;
     height: auto;
     border-radius: var(--radius-sm);
-    margin: 1.25rem 0;
+    margin: 1.25rem auto;
+    display: block;
+  }
+  :global(.post-prose .figure-narrow img) {
+    width: 40%;
   }
   :global(.post-prose a) {
     color: var(--color-cta);
