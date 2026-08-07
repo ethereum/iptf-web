@@ -2,9 +2,9 @@
 layout: post
 title: "Building Compliant Shielded Pools on Ethereum"
 description: "A shielded pool that can prove it screened every payment."
-date: 2026-08-06 10:00:00 +0200
+date: 2026-08-07 00:00:00 +0200
 author: "Aaryamann"
-image: ../assets/posts/2026-08-06-in-pool-flow-compliance/hero.png
+image: ../assets/posts/2026-08-07-in-pool-flow-compliance/hero.png
 tags:
   - compliance
   - shielded-pool
@@ -35,7 +35,7 @@ That gap is what this proof of concept closes. The compliance policy stops being
 
 We took the shielded pool from the earlier posts and changed three things. Its underlying machinery carries over untouched. Value lives in notes, which are private records of who holds what, each one hashed into an append-only Merkle tree called the commitment tree. Spending a note means proving it sits in that tree and replacing it with new ones.
 
-![The Compliance Authority issues cohorts of expiring attestations into a registry, whose root feeds the pool. The institution's own wallet builds a single proof carrying the spend, the screen and the policy together. The pool contract checks the destination blocklist and the public thresholds before verifying, then writes commitments, nullifiers and encrypted notes to Ethereum. An audit quorum of t of n can decrypt the compliance record from there.](../assets/posts/2026-08-06-in-pool-flow-compliance/what_we_built.png)
+![The Compliance Authority issues cohorts of expiring attestations into a registry, whose root feeds the pool. The institution's own wallet builds a single proof carrying the spend, the screen and the policy together. The pool contract checks the destination blocklist and the public thresholds before verifying, then writes commitments, nullifiers and encrypted notes to Ethereum. An audit quorum of t of n can decrypt the compliance record from there.](../assets/posts/2026-08-07-in-pool-flow-compliance/what_we_built.png)
 
 **The policy moved inside the circuit.** A deployment writes its ruleset as a small function. That function compiles into the same three circuits that prove a deposit, a transfer and a withdrawal. It reads a record of what the transaction is, and the pool constrains every field of that record.
 
@@ -59,7 +59,7 @@ The argument is one sentence long. If the policy is a function inside the circui
 
 Compare that to the alternative and the difference is not a matter of degree.
 
-![Two panels. Above, screening beside the spend: the sender produces a spend proof and a separate screening proof, the contract accepts both, and coverage depends on the sender having produced the second one. Below, screening inside the spend: the sender produces a single proof carrying conservation, the screen and the policy together, so a blocked transaction has no satisfying witness and no proof exists to submit.](../assets/posts/2026-08-06-in-pool-flow-compliance/beside_vs_inside.png)
+![Two panels. Above, screening beside the spend: the sender produces a spend proof and a separate screening proof, the contract accepts both, and coverage depends on the sender having produced the second one. Below, screening inside the spend: the sender produces a single proof carrying conservation, the screen and the policy together, so a blocked transaction has no satisfying witness and no proof exists to submit.](../assets/posts/2026-08-07-in-pool-flow-compliance/beside_vs_inside.png)
 
 A proof of a shielded spend already carries a conservation argument. Value in equals value out, and the prover cannot lie about it, because a lie leaves the circuit unsatisfiable. Putting the policy in that same circuit gives the policy the same standing. Coverage becomes as hard to bypass as conservation of value, because the same mechanism enforces both.
 
@@ -105,7 +105,7 @@ So the pool carries state. Each account gets one compliance note per day, holdin
 
 <div class="figure-narrow">
 
-![A day's compliance chain for one account. The chain starts from the policy's zero state at sequence position zero and advances through successive compliance notes, each transition spending a velocity nullifier for its position so the position can never be reused. The running total climbs from zero through 120 and 340, where an aggregate threshold flag is set, to 410. At the day boundary the chain restarts from zero again for the next epoch.](../assets/posts/2026-08-06-in-pool-flow-compliance/epoch_chain.png)
+![A day's compliance chain for one account. The chain starts from the policy's zero state at sequence position zero and advances through successive compliance notes, each transition spending a velocity nullifier for its position so the position can never be reused. The running total climbs from zero through 120 and 340, where an aggregate threshold flag is set, to 410. At the day boundary the chain restarts from zero again for the next epoch.](../assets/posts/2026-08-07-in-pool-flow-compliance/epoch_chain.png)
 
 </div>
 
