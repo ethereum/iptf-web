@@ -2,7 +2,7 @@
 layout: post
 title: "Building Compliant Shielded Pools on Ethereum"
 description: "A shielded pool that can prove it screened every payment."
-date: 2026-08-07 00:00:00 +0200
+date: 2026-08-07 15:00:00 +0200
 author: "Aaryamann"
 image: ../assets/posts/2026-08-07-in-pool-flow-compliance/hero.png
 tags:
