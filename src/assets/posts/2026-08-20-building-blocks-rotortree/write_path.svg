@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 400" width="1080" height="400" font-family="system-ui, -apple-system, Segoe UI, Roboto, sans-serif" role="img">
+<style>.n{fill:#0A0A0A;font-size:15px;font-weight:600}.mono{fill:#0A0A0A;font-size:14px;font-weight:600;font-family:ui-monospace,SFMono-Regular,Menlo,monospace}.m{fill:#5A5347;font-size:13px}.k{fill:#5A5347;font-size:12px;letter-spacing:.14em}</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#0A0A0A"/></marker></defs>
+<rect x="286" y="56" width="270" height="290" rx="8" fill="none" stroke="#5A5347" stroke-width="1" stroke-dasharray="4 5"/>
+<text x="296" y="46" class="k">PROCESS</text>
+<rect x="646" y="56" width="270" height="290" rx="8" fill="none" stroke="#5A5347" stroke-width="1" stroke-dasharray="4 5"/>
+<text x="656" y="46" class="k">DISK</text>
+<rect x="30" y="158" width="210" height="62" rx="6" fill="#FBF9F1" stroke="#0A0A0A" stroke-width="1.5"/>
+<text x="135.0" y="194.0" text-anchor="middle" class="mono">insert(&amp;leaves)</text>
+<text x="135" y="240" text-anchor="middle" class="m">returns a root and a</text>
+<text x="135" y="258" text-anchor="middle" class="m">durability token</text>
+<rect x="306" y="96" width="230" height="66" rx="6" fill="#FBF9F1" stroke="#0A0A0A" stroke-width="1.5"/>
+<text x="421.0" y="128.0" text-anchor="middle" class="n">in-memory levels</text>
+<text x="421.0" y="149.0" text-anchor="middle" class="m">hot levels stay resident</text>
+<rect x="306" y="246" width="230" height="66" rx="6" fill="#FBF9F1" stroke="#0A0A0A" stroke-width="1.5"/>
+<text x="421.0" y="278.0" text-anchor="middle" class="n">write-ahead log</text>
+<text x="421.0" y="299.0" text-anchor="middle" class="m">sequential, append only</text>
+<rect x="666" y="246" width="230" height="66" rx="6" fill="#FBF9F1" stroke="#0A0A0A" stroke-width="1.5"/>
+<text x="781.0" y="278.0" text-anchor="middle" class="n">log file</text>
+<text x="781.0" y="299.0" text-anchor="middle" class="m">fsync every 10 ms</text>
+<text x="781.0" y="334.0" text-anchor="middle" class="m">the durability token is released here</text>
+<rect x="666" y="96" width="230" height="66" rx="6" fill="#FBF9F1" stroke="#0A0A0A" stroke-width="1.5"/>
+<text x="781.0" y="128.0" text-anchor="middle" class="n">data files</text>
+<text x="781.0" y="149.0" text-anchor="middle" class="m">read back through mmap</text>
+<path d="M240 178 L273 178 L273 129 L306 129" fill="none" stroke="#0A0A0A" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="273" y="116" text-anchor="middle" class="m">update</text>
+<path d="M240 200 L273 200 L273 279 L306 279" fill="none" stroke="#0A0A0A" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="265" y="250" text-anchor="end" class="m">append</text>
+<path d="M536 279 L666 279" fill="none" stroke="#0A0A0A" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="601" y="268" text-anchor="middle" class="m">write</text>
+<path d="M781 246 L781 162" fill="none" stroke="#0A0A0A" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="795" y="208" text-anchor="start" class="m">checkpoint, then truncate the log</text>
+<path d="M666 129 L536 129" fill="none" stroke="#0A0A0A" stroke-width="1.4" marker-end="url(#a)"/>
+<text x="601" y="118" text-anchor="middle" class="m">cold levels</text>
+<line x1="30" y1="368" x2="1050" y2="368" stroke="#0A0A0A" stroke-opacity="0.12"/>
+<text x="30" y="392" class="m">Recovery is the last checkpoint plus a replay of the log written after it.</text>
+</svg>
