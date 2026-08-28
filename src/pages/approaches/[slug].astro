@@ -29,7 +29,7 @@ import {
   extractLabelledBlock,
   extractYamlBlock,
 } from '../../lib/parse-sections';
-import { renderMarkdown } from '../../lib/render';
+import { renderMarkdown, renderMarkdownInline } from '../../lib/render';
 
 export async function getStaticPaths() {
   const entries = await getCollection('approaches');
@@ -343,7 +343,14 @@ function maturityTone(m?: string): 'strong' | 'mid' | 'plain' | 'muted' {
                   )}
                   {hasDetail && <span class="approach-option-toggle" aria-hidden="true"></span>}
                 </div>
-                {sub.summary && <p class="approach-option-summary">{sub.summary}</p>}
+                {/* Inline markdown, not plain text: upstream `**Summary:**` lines
+                    carry `code` spans and relative `.md` cross-links (e.g.
+                    `[Pre-trade Privacy Encryption](../patterns/pattern-….md)`),
+                    which leaked as literal source before. renderMarkdownInline
+                    rewrites those hrefs to Guide routes. */}
+                {sub.summary && (
+                  <p class="approach-option-summary" set:html={renderMarkdownInline(sub.summary)} />
+                )}
               </>
             );
 
@@ -615,6 +622,22 @@ function maturityTone(m?: string): 'strong' | 'mid' | 'plain' | 'muted' {
     });
   </script>
 )}
+
+{/* Summary lines can contain cross-links, and they live inside the
+    <summary> of the option's <details>. Without this, clicking a link
+    also toggles the disclosure (and cmd/middle-click toggles it while
+    opening the new tab). Stop the click before it reaches <summary>. */}
+<script is:inline>
+  document.addEventListener('DOMContentLoaded', function () {
+    document
+      .querySelectorAll('.approach-option > summary .approach-option-summary a')
+      .forEach(function (a) {
+        a.addEventListener('click', function (e) {
+          e.stopPropagation();
+        });
+      });
+  });
+</script>
 
 <style>
   .approach-main { min-width: 0; }
@@ -938,6 +961,25 @@ function maturityTone(m?: string): 'strong' | 'mid' | 'plain' | 'muted' {
     font-size: 0.9rem;
     color: var(--color-text-secondary);
     line-height: 1.55;
+  }
+  /* Summary text is set:html, so scoped selectors can't reach into it. */
+  .approach-option-summary :global(a) {
+    color: var(--color-cta);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: color var(--duration-fast) var(--easing-soft),
+      border-color var(--duration-fast) var(--easing-soft);
+  }
+  .approach-option-summary :global(a:hover) {
+    color: var(--color-cta-hover);
+    border-bottom-color: currentColor;
+  }
+  .approach-option-summary :global(code) {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+    background: var(--color-bg-subtle);
+    padding: 0.05em 0.4em;
+    border-radius: var(--radius-sm);
   }
   .approach-option-body {
     padding: 0 1.25rem 1.4rem;
