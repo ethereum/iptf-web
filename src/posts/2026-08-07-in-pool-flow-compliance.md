@@ -19,7 +19,7 @@ A shielded pool hides who paid whom, and how much. An institution needs that. It
 
 The institution's supervisor needs close to the opposite. Real payments cannot go through such a pool until the supervisor is satisfied that every payment leaving it was screened against sanctions lists and monitoring rules. Today an institution can have the privacy or it can have that assurance. This proof of concept is an attempt at both.
 
-Three earlier posts built the pool this one extends. [Private bonds](/blog/building-private-bonds-on-ethereum/) gave it a note format, [private transfers](/blog/building-private-transfers-on-ethereum-with-shielded-pools/) turned it into a payment rail, and [hardened shielded pools](/blog/exploring-hardened-shielded-pools/) went after the growing on-chain state and the leaky private read.
+Three earlier posts built the pool this one extends. [Private bonds](/writeups/building-private-bonds-on-ethereum/) gave it a note format, [private transfers](/writeups/building-private-transfers-on-ethereum-with-shielded-pools/) turned it into a payment rail, and [hardened shielded pools](/writeups/exploring-hardened-shielded-pools/) went after the growing on-chain state and the leaky private read.
 
 A compliance department can answer almost any question a supervisor asks about a payment the institution made. Name the transfer, and it produces the screening record. The question it usually cannot answer is the negative one: show that nothing went unscreened.
 

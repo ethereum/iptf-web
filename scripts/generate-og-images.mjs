@@ -34,7 +34,7 @@ const FONT_FAMILY = "Geist Mono";
 const PAGES = [
   { slug: "join", label: "Join Us" },
   { slug: "offerings", label: "Offerings" },
-  { slug: "blog", label: "Blog" },
+  { slug: "writeups", label: "Writeups" },
   { slug: "domains", label: "Domains" },
   { slug: "approaches", label: "Approaches" },
   { slug: "jurisdictions", label: "Jurisdictions" },

@@ -5,7 +5,7 @@ import type { CollectionEntry } from 'astro:content';
  * a post whose `date` is in the future is hidden until the site is rebuilt at
  * or after that moment (GH Pages rebuilds on push/merge).
  *
- * Shared by every consumer of getCollection('posts') so the blog index, the
+ * Shared by every consumer of getCollection('posts') so the writeups index, the
  * homepage latest-posts list, and static path generation all agree.
  *
  * The comparison is on the full timestamp, not just the calendar day, so a

@@ -63,7 +63,7 @@ const faqTeasers = FEATURED_FAQ_QS
         <p class="lede"><strong>EthSystems</strong> helps institutions move on-chain with privacy that's performant, secure, usable, and accessible, disclosing only what the rules require.</p>
         <div class="cta-row">
           <a href="/approaches/" class="btn primary lg">See approaches<span class="arr">→</span></a>
-          <a href="/blog/" class="btn ghost lg">See writeups<span class="arr">→</span></a>
+          <a href="/writeups/" class="btn ghost lg">See writeups<span class="arr">→</span></a>
         </div>
       </div>
       <div class="hero-mark-col" aria-hidden="true">
@@ -290,7 +290,7 @@ const faqTeasers = FEATURED_FAQ_QS
 
         <div class="writeups">
           {latestPosts.map((p) => (
-            <a class="writeup" href={`/blog/${p.slug}/`}>
+            <a class="writeup" href={`/writeups/${p.slug}/`}>
               <div class="writeup-thumb">
                 {p.image ? (
                   <Image src={p.image} alt="" width={800} format="webp" loading="lazy" />
@@ -316,7 +316,7 @@ const faqTeasers = FEATURED_FAQ_QS
         </div>
 
         <div class="see-all-row">
-          <a href="/blog/">See all writeups<span class="arr">→</span></a>
+          <a href="/writeups/">See all writeups<span class="arr">→</span></a>
         </div>
       </div>
     </section>

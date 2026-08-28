@@ -4,7 +4,7 @@
 
 This is the EthSystems website repository. Astro static site deployed at https://ethsystems.org/.
 
-Map content (patterns, approaches, use-cases, vendors, domains, jurisdictions) is the projection of the [`map`](https://github.com/ethsystems/map) repo, pinned as a submodule at `content/`. Blog writeups live in `src/posts/`.
+Map content (patterns, approaches, use-cases, vendors, domains, jurisdictions) is the projection of the [`map`](https://github.com/ethsystems/map) repo, pinned as a submodule at `content/`. Writeups live in `src/posts/`.
 
 ## Tech Stack
 
@@ -19,8 +19,8 @@ Map content (patterns, approaches, use-cases, vendors, domains, jurisdictions) i
 - `astro.config.mjs` — Astro config (site URL, integrations).
 - `content/` — map submodule (`ethsystems/map`).
 - `scripts/build-graph.mjs` — Reads the map submodule → `src/data/graph.json`.
-- `src/posts/` — Blog post markdown (filename: `YYYY-MM-DD-slug.md`).
-- `src/pages/` — Routes. `blog/[slug].astro` is the post detail page.
+- `src/posts/` — Writeup markdown (filename: `YYYY-MM-DD-slug.md`).
+- `src/pages/` — Routes. `writeups/[slug].astro` is the post detail page.
 - `src/layouts/` — `Guide.astro` (default), `Post.astro` (writeups).
 - `src/lib/` — Data access (`data.ts`), post loader (`posts.ts`), markdown renderer (`render.ts`).
 - `public/` — Static assets served verbatim (`assets/`, `CNAME`, `robots.txt`, `tee-protocol-page.html`).
@@ -41,7 +41,7 @@ Requires Node 22.
 
 The map repo (`ethsystems/map`) main is the only source of truth for map content. Anything sourced from the submodule renders verbatim. Render sites are marked with `SOURCE: map field — do not alter` comments.
 
-UI chrome (landing copy, FAQ, blog index, post layout) is the site's own and stays curated.
+UI chrome (landing copy, FAQ, writeups index, post layout) is the site's own and stays curated.
 
 ## Commit conventions
 
@@ -53,14 +53,14 @@ Semantic / conventional commits:
 - `chore:` maintenance, dependencies
 - `refactor:` reorganization without behaviour change
 
-## Blog posts
+## Writeups
 
 ### Frontmatter template
 
 ```yaml
 ---
 title: "Post Title"
-description: "Brief description (shown in social cards and the blog index)."
+description: "Brief description (shown in social cards and the writeups index)."
 date: 2026-01-09
 author: "Author Name"
 image: ../assets/posts/2026-01-09-slug/hero.png

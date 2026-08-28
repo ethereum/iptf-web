@@ -6,9 +6,9 @@ import { isPublished } from '../lib/posts';
 import { site } from '../lib/site';
 
 /*
- * /rss.xml — feed for the long-form writeups at /blog/.
+ * /rss.xml — feed for the long-form writeups at /writeups/.
  *
- * Mirrors the blog index exactly: same `posts` collection, same
+ * Mirrors the writeups index exactly: same `posts` collection, same
  * isPublished date gate, same title-derived slugs, newest-first.
  * Discovered via the <link rel="alternate"> tag in BaseLayout.
  */
@@ -27,7 +27,7 @@ export async function GET(context: APIContext) {
     .map((p) => ({
       title: p.data.title,
       description: p.data.description ?? '',
-      link: `/blog/${jekyllSlugify(p.data.title)}/`,
+      link: `/writeups/${jekyllSlugify(p.data.title)}/`,
       pubDate:
         p.data.date instanceof Date ? p.data.date : new Date(p.data.date),
       author: p.data.author,

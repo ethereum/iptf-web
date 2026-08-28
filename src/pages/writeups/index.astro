@@ -1,10 +1,10 @@
 ---
 /*
- * /blog/ — long-form writeups index.
+ * /writeups/ — long-form writeups index.
  *
  * Source: the `posts` content collection, tracked directly in src/posts/.
  * Single unified list of all posts, sorted newest-first. Matches the
- * upstream /blog at ethsystems/web — no curated "featured" section, no
+ * upstream writeups index at ethsystems/web — no curated "featured" section, no
  * split with weekly updates.
  */
 import { Image } from 'astro:assets';
@@ -38,11 +38,11 @@ const today = new Date().toISOString().slice(0, 10);
 ---
 
 <ListPageLayout
-  title="Blog"
+  title="Writeups"
   pageTitle="Writeups"
   description="Field notes from EthSystems on building privacy on Ethereum for institutional use cases."
-  current="/blog/"
-  image="/og/blog.png"
+  current="/writeups/"
+  image="/og/writeups.png"
   lede={`Field notes from EthSystems on building privacy on Ethereum for institutional use cases.`}
   metaRow={`${posts.length} writeups · Updated <strong>${today}</strong>`}
 >
@@ -50,7 +50,7 @@ const today = new Date().toISOString().slice(0, 10);
     <ul class="post-list">
       {posts.map((p) => (
         <li>
-          <a href={`/blog/${p.slug}/`} class="post-row">
+          <a href={`/writeups/${p.slug}/`} class="post-row">
             {p.image && (
               <div class="post-thumb">
                 <Image src={p.image} alt="" width={480} format="webp" loading="lazy" />

@@ -1,180 +1,26 @@
 ---
 /*
- * /blog/{slug}/ — post detail. slug is jekyllSlugify(post.data.title),
- * matching ethsystems/web's permalink convention.
+ * /blog/{slug}/ — permanent redirect stub to /writeups/{slug}/.
  *
- * Source: the `posts` content collection, tracked directly in src/posts/.
+ * The writeups index moved from /blog/ to /writeups/ (issue #8). The /blog/
+ * index itself is redirected via astro.config.mjs; per-post URLs can't be
+ * enumerated there, so they're generated from the same `posts` collection
+ * the real detail page uses. Keeps every inbound link and every /blog/ URL
+ * already in the wild alive.
+ *
+ * Static output turns Astro.redirect into a meta-refresh page — GitHub Pages
+ * serves no server-side redirects.
  */
-import { Image, getImage } from 'astro:assets';
-import { getCollection, render } from 'astro:content';
-import DetailPageLayout from '../../layouts/DetailPageLayout.astro';
-import ArticleFooter from '../../components/ArticleFooter.astro';
+import { getCollection } from 'astro:content';
 import { jekyllSlugify } from '../../lib/jekyllSlug';
 import { isPublished } from '../../lib/posts';
-import { blogPostingSchema } from '../../lib/schema';
-import { site } from '../../lib/site';
-
-function toISODate(d: string | Date | undefined): string {
-  if (!d) return '';
-  if (d instanceof Date) return d.toISOString().slice(0, 10);
-  return String(d).slice(0, 10);
-}
 
 export async function getStaticPaths() {
   const entries = await getCollection('posts');
   return entries.filter((entry) => isPublished(entry)).map((entry) => ({
     params: { slug: jekyllSlugify(entry.data.title) },
-    props: { entry },
   }));
 }
 
-const { entry } = Astro.props;
-const { slug } = Astro.params;
-const { Content } = await render(entry);
-const date = toISODate(entry.data.date);
-const sibling = { href: '/blog/', label: 'More writeups' };
-
-const pills = [
-  ...(date ? [{ label: date, emphasis: true }] : []),
-  ...(entry.data.author ? [{ label: entry.data.author }] : []),
-];
-
-const ogImage = entry.data.image
-  ? (
-      await getImage({
-        src: entry.data.image,
-        width: 1200,
-        height: 630,
-        fit: 'cover',
-        position: 'center',
-        format: 'jpg',
-        quality: 80,
-      })
-    ).src
-  : undefined;
-
-const postSchema = blogPostingSchema({
-  title: entry.data.title,
-  description: entry.data.description,
-  date,
-  authors: entry.data.author,
-  image: ogImage,
-  url: `${site.domain}/blog/${slug}/`,
-});
+return Astro.redirect(`/writeups/${Astro.params.slug}/`, 301);
 ---
-
-<DetailPageLayout
-  title={`${entry.data.title} · Blog`}
-  pageTitle={entry.data.title}
-  description={entry.data.description ?? ''}
-  current="/blog/"
-  breadcrumbs={[
-    { label: 'Home', href: '/' },
-    { label: 'Blog', href: '/blog/' },
-    { label: entry.data.title },
-  ]}
-  lede={entry.data.description}
-  pills={pills}
-  image={ogImage}
-  structuredData={postSchema}
-  centered
->
-  {entry.data.image && (
-    <div class="post-hero-image">
-      <Image src={entry.data.image} alt="" width={1440} format="webp" loading="eager" />
-    </div>
-  )}
-
-  <div class="prose post-prose">
-    <Content />
-  </div>
-
-  <Fragment slot="after-content">
-    <ArticleFooter sibling={sibling} lastReviewed={date || undefined} />
-  </Fragment>
-</DetailPageLayout>
-
-<style>
-  .post-hero-image {
-    width: 100%;
-    margin: 0 0 2rem;
-    border-radius: var(--radius-md);
-    overflow: hidden;
-    background: var(--color-bg-subtle);
-  }
-  .post-hero-image img {
-    width: 100%;
-    height: auto;
-    display: block;
-  }
-
-  /* Long-form prose styling — slightly more comfortable measure than
-     the standard .prose used on detail pages. */
-  :global(.post-prose) {
-    font-size: 1.02rem;
-    line-height: 1.75;
-    color: var(--color-text);
-    max-width: 720px;
-  }
-  :global(.post-prose h2) {
-    font-family: var(--font-sans);
-    font-size: 1.5rem;
-    font-weight: 700;
-    color: var(--color-primary);
-    letter-spacing: -0.02em;
-    margin: 2.5rem 0 0.75rem;
-  }
-  :global(.post-prose h3) {
-    font-family: var(--font-sans);
-    font-size: 1.2rem;
-    font-weight: 700;
-    color: var(--color-primary);
-    letter-spacing: -0.015em;
-    margin: 2rem 0 0.5rem;
-  }
-  :global(.post-prose p) {
-    margin: 0.85rem 0;
-  }
-  :global(.post-prose img) {
-    max-width: 100%;
-    height: auto;
-    border-radius: var(--radius-sm);
-    margin: 1.25rem auto;
-    display: block;
-  }
-  :global(.post-prose .figure-narrow img) {
-    width: 40%;
-  }
-  :global(.post-prose a) {
-    color: var(--color-cta);
-    text-decoration: none;
-    border-bottom: 1px solid transparent;
-    transition: border-color var(--duration-fast) var(--easing-soft);
-  }
-  :global(.post-prose a:hover) {
-    border-bottom-color: currentColor;
-  }
-  :global(.post-prose code) {
-    font-family: var(--font-mono);
-    font-size: 0.9em;
-    background: var(--color-bg-subtle);
-    padding: 0.05em 0.4em;
-    border-radius: var(--radius-sm);
-    color: var(--color-primary);
-  }
-  :global(.post-prose blockquote) {
-    border-left: 3px solid var(--color-cta);
-    padding-left: 1.25rem;
-    color: var(--color-text-secondary);
-    font-style: italic;
-    margin: 1.5rem 0;
-  }
-  :global(.post-prose ul),
-  :global(.post-prose ol) {
-    padding-left: 1.5rem;
-    margin: 0.85rem 0;
-  }
-  :global(.post-prose li) {
-    margin: 0.35rem 0;
-  }
-</style>

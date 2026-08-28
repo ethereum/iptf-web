@@ -15,7 +15,7 @@ tags:
 
 *First in "Building blocks", a series on the primitives that confidential systems on Ethereum keep needing. The blocks live in [ethsystems/works](https://github.com/ethsystems/works). This post is about the first of them.*
 
-Every shielded pool we have worked on has had one structure in common. Value lives in notes, each note gets hashed into an append-only Merkle tree, and spending a note means proving the note exists in the tree. [Private transfers](/blog/building-private-transfers-on-ethereum-with-shielded-pools/) needed one, [hardened shielded pools](/blog/exploring-hardened-shielded-pools/) went after how fast it grows, and [in-pool compliance](/blog/building-compliant-shielded-pools-on-ethereum/) pushed attestations and per-account policy state into the same structure.
+Every shielded pool we have worked on has had one structure in common. Value lives in notes, each note gets hashed into an append-only Merkle tree, and spending a note means proving the note exists in the tree. [Private transfers](/writeups/building-private-transfers-on-ethereum-with-shielded-pools/) needed one, [hardened shielded pools](/writeups/exploring-hardened-shielded-pools/) went after how fast it grows, and [in-pool compliance](/writeups/building-compliant-shielded-pools-on-ethereum/) pushed attestations and per-account policy state into the same structure.
 
 Each time we reused an existing library and shipped the proof of concept. Benchmarking them turned up optimizations we had left on the table, so we are reimplementing the primitives we keep reaching for and maintaining them in the open. `rotortree` is the first.
 
@@ -146,7 +146,7 @@ Proof generation does degrade up there, to 181 µs, since one proof touches page
 
 ## What it does not fix
 
-This crate does not address the issue that limits a long-lived pool, which is that storage grows forever. A faster tree does not help there. The answer is [a new tree per generation](/blog/exploring-hardened-shielded-pools/) with the generation encoded into what you insert, which is the direction [hardened shielded pools](/blog/exploring-hardened-shielded-pools/) took.
+This crate does not address the issue that limits a long-lived pool, which is that storage grows forever. A faster tree does not help there. The answer is [a new tree per generation](/writeups/exploring-hardened-shielded-pools/) with the generation encoded into what you insert, which is the direction [hardened shielded pools](/writeups/exploring-hardened-shielded-pools/) took.
 
 `rotortree` also has not been audited. It carries differential tests against zk-kit, property tests, and a recovery suite that kills the process mid-batch.
 

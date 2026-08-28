@@ -38,6 +38,6 @@ For an optimized markdown rendering of any page on this site, prefix its URL wit
 - [Jurisdictions](https://ethsystems.org/jurisdictions)
 - [Offerings](https://ethsystems.org/offerings)
 - [RFPs](https://ethsystems.org/rfps)
-- [Writeups](https://ethsystems.org/blog)
+- [Writeups](https://ethsystems.org/writeups)
 - [FAQ](https://ethsystems.org/faq)
 - [Glossary](https://ethsystems.org/glossary)

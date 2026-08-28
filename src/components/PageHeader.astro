@@ -22,7 +22,7 @@ interface Props {
   metaRow?: string;
   pills?: Pill[];
   /** Centre breadcrumb + title + lede + pills horizontally. Used by the
-   *  blog detail layout where the post body is also centred. */
+   *  writeup detail layout where the post body is also centred. */
   centered?: boolean;
 }
 
@@ -65,7 +65,7 @@ const { breadcrumbs = [], eyebrow, title, lede, ledeBullets, metaRow, pills = []
     padding: 4.5rem 0 2rem;
     background: radial-gradient(ellipse 60% 50% at 90% 10%, rgba(19, 62, 135, 0.05), transparent 60%);
   }
-  /* Centered variant — used by blog post details (per 2026-05-22
+  /* Centered variant — used by writeup details (per 2026-05-22
      meeting: writeups should read centred). Centres breadcrumb,
      title, lede, meta row, and pills inside the container. */
   .page-header--centered .container {

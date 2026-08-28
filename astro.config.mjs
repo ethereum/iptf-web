@@ -15,24 +15,29 @@ export default defineConfig({
     inlineStylesheets: 'always',
   },
   // Legacy Jekyll URLs (permalink: /:title/, slug from filename) → new
-  // title-derived slugs under /blog/. Keeps inbound links alive post-migration.
+  // title-derived slugs under /writeups/. Keeps inbound links alive
+  // post-migration. Points straight at /writeups/ rather than hopping
+  // through /blog/, so these stay single-hop.
   redirects: {
     // Galaxy explorer view relocated from /explore/galaxy/ to /map/.
     '/explore/galaxy/': '/map/',
     '/map/tree/': '/map/',
-    '/cypherpunk-institutional-privacy': '/blog/cypherpunk-x-institutional-privacy/',
-    '/building-private-bonds-on-ethereum': '/blog/building-private-bonds-on-ethereum/',
-    '/public-rails-vs-private-ledgers': '/blog/public-rails-vs-private-ledgers/',
-    '/private-bonds-on-privacy-l2s': '/blog/building-private-bonds-on-ethereum-part-2/',
-    '/private-bonds-with-fhe': '/blog/building-private-bonds-on-ethereum-part-3/',
-    '/building-private-transfers-on-ethereum': '/blog/building-private-transfers-on-ethereum-with-shielded-pools/',
-    '/private-stablecoins-with-plasma': '/blog/building-private-transfers-on-ethereum-with-plasma/',
-    '/private-crosschain-atomic-swap-part-1': '/blog/private-crosschain-atomic-swaps-part-1-of-2/',
-    '/diy-validium': '/blog/diy-validium-private-logic-on-public-rails/',
-    '/private-crosschain-atomic-swap-part-2': '/blog/private-crosschain-atomic-swaps-part-2-of-2/',
-    '/resilient-plural-identity': '/blog/resilient-plural-identity/',
-    '/resilient-disbursement-rails': '/blog/resilient-disbursement-rails/',
-    '/resilient-civic-participation': '/blog/resilient-civic-participation/',
+    // /blog/ renamed to /writeups/. The per-post redirects are generated from
+    // the posts collection by src/pages/blog/[slug].astro.
+    '/blog/': '/writeups/',
+    '/cypherpunk-institutional-privacy': '/writeups/cypherpunk-x-institutional-privacy/',
+    '/building-private-bonds-on-ethereum': '/writeups/building-private-bonds-on-ethereum/',
+    '/public-rails-vs-private-ledgers': '/writeups/public-rails-vs-private-ledgers/',
+    '/private-bonds-on-privacy-l2s': '/writeups/building-private-bonds-on-ethereum-part-2/',
+    '/private-bonds-with-fhe': '/writeups/building-private-bonds-on-ethereum-part-3/',
+    '/building-private-transfers-on-ethereum': '/writeups/building-private-transfers-on-ethereum-with-shielded-pools/',
+    '/private-stablecoins-with-plasma': '/writeups/building-private-transfers-on-ethereum-with-plasma/',
+    '/private-crosschain-atomic-swap-part-1': '/writeups/private-crosschain-atomic-swaps-part-1-of-2/',
+    '/diy-validium': '/writeups/diy-validium-private-logic-on-public-rails/',
+    '/private-crosschain-atomic-swap-part-2': '/writeups/private-crosschain-atomic-swaps-part-2-of-2/',
+    '/resilient-plural-identity': '/writeups/resilient-plural-identity/',
+    '/resilient-disbursement-rails': '/writeups/resilient-disbursement-rails/',
+    '/resilient-civic-participation': '/writeups/resilient-civic-participation/',
   },
   markdown: {
     remarkPlugins: [remarkRewriteLinks, remarkApproachVariants],
@@ -45,6 +50,9 @@ export default defineConfig({
   integrations: [
     mdx(),
     react(),
-    sitemap(),
+    // The /blog/{slug}/ pages are redirect stubs to /writeups/{slug}/, not
+    // content. Config-level redirects are already excluded by the integration;
+    // page-based ones aren't, so keep them out of the sitemap explicitly.
+    sitemap({ filter: (page) => !/\/blog\//.test(page) }),
   ],
 });

@@ -38,7 +38,7 @@ export const faqCategories: FaqCategory[] = [
           'A year of public, open-source work: private bonds (ZK, privacy L2s, FHE), compliance-first private stablecoin transfers, private cross-chain atomic swaps, a validium proof-of-concept, privacy-preserving identity, the Public Rails vs Private Ledgers decision framework, and the Ethereum Privacy Map.',
         ],
         links: [
-          { label: 'Writeups', href: '/blog/' },
+          { label: 'Writeups', href: '/writeups/' },
           { label: 'Explore the map', href: '/explore/' },
         ],
       },
