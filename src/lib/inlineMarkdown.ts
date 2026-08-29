@@ -12,7 +12,13 @@
  * HTML-escapes raw input before applying. Anything else passes through
  * as plain text. If frontmatter starts using more inline features
  * (bold, italics), extend here rather than reaching for a full parser.
+ *
+ * Link hrefs go through render.ts#resolveHref — frontmatter uses the same
+ * portable `../folder/slug.md` convention as body prose, and emitting it
+ * verbatim shipped 404s (e.g. `post_quantum.mitigation` on pattern pages).
  */
+
+import { resolveHref } from './render';
 
 function escapeHtml(s: string): string {
   return s
@@ -26,9 +32,12 @@ export function inlineMd(s: string | undefined | null): string {
   if (!s) return '';
   let html = escapeHtml(s);
   // [text](url) — emit before code so code in link text isn't double-processed
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) =>
-    `<a href="${url}" target="_blank" rel="noopener">${text}</a>`,
-  );
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_, text, url) => {
+    const href = resolveHref(url);
+    // Only genuinely external targets get _blank; internal routes stay in-tab.
+    const ext = /^(?:https?:)?\/\//.test(href);
+    return `<a href="${href}"${ext ? ' target="_blank" rel="noopener"' : ''}>${text}</a>`;
+  });
   // `code` spans
   html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
   return html;

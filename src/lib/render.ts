@@ -36,6 +36,29 @@ const CONTENT_DIRS = [
   { dir: 'vendors',       type: 'vendor',       route: '/vendors',       prefix: '' },
 ] as const;
 
+// Collection *index* routes. A handful of ethsystems/map files link to a whole
+// folder rather than a single card — `[jurisdiction](../jurisdictions/)` in
+// use-cases/private-stablecoins.md, `[Vendors](../vendors/)` in the RFPs. Those
+// hrefs have no `.md` to key off, so resolveMdHref() never sees them and the
+// relative path used to ship verbatim: on /use-cases/private-stablecoins/ the
+// browser resolved `../jurisdictions/` to /use-cases/jurisdictions/ — a 404.
+// `rfps` has an index page but no graph node type, so it isn't in CONTENT_DIRS.
+const INDEX_ROUTES = new Set([...CONTENT_DIRS.map(c => c.dir), 'rfps']);
+
+/**
+ * Route-shape fallback for hrefs resolveMdHref() can't map: bare folder links
+ * (`../jurisdictions/` → `/jurisdictions/`) and cards in a folder that has a
+ * route but no graph node type (`../rfps/rfp-private-reads.md` → `/rfps/
+ * rfp-private-reads/`; `rfps` is absent from CONTENT_DIRS). Returns null for
+ * anything that isn't a known content folder, so other paths pass through.
+ */
+function resolveRouteHref(href: string): string | null {
+  const parts = href.split('/').filter(p => p && p !== '.' && p !== '..');
+  const [dir, file] = parts;
+  if (parts.length > 2 || !INDEX_ROUTES.has(dir)) return null;
+  return file ? `/${dir}/${file.replace(/\.md$/, '')}/` : `/${dir}/`;
+}
+
 const graph = graphData as GraphData;
 const nodeIds = new Set(graph.nodes.map(n => n.id));
 const nodeTitles = new Map(graph.nodes.map(n => [n.id, n.title]));
@@ -127,6 +150,24 @@ function isAbsoluteOrAnchor(href: string): boolean {
   );
 }
 
+function isMdHref(href: string): boolean {
+  return href.endsWith('.md') || href.includes('.md#') || href.includes('.md?');
+}
+
+/**
+ * Map one ethsystems/map href to a Guide route, or return it unchanged.
+ *
+ * The single place href mapping happens. Call sites that emit their own
+ * <a> tags rather than going through marked (inlineMarkdown.ts) must use
+ * this — two independent rewriters is what let `../jurisdictions/` and
+ * `../domains/post-quantum.md` ship to production as 404s.
+ */
+export function resolveHref(href: string): string {
+  if (isAbsoluteOrAnchor(href)) return href;
+  if (isMdHref(href)) return resolveMdHref(href)?.route ?? resolveRouteHref(href) ?? href;
+  return resolveRouteHref(href) ?? href;
+}
+
 // Minimal HTML-attribute escape for href/title pass-through.
 function escapeAttr(s: string): string {
   return s
@@ -147,13 +188,13 @@ marked.use({
         ? this.parser.parseInline(tokens)
         : rawLabel;
 
-      let finalHref = href;
+      const finalHref = resolveHref(href);
 
+      // Label swap and drift warnings; the href itself is already mapped.
       if (!isAbsoluteOrAnchor(href)) {
-        if (href.endsWith('.md') || href.includes('.md#') || href.includes('.md?')) {
+        if (isMdHref(href)) {
           const resolved = resolveMdHref(href);
           if (resolved) {
-            finalHref = resolved.route;
             // Swap the filename-as-label anti-pattern (e.g. `pattern-shielding.md`)
             // for the target's real title from graph.json. Authored labels like
             // `[Noir](../patterns/pattern-noir-private-contracts.md)` are left

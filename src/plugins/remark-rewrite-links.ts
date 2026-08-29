@@ -111,6 +111,17 @@ export const remarkRewriteLinks: Plugin<[], Root> = () => {
         return;
       }
 
+      // Folder index: `../{collection}/` or `./{collection}/` — upstream
+      // links to a whole folder in a few places (e.g. `../jurisdictions/` in
+      // use-cases/private-stablecoins.md). Without this the relative path
+      // ships verbatim and resolves against the current detail route
+      // (/use-cases/private-stablecoins/ → /use-cases/jurisdictions/, a 404).
+      const dirMatch = url.match(/^(?:\.\.?\/)?([^./]+)\/?$/);
+      if (dirMatch && KNOWN_COLLECTIONS.has(dirMatch[1])) {
+        node.url = `/${dirMatch[1]}/`;
+        return;
+      }
+
       // Cross-folder: `../{collection}/{slug}.md` (optional anchor)
       const crossMatch = url.match(/^\.\.\/([^/]+)\/([^./]+)\.md(#.*)?$/);
       if (crossMatch) {
