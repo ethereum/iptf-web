@@ -1,0 +1,65 @@
+---
+/*
+ * 404 — site-wide fallback for unknown URLs.
+ *
+ * Astro emits this as dist/404.html regardless of `build.format: 'directory'`,
+ * which is exactly the file GitHub Pages serves for any path that doesn't
+ * resolve. Without it, Pages falls back to its own generic "File not found"
+ * page, which carries none of our chrome or type.
+ *
+ * Deliberately plain: nav + footer come from BaseLayout, the body is one
+ * heading, one line, one button. noindex so the fallback never gets indexed
+ * as a real page.
+ */
+import BaseLayout from '../layouts/BaseLayout.astro';
+---
+
+<BaseLayout
+  title="Page not found"
+  description="The page you're looking for doesn't exist or has moved."
+  noindex
+>
+  <section class="notfound">
+    <div class="container notfound-inner">
+      <p class="kicker">Error 404</p>
+      <h1>Page not found</h1>
+      <p class="notfound-lede">
+        This page doesn't exist, or it moved somewhere else.
+      </p>
+      <a class="btn primary lg" href="/">Go back <span class="arr">→</span></a>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .notfound {
+    padding: 6rem 0 7rem;
+    background: radial-gradient(ellipse 60% 50% at 90% 10%, rgba(19, 62, 135, 0.05), transparent 60%);
+  }
+  .notfound-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .notfound .kicker { margin-bottom: 1rem; }
+  .notfound h1 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-variation-settings: "opsz" 144, "SOFT" 0, "WONK" 0;
+    font-size: clamp(2.25rem, 4.4vw, 3.25rem);
+    line-height: 1.05;
+    letter-spacing: -0.014em;
+    color: var(--color-primary);
+    margin-bottom: 1.25rem;
+  }
+  .notfound-lede {
+    font-size: 1.0625rem;
+    line-height: 1.65;
+    color: var(--color-text-secondary);
+    max-width: 48ch;
+    margin-bottom: 2.25rem;
+  }
+  @media (max-width: 700px) {
+    .notfound { padding: 4rem 0 5rem; }
+  }
+</style>
