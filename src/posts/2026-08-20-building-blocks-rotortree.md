@@ -2,7 +2,7 @@
 layout: post
 title: "Building blocks: rotortree"
 description: "A durable append-only Merkle tree for note commitments. Builds the entire Tornado Cash tree in 19 milliseconds, 450x faster than the TypeScript library this ecosystem runs."
-date: 2026-08-20 15:00:00 +0200
+date: 2026-08-31 15:00:00 +0200
 author: "Aaryamann"
 image: ../assets/posts/2026-08-20-building-blocks-rotortree/hero.png
 published: true
