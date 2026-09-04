@@ -21,6 +21,7 @@ import { visit } from 'unist-util-visit';
 import type { Root, Link, Text } from 'mdast';
 import type { Plugin } from 'unified';
 import type { VFile } from 'vfile';
+import { toContentSlug } from '../lib/slugify';
 
 const KNOWN_COLLECTIONS = new Set([
   'use-cases',
@@ -127,7 +128,7 @@ export const remarkRewriteLinks: Plugin<[], Root> = () => {
       if (crossMatch) {
         const [, collection, slug, anchor] = crossMatch;
         if (KNOWN_COLLECTIONS.has(collection)) {
-          node.url = `/${collection}/${slug}/${anchor ?? ''}`;
+          node.url = `/${collection}/${toContentSlug(slug)}/${anchor ?? ''}`;
           return;
         }
         node.url = `${GITHUB_BLOB}/${collection}/${slug}.md${anchor ?? ''}`;
@@ -138,7 +139,7 @@ export const remarkRewriteLinks: Plugin<[], Root> = () => {
       const sameMatch = url.match(/^([^./]+)\.md(#.*)?$/);
       if (sameMatch && currentCollection) {
         const [, slug, anchor] = sameMatch;
-        node.url = `/${currentCollection}/${slug}/${anchor ?? ''}`;
+        node.url = `/${currentCollection}/${toContentSlug(slug)}/${anchor ?? ''}`;
         return;
       }
 

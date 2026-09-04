@@ -13,6 +13,7 @@
  */
 
 import { getCollection } from 'astro:content';
+import { toContentSlug } from './slugify';
 
 export type RelatedKey =
   | 'useCases'
@@ -95,12 +96,13 @@ export async function resolveSlugs(
   const folder = KEY_TO_FOLDER[collection];
   const out: RelatedItem[] = [];
   for (const slug of slugs) {
-    const title = maps[collection].get(slug);
+    const id = toContentSlug(slug);
+    const title = maps[collection].get(id);
     if (!title) {
       unresolved?.push(slug);
       continue;
     }
-    out.push({ label: title, href: `/${folder}/${slug}/` });
+    out.push({ label: title, href: `/${folder}/${id}/` });
   }
   return out;
 }
@@ -175,15 +177,16 @@ export async function extractRelated(
   };
 
   function tryAdd(key: RelatedKey, slug: string): void {
-    if (key === currentCollection && slug === currentSlug) return;
-    const dedupeKey = `${key}:${slug}`;
+    const id = toContentSlug(slug);
+    if (key === currentCollection && id === currentSlug) return;
+    const dedupeKey = `${key}:${id}`;
     if (seen.has(dedupeKey)) return;
-    const title = maps[key].get(slug);
+    const title = maps[key].get(id);
     if (!title) return; // unknown slug — skip rather than render a broken link
     seen.add(dedupeKey);
     buckets[key].push({
       label: title,
-      href: `/${KEY_TO_FOLDER[key]}/${slug}/`,
+      href: `/${KEY_TO_FOLDER[key]}/${id}/`,
     });
   }
 
@@ -409,16 +412,17 @@ async function buildBackrefIndex(): Promise<RawIndex> {
     const idx: RawIndex = new Map();
 
     function record(targetKey: RelatedKey, targetSlug: string, src: Src, perSrcSeen: Set<string>): void {
+      const id = toContentSlug(targetSlug);
       // Skip self-reference
-      if (targetKey === src.key && targetSlug === src.id) return;
+      if (targetKey === src.key && id === src.id) return;
       // Skip unknown targets (slugs that don't resolve)
-      if (!maps[targetKey].has(targetSlug)) return;
+      if (!maps[targetKey].has(id)) return;
 
-      const dedupeKey = `${targetKey}:${targetSlug}`;
+      const dedupeKey = `${targetKey}:${id}`;
       if (perSrcSeen.has(dedupeKey)) return;
       perSrcSeen.add(dedupeKey);
 
-      const bucketKey: BackrefKey = `${targetKey}:${targetSlug}`;
+      const bucketKey: BackrefKey = `${targetKey}:${id}`;
       if (!idx.has(bucketKey)) idx.set(bucketKey, []);
       const sourceFolder = KEY_TO_FOLDER[src.key];
       idx.get(bucketKey)!.push({

@@ -118,7 +118,7 @@ export const faqCategories: FaqCategory[] = [
           'Viewing keys and zero-knowledge proofs of compliance (proving you hold a valid KYC attestation without revealing your identity) are the primary mechanisms. The regulatory posture is: privacy is acceptable as long as compliance access exists.',
         ],
         links: [
-          { label: 'EU / MiCA', href: '/jurisdictions/eu-MiCA/' },
+          { label: 'EU / MiCA', href: '/jurisdictions/eu-mica/' },
           { label: 'Regulatory disclosure', href: '/patterns/pattern-regulatory-disclosure-keys-proofs/' },
         ],
       },

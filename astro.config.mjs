@@ -38,6 +38,14 @@ export default defineConfig({
     '/resilient-plural-identity': '/writeups/resilient-plural-identity/',
     '/resilient-disbursement-rails': '/writeups/resilient-disbursement-rails/',
     '/resilient-civic-participation': '/writeups/resilient-civic-participation/',
+    // Map jurisdiction filenames keep mixed case (id-OJK.md). Astro glob
+    // ids are lowercase, so inbound mixed-case URLs need a hop.
+    '/jurisdictions/id-OJK/': '/jurisdictions/id-ojk/',
+    '/jurisdictions/sg-MAS/': '/jurisdictions/sg-mas/',
+    '/jurisdictions/eu-EUDR/': '/jurisdictions/eu-eudr/',
+    '/jurisdictions/eu-MiCA/': '/jurisdictions/eu-mica/',
+    '/jurisdictions/us-SEC/': '/jurisdictions/us-sec/',
+    '/jurisdictions/de-eWpG/': '/jurisdictions/de-ewpg/',
   },
   markdown: {
     remarkPlugins: [remarkRewriteLinks, remarkApproachVariants],

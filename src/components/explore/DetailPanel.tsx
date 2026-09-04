@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { GraphData, GraphNode } from '../../lib/graph-types';
 import { getNodeColor, TYPE_LABELS } from '../../lib/graph-layout';
 import { renderMarkdown } from '../../lib/render';
+import { toContentSlug } from '../../lib/slugify';
 
 /*
  * Side panel that opens when a graph node is selected. Shows
@@ -29,7 +30,7 @@ function nodeHref(node: GraphNode): string | null {
   const route = ROUTE_BY_TYPE[node.type];
   if (!route) return null;
   const prefix = node.type === 'pattern' ? 'pattern-' : node.type === 'approach' ? 'approach-' : '';
-  return `${route}${prefix}${node.slug}/`;
+  return `${route}${prefix}${toContentSlug(node.slug)}/`;
 }
 
 export function DetailPanel({ node, graph, onClose, onSelectNode }: Props) {
