@@ -7,6 +7,15 @@
  *   "int-banking-secrecy"-> "INT·BANKING-SECRECY"
  *   "hk-crypto-licensing"-> "HK·CRYPTO-LICENSING"
  */
+/**
+ * Astro's glob loader slugifies collection ids to lowercase, so
+ * `id-OJK.md` is served at `/jurisdictions/id-ojk/`. Map filenames
+ * keep their original case; route URLs have to match `entry.id`.
+ */
+export function toContentSlug(slug: string): string {
+  return slug.toLowerCase();
+}
+
 export function jurisdictionCode(slug: string): string {
   const [region, ...rest] = slug.split('-');
   if (!region) return slug.toUpperCase();

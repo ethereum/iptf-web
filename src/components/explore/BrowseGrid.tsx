@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { GraphData, GraphNode } from '../../lib/graph-types';
 import { getNodeColor, TYPE_LABELS, nodeMatchesFilters } from '../../lib/graph-layout';
+import { toContentSlug } from '../../lib/slugify';
 
 /*
  * Filterable card grid for the /explore/browse view. Light theme.
@@ -24,7 +25,7 @@ function nodeHref(node: GraphNode): string | null {
   const route = ROUTE_BY_TYPE[node.type];
   if (!route) return null;
   const prefix = node.type === 'pattern' ? 'pattern-' : node.type === 'approach' ? 'approach-' : '';
-  return `${route}${prefix}${node.slug}/`;
+  return `${route}${prefix}${toContentSlug(node.slug)}/`;
 }
 
 export function BrowseGrid({ graph }: Props) {

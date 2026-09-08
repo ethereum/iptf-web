@@ -3,6 +3,7 @@ import { defineConfig } from 'astro/config';
 import mdx from '@astrojs/mdx';
 import { remarkRewriteLinks } from './src/plugins/remark-rewrite-links.ts';
 import { remarkApproachVariants } from './src/plugins/remark-approach-variants.ts';
+import { contentCaseRedirects } from './src/lib/content-redirects.ts';
 
 import react from '@astrojs/react';
 import sitemap from '@astrojs/sitemap';
@@ -38,6 +39,10 @@ export default defineConfig({
     '/resilient-plural-identity': '/writeups/resilient-plural-identity/',
     '/resilient-disbursement-rails': '/writeups/resilient-disbursement-rails/',
     '/resilient-civic-participation': '/writeups/resilient-civic-participation/',
+    // Map filenames keep mixed case (id-OJK.md) while Astro glob ids are
+    // lowercase, so inbound filename-cased URLs need a hop. Generated from
+    // the content tree so a new mixed-case upstream file stays covered.
+    ...contentCaseRedirects(),
   },
   markdown: {
     remarkPlugins: [remarkRewriteLinks, remarkApproachVariants],

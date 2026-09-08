@@ -18,6 +18,7 @@
 import type { Root, Heading, Code, RootContent } from 'mdast';
 import type { Plugin } from 'unified';
 import { statusTone } from '../lib/statusTone';
+import { toContentSlug } from '../lib/slugify';
 
 interface VariantMeta {
   maturity?: string;
@@ -117,7 +118,10 @@ function pocButtonHtml(meta: VariantMeta): string {
   }
   if (meta.example_vendors?.length) {
     const vendorLinks = meta.example_vendors
-      .map((slug) => `<a class="variant-vendor" href="/vendors/${esc(slug)}/">${esc(slug)}</a>`)
+      .map(
+        (slug) =>
+          `<a class="variant-vendor" href="/vendors/${esc(toContentSlug(slug))}/">${esc(slug)}</a>`,
+      )
       .join('');
     links.push(`<span class="variant-vendors-line">Example vendors: ${vendorLinks}</span>`);
   }

@@ -23,7 +23,7 @@ describe('renderMarkdown link rewriting', () => {
   });
 
   it('still rewrites .md card links', () => {
-    expect(href('[MiCA](../jurisdictions/eu-MiCA.md)')).toBe('/jurisdictions/eu-MiCA/');
+    expect(href('[MiCA](../jurisdictions/eu-MiCA.md)')).toBe('/jurisdictions/eu-mica/');
   });
 
   it('leaves absolute and external links untouched', () => {

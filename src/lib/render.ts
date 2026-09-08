@@ -21,6 +21,7 @@ import { marked } from 'marked';
 import type { Tokens } from 'marked';
 import graphData from '../data/graph.json';
 import type { GraphData } from './graph-types';
+import { toContentSlug } from './slugify';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONTENT_DIRS — must agree with guide/scripts/build-graph.mjs#CONTENT_DIRS.
@@ -56,7 +57,7 @@ function resolveRouteHref(href: string): string | null {
   const parts = href.split('/').filter(p => p && p !== '.' && p !== '..');
   const [dir, file] = parts;
   if (parts.length > 2 || !INDEX_ROUTES.has(dir)) return null;
-  return file ? `/${dir}/${file.replace(/\.md$/, '')}/` : `/${dir}/`;
+  return file ? `/${dir}/${toContentSlug(file.replace(/\.md$/, ''))}/` : `/${dir}/`;
 }
 
 const graph = graphData as GraphData;
@@ -128,7 +129,7 @@ function resolveMdHref(href: string): ResolvedLink | null {
     // Astro content-collection routes use the raw filename as entry.id
     // (e.g. `pattern-shielding`), so the URL keeps the prefix. The graph
     // node id keeps the historical stripped form for the exists check.
-    const routeSlug = filename.replace(/\.md$/, '');
+    const routeSlug = toContentSlug(filename.replace(/\.md$/, ''));
     candidates.push({
       route: `${cfg.route}/${routeSlug}/${suffix}`,
       exists: nodeIds.has(id),
